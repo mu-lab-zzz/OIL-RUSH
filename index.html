@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Oil Rush 3D - Crude Transport Manager</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #1a1a1a;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #ffffff;
+            touch-action: none;
+        }
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 15px;
+        }
+        .interactive {
+            pointer-events: auto;
+        }
+        .header-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .stats-card {
+            background: rgba(0, 0, 0, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(5px);
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        .money-text {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        .inventory-text {
+            font-size: 16px;
+            color: #FFC107;
+            margin-top: 4px;
+        }
+        .menu-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .btn {
+            background: #2c3e50;
+            color: white;
+            border: 1px solid #34495e;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .btn:hover {
+            background: #34495e;
+        }
+        .btn:active {
+            transform: scale(0.95);
+        }
+        .btn-action {
+            background: #e67e22;
+            border-color: #d35400;
+        }
+        .btn-action:hover {
+            background: #d35400;
+        }
+
+        /* Touch Controls */
+        #touch-controls {
+            display: none;
+            width: 100%;
+            height: 180px;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px 20px 20px;
+        }
+        #joystick-zone {
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 60px;
+            position: relative;
+            touch-action: none;
+        }
+        #joystick-knob {
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 25px;
+            position: absolute;
+            top: 35px;
+            left: 35px;
+            pointer-events: none;
+        }
+        #action-button {
+            width: 90px;
+            height: 90px;
+            background: rgba(230, 126, 34, 0.8);
+            border: 3px solid rgba(255, 255, 255, 0.5);
+            border-radius: 45px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 16px;
+            color: white;
+            touch-action: manipulation;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        /* Notifications & Prompts */
+        #notification {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.85);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 20px;
+            border: 1px solid #FFC107;
+            font-weight: bold;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            text-align: center;
+        }
+        #interaction-prompt {
+            position: absolute;
+            bottom: 200px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(46, 204, 113, 0.9);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 14px;
+            display: none;
+            box-shadow: 0 0 10px rgba(46, 204, 113, 0.5);
+        }
+
+        /* Modal Settings & Data Import/Export */
+        .modal {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+        }
+        .modal-content {
+            background: #222;
+            border: 1px solid #444;
+            width: 90%;
+            max-width: 500px;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+        .modal-header {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 8px;
+        }
+        textarea {
+            width: 100%;
+            height: 120px;
+            background: #111;
+            color: #0f0;
+            border: 1px solid #333;
+            padding: 8px;
+            font-family: monospace;
+            resize: none;
+            margin-bottom: 15px;
+            border-radius: 4px;
+        }
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        @media (pointer: coarse) {
+            #touch-controls {
+                display: flex;
+            }
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <div class="header-panel">
+            <div class="stats-card">
+                <div class="money-text" id="ui-money">$0</div>
+                <div class="inventory-text" id="ui-barrels">ドラム缶: 0 / 1</div>
+            </div>
+            <div class="menu-buttons interactive">
+                <button class="btn" id="btn-lang" onclick="toggleLanguage()">English</button>
+                <button class="btn" id="btn-save" onclick="saveGame()">セーブ</button>
+                <button class="btn" id="btn-load" onclick="loadGame()">ロード</button>
+                <button class="btn" id="btn-data" onclick="openDataModal()">データ管理</button>
+            </div>
+        </div>
+
+        <div id="notification">メッセージ</div>
+        <div id="interaction-prompt"> [SPACE] 収集 </div>
+
+        <div id="touch-controls" class="interactive">
+            <div id="joystick-zone">
+                <div id="joystick-knob"></div>
+            </div>
+            <div id="action-button" onclick="triggerAction()">アクション</div>
+        </div>
+    </div>
+
+    <div id="data-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header" id="modal-title">データ入出力</div>
+            <textarea id="data-textarea" placeholder="ここにセーブデータを貼り付けるか、エクスポート出力に使用します..."></textarea>
+            <div class="modal-buttons">
+                <button class="btn" onclick="exportData()" id="btn-export">エクスポート</button>
+                <button class="btn btn-action" onclick="importData()" id="btn-import">インポート</button>
+                <button class="btn" onclick="closeDataModal()" id="btn-close">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. 定数・言語定義・グローバル状態 ---
+        const I18N = {
+            ja: {
+                money: "所持金: $",
+                barrels: "所持ドラム缶: ",
+                promptOil: "[SPACE / アクション] 原油をドラム缶に詰める",
+                promptTruck: "[SPACE / アクション] トラックに積載して売却",
+                actionBtn: "アクション",
+                msgOilScooped: "原油をドラム缶に採取しました！",
+                msgTruckSold: "ドラム缶を売却しました！ +$",
+                msgNoBarrel: "ドラム缶を持っていません！",
+                msgAutoSaved: "オートセーブ完了",
+                msgDataSaved: "データが保存されました",
+                msgDataLoaded: "データが読み込まれました",
+                msgImportSuccess: "データのインポートに成功しました",
+                msgImportFail: "無効なデータフォーマットです",
+                modalTitle: "セーブデータ管理"
+            },
+            en: {
+                money: "Money: $",
+                barrels: "Barrels: ",
+                promptOil: "[SPACE / Action] Collect Oil into Barrel",
+                promptTruck: "[SPACE / Action] Load into Truck & Sell",
+                actionBtn: "ACTION",
+                msgOilScooped: "Collected oil into barrel!",
+                msgTruckSold: "Sold oil barrels! +$",
+                msgNoBarrel: "No oil barrels in inventory!",
+                msgAutoSaved: "Auto-saved",
+                msgDataSaved: "Game saved",
+                msgDataLoaded: "Game loaded",
+                msgImportSuccess: "Data imported successfully",
+                msgImportFail: "Invalid data format",
+                modalTitle: "Save Data Management"
+            }
+        };
+
+        let currentLang = 'ja';
+        
+        let gameState = {
+            money: 0,
+            barrels: 0,
+            maxBarrels: 3,
+            playerPos: { x: 0, z: 0 },
+            cameraYaw: 0,
+            cameraPitch: 0
+        };
+
+        // --- 2. Three.js セットアップ ---
+        let scene, camera, renderer;
+        let playerGroup, playerBody, barrelMeshInHand;
+        let oilSpringGroup, truckGroup;
+        let interactableOil = false;
+        let interactableTruck = false;
+
+        // 乾燥した油田地帯風の地表テクスチャ動的生成
+        function createDesertGroundTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            // 砂漠・荒野ベースカラー
+            ctx.fillStyle = '#8c6d46';
+            ctx.fillRect(0, 0, 512, 512);
+
+            // 乾いた土・岩肌のノイズパターン描画
+            for (let i = 0; i < 40000; i++) {
+                const x = Math.random() * 512;
+                const y = Math.random() * 512;
+                const radius = Math.random() * 2 + 0.5;
+                const shade = Math.floor(Math.random() * 60) - 30;
+                ctx.fillStyle = `rgb(${140 + shade}, ${109 + shade}, ${70 + shade})`;
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 亀裂・乾燥したパターン描写
+            ctx.strokeStyle = 'rgba(60, 40, 20, 0.15)';
+            ctx.lineWidth = 1.5;
+            for (let i = 0; i < 30; i++) {
+                ctx.beginPath();
+                let cx = Math.random() * 512;
+                let cy = Math.random() * 512;
+                ctx.moveTo(cx, cy);
+                for (let j = 0; j < 5; j++) {
+                    cx += (Math.random() - 0.5) * 60;
+                    cy += (Math.random() - 0.5) * 60;
+                    ctx.lineTo(cx, cy);
+                }
+                ctx.stroke();
+            }
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(16, 16);
+            return texture;
+        }
+
+        // ライティング・基本オブジェクト構築
+        function initThree() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            // 油田荒野風のスカイカラー・フォグ設定（乾燥した大気）
+            scene.background = new THREE.Color(0x3a2e2b);
+            scene.fog = new THREE.FogExp2(0x3a2e2b, 0.018);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.rotation.order = 'YXZ'; // FPS用回転順序の設定
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // 照明の設定 (太陽光・夕暮れに近い強烈なサンセット感)
+            const ambientLight = new THREE.AmbientLight(0xffdfb3, 0.5);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffbe76, 1.0);
+            dirLight.position.set(30, 40, 20);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            dirLight.shadow.camera.near = 0.5;
+            dirLight.shadow.camera.far = 100;
+            const d = 25;
+            dirLight.shadow.camera.left = -d;
+            dirLight.shadow.camera.right = d;
+            dirLight.shadow.camera.top = d;
+            dirLight.shadow.camera.bottom = -d;
+            scene.add(dirLight);
+
+            // 油田地帯風のフィールド（地面）
+            const groundGeo = new THREE.PlaneGeometry(120, 120);
+            const groundTex = createDesertGroundTexture();
+            const groundMat = new THREE.MeshStandardMaterial({ 
+                map: groundTex,
+                roughness: 0.9,
+                metalness: 0.05
+            });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // 3Dアセット生成
+            createPlayer();
+            createOilSpring();
+            createTruck();
+
+            // ウィンドウサイズ同期
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- 3. プロシージャル3Dアセット生成 ---
+
+        // プレイヤー（一人称視点用に調整）
+        function createPlayer() {
+            playerGroup = new THREE.Group();
+
+            // 胴体 (視界を遮らないよう配置)
+            const bodyGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.9, 8);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2980b9 });
+            playerBody = new THREE.Mesh(bodyGeo, bodyMat);
+            playerBody.position.y = 0.45;
+            playerBody.castShadow = true;
+            playerGroup.add(playerBody);
+
+            // 抱えるドラム缶（FPS視点用に画面右下に固定配置）
+            barrelMeshInHand = createBarrelMesh();
+            barrelMeshInHand.position.set(0.35, -0.3, -0.6);
+            barrelMeshInHand.rotation.set(0.2, -0.2, 0.1);
+            barrelMeshInHand.scale.set(0.45, 0.45, 0.45);
+            barrelMeshInHand.visible = false;
+            
+            // FPSカメラの配下にドラム缶を取り付けることで視点固定化
+            camera.add(barrelMeshInHand);
+            scene.add(camera);
+
+            scene.add(playerGroup);
+        }
+
+        // ドラム缶メッシュ共通生成関数
+        function createBarrelMesh() {
+            const group = new THREE.Group();
+            const barrelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.9, 12);
+            const barrelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3, metalness: 0.7 });
+            const barrel = new THREE.Mesh(barrelGeo, barrelMat);
+            barrel.castShadow = true;
+            group.add(barrel);
+
+            // 補強リング
+            const ringGeo = new THREE.TorusGeometry(0.36, 0.02, 8, 16);
+            const ringMat = new THREE.MeshStandardMaterial({ color: 0x7f8c8d, metalness: 0.9 });
+            
+            const ring1 = new THREE.Mesh(ringGeo, ringMat);
+            ring1.rotation.x = Math.PI / 2;
+            ring1.position.y = 0.25;
+            group.add(ring1);
+
+            const ring2 = ring1.clone();
+            ring2.position.y = -0.25;
+            group.add(ring2);
+
+            return group;
+        }
+
+        // 自然な原油の油溜まり（Oil Seep）
+        function createOilSpring() {
+            oilSpringGroup = new THREE.Group();
+            oilSpringGroup.position.set(-10, 0, -5);
+
+            // 自然な窪地（凹凸のある泥の縁）
+            const rimGeo = new THREE.CylinderGeometry(3.6, 3.8, 0.15, 16);
+            const rimMat = new THREE.MeshStandardMaterial({ color: 0x3d2d1d, roughness: 0.95 });
+            const rim = new THREE.Mesh(rimGeo, rimMat);
+            rim.position.y = 0.07;
+            rim.receiveShadow = true;
+            oilSpringGroup.add(rim);
+
+            // メインの原油溜まり（波打つ艶やかな黒い水面）
+            const poolGeo = new THREE.CylinderGeometry(3.3, 3.3, 0.16, 24);
+            const poolMat = new THREE.MeshStandardMaterial({ 
+                color: 0x030303, 
+                roughness: 0.05, 
+                metalness: 0.95 
+            });
+            const pool = new THREE.Mesh(poolGeo, poolMat);
+            pool.position.y = 0.08;
+            pool.receiveShadow = true;
+            oilSpringGroup.add(pool);
+
+            // 周囲の地面に染み出た不規則な小さな油だまり
+            const subPoolMat = new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.1, metalness: 0.9 });
+            const offsets = [
+                { x: 2.2, z: 1.8, r: 1.1 },
+                { x: -2.0, z: -1.9, r: 1.3 },
+                { x: 1.5, z: -2.2, r: 0.9 },
+                { x: -2.4, z: 1.2, r: 1.0 }
+            ];
+            
+            offsets.forEach(off => {
+                const subPoolGeo = new THREE.CylinderGeometry(off.r, off.r, 0.17, 12);
+                const subPool = new THREE.Mesh(subPoolGeo, subPoolMat);
+                subPool.position.set(off.x, 0.085, off.z);
+                subPool.receiveShadow = true;
+                oilSpringGroup.add(subPool);
+            });
+
+            // 自然な雰囲気を醸し出す周囲の岩石
+            const rockMat = new THREE.MeshStandardMaterial({ color: 0x5a4838, roughness: 0.9 });
+            const rockPositions = [
+                { x: 3.2, z: 0.5, scale: 0.6 },
+                { x: -3.1, z: 1.8, scale: 0.8 },
+                { x: -1.2, z: -3.2, scale: 0.5 },
+                { x: 2.8, z: -2.5, scale: 0.7 }
+            ];
+
+            rockPositions.forEach(p => {
+                const rockGeo = new THREE.DodecahedronGeometry(p.scale, 1);
+                const rock = new THREE.Mesh(rockGeo, rockMat);
+                rock.position.set(p.x, p.scale * 0.4, p.z);
+                rock.rotation.set(Math.random(), Math.random(), Math.random());
+                rock.castShadow = true;
+                rock.receiveShadow = true;
+                oilSpringGroup.add(rock);
+            });
+
+            scene.add(oilSpringGroup);
+        }
+
+        // 待機中のトラック
+        function createTruck() {
+            truckGroup = new THREE.Group();
+            truckGroup.position.set(10, 0, -5);
+
+            // キャビン
+            const cabGeo = new THREE.BoxGeometry(2.2, 2, 2);
+            const cabMat = new THREE.MeshStandardMaterial({ color: 0xc0392b });
+            const cab = new THREE.Mesh(cabGeo, cabMat);
+            cab.position.set(0, 1.2, 2);
+            cab.castShadow = true;
+            truckGroup.add(cab);
+
+            // 荷台
+            const bedGeo = new THREE.BoxGeometry(2.4, 0.4, 4);
+            const bedMat = new THREE.MeshStandardMaterial({ color: 0x7f8c8d });
+            const bed = new THREE.Mesh(bedGeo, bedMat);
+            bed.position.set(0, 0.6, -1);
+            bed.castShadow = true;
+            truckGroup.add(bed);
+
+            // タイヤ
+            const wheelGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.4, 12);
+            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+            const wheelPositions = [
+                [-1.2, 0.5, 2], [1.2, 0.5, 2],
+                [-1.2, 0.5, -0.5], [1.2, 0.5, -0.5],
+                [-1.2, 0.5, -2.5], [1.2, 0.5, -2.5]
+            ];
+            
+            wheelPositions.forEach(pos => {
+                const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+                wheel.rotation.z = Math.PI / 2;
+                wheel.position.set(...pos);
+                wheel.castShadow = true;
+                truckGroup.add(wheel);
+            });
+
+            scene.add(truckGroup);
+        }
+
+        // --- 4. 操作入力管理 (キーボード & タッチ & 視点スワイプ) ---
+        const keys = { w: false, a: false, s: false, d: false, space: false };
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyW' || e.code === 'ArrowUp') keys.w = true;
+            if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.a = true;
+            if (e.code === 'KeyS' || e.code === 'ArrowDown') keys.s = true;
+            if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.d = true;
+            if (e.code === 'Space') {
+                if(!keys.space) triggerAction();
+                keys.space = true;
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'KeyW' || e.code === 'ArrowUp') keys.w = false;
+            if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.a = false;
+            if (e.code === 'KeyS' || e.code === 'ArrowDown') keys.s = false;
+            if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.d = false;
+            if (e.code === 'Space') keys.space = false;
+        });
+
+        // スマホ用バーチャルジョイスティック実装
+        let joystickActive = false;
+        let joystickTouchId = null;
+        let joystickVector = { x: 0, y: 0 };
+        const joystickZone = document.getElementById('joystick-zone');
+        const joystickKnob = document.getElementById('joystick-knob');
+
+        // タッチ視点スワイプ管理
+        let lookTouchId = null;
+        let lastTouchPos = { x: 0, y: 0 };
+        let isMouseDown = false;
+
+        // タッチイベントの高度な割り振りと分離管理
+        window.addEventListener('touchstart', (e) => {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                const rect = joystickZone.getBoundingClientRect();
+
+                // ジョイスティックエリア内を判定
+                if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
+                    touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+                    if (joystickTouchId === null) {
+                        joystickTouchId = touch.identifier;
+                        joystickActive = true;
+                        updateJoystick(touch);
+                    }
+                } else if (touch.clientX > window.innerWidth / 3 && lookTouchId === null) {
+                    // 画面の右側エリアを視点スワイプ用として確保
+                    lookTouchId = touch.identifier;
+                    lastTouchPos.x = touch.clientX;
+                    lastTouchPos.y = touch.clientY;
+                }
+            }
+        }, { passive: false });
+
+        window.addEventListener('touchmove', (e) => {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                if (touch.identifier === joystickTouchId) {
+                    updateJoystick(touch);
+                } else if (touch.identifier === lookTouchId) {
+                    const dx = touch.clientX - lastTouchPos.x;
+                    const dy = touch.clientY - lastTouchPos.y;
+                    
+                    gameState.cameraYaw -= dx * 0.005;
+                    gameState.cameraPitch -= dy * 0.005;
+                    gameState.cameraPitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, gameState.cameraPitch));
+
+                    lastTouchPos.x = touch.clientX;
+                    lastTouchPos.y = touch.clientY;
+                }
+            }
+        }, { passive: false });
+
+        window.addEventListener('touchend', (e) => {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                if (touch.identifier === joystickTouchId) {
+                    joystickTouchId = null;
+                    joystickActive = false;
+                    joystickVector = { x: 0, y: 0 };
+                    joystickKnob.style.top = '35px';
+                    joystickKnob.style.left = '35px';
+                } else if (touch.identifier === lookTouchId) {
+                    lookTouchId = null;
+                }
+            }
+        });
+
+        // PCでのマウスドラッグによるカメラ回転操作
+        window.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.interactive') || e.target.closest('.modal')) return;
+            isMouseDown = true;
+            lastTouchPos.x = e.clientX;
+            lastTouchPos.y = e.clientY;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isMouseDown) return;
+            const dx = e.clientX - lastTouchPos.x;
+            const dy = e.clientY - lastTouchPos.y;
+
+            gameState.cameraYaw -= dx * 0.003;
+            gameState.cameraPitch -= dy * 0.003;
+            gameState.cameraPitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, gameState.cameraPitch));
+
+            lastTouchPos.x = e.clientX;
+            lastTouchPos.y = e.clientY;
+        });
+
+        window.addEventListener('mouseup', () => { isMouseDown = false; });
+
+        function updateJoystick(touch) {
+            const rect = joystickZone.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            
+            let dx = touch.clientX - centerX;
+            let dy = touch.clientY - centerY;
+            const maxRadius = 40;
+            const dist = Math.hypot(dx, dy);
+
+            if (dist > maxRadius) {
+                dx = (dx / dist) * maxRadius;
+                dy = (dy / dist) * maxRadius;
+            }
+
+            joystickKnob.style.left = `${35 + dx}px`;
+            joystickKnob.style.top = `${35 + dy}px`;
+
+            joystickVector.x = dx / maxRadius;
+            joystickVector.y = dy / maxRadius;
+        }
+
+        // --- 5. ゲームループ & ロジック ---
+        let lastTime = performance.now();
+        let autoSaveTimer = 0;
+
+        function updateGame() {
+            try {
+                const now = performance.now();
+                const delta = Math.min((now - lastTime) / 1000, 0.1);
+                lastTime = now;
+
+                // 入力ベクトルの計算
+                let inputX = 0;
+                let inputZ = 0;
+
+                if (keys.w) inputZ -= 1;
+                if (keys.s) inputZ += 1;
+                if (keys.a) inputX -= 1;
+                if (keys.d) inputX += 1;
+
+                if (joystickActive) {
+                    inputX = joystickVector.x;
+                    inputZ = joystickVector.y;
+                }
+
+                // 視点（Yaw角）に基づく移動ベクトルの計算（視点方向を完全な前進ベクトルとする）
+                const moveLength = Math.hypot(inputX, inputZ);
+                if (moveLength > 0.1) {
+                    const speed = 7.0 * delta;
+                    const normX = inputX / Math.max(1, moveLength);
+                    const normZ = inputZ / Math.max(1, moveLength);
+
+                    const sinYaw = Math.sin(gameState.cameraYaw);
+                    const cosYaw = Math.cos(gameState.cameraYaw);
+
+                    // カメラの向き（視点方向）を「前進（normZ < 0）」の基準として変換
+                    const moveX = normX * cosYaw + normZ * sinYaw;
+                    const moveZ = -normX * sinYaw + normZ * cosYaw;
+
+                    playerGroup.position.x += moveX * speed;
+                    playerGroup.position.z += moveZ * speed;
+                }
+
+                // プレイヤーおよびFPSカメラの位置・回転同期
+                playerGroup.rotation.y = gameState.cameraYaw;
+                
+                camera.position.x = playerGroup.position.x;
+                camera.position.y = 1.4;
+                camera.position.z = playerGroup.position.z;
+                
+                camera.rotation.y = gameState.cameraYaw;
+                camera.rotation.x = gameState.cameraPitch;
+
+                // 判定処理（油田 & トラックとの距離）
+                const distToOil = playerGroup.position.distanceTo(oilSpringGroup.position);
+                const distToTruck = playerGroup.position.distanceTo(truckGroup.position);
+
+                interactableOil = distToOil < 3.5;
+                interactableTruck = distToTruck < 4.0;
+
+                const promptEl = document.getElementById('interaction-prompt');
+                if (interactableOil) {
+                    promptEl.style.display = 'block';
+                    promptEl.innerText = I18N[currentLang].promptOil;
+                } else if (interactableTruck) {
+                    promptEl.style.display = 'block';
+                    promptEl.innerText = I18N[currentLang].promptTruck;
+                } else {
+                    promptEl.style.display = 'none';
+                }
+
+                // 状態表現の更新（FPS視点の手元ドラム缶）
+                barrelMeshInHand.visible = gameState.barrels > 0;
+
+                // オートセーブ（10秒周期）
+                autoSaveTimer += delta;
+                if (autoSaveTimer >= 10) {
+                    autoSaveTimer = 0;
+                    saveGame(true);
+                }
+
+                renderer.render(scene, camera);
+            } catch (err) {
+                console.error("Render Loop Error:", err);
+            }
+
+            requestAnimationFrame(updateGame);
+        }
+
+        // 収集・売却のアクション実行
+        function triggerAction() {
+            if (interactableOil) {
+                if (gameState.barrels < gameState.maxBarrels) {
+                    gameState.barrels++;
+                    updateUI();
+                    showNotification(I18N[currentLang].msgOilScooped);
+                }
+            } else if (interactableTruck) {
+                if (gameState.barrels > 0) {
+                    const earnings = gameState.barrels * 50;
+                    gameState.money += earnings;
+                    gameState.barrels = 0;
+                    updateUI();
+                    showNotification(I18N[currentLang].msgTruckSold + earnings);
+                } else {
+                    showNotification(I18N[currentLang].msgNoBarrel);
+                }
+            }
+        }
+
+        // --- 6. UI・言語・セーブデータ管理 ---
+        function updateUI() {
+            document.getElementById('ui-money').innerText = I18N[currentLang].money + gameState.money;
+            document.getElementById('ui-barrels').innerText = I18N[currentLang].barrels + gameState.barrels + ' / ' + gameState.maxBarrels;
+            document.getElementById('action-button').innerText = I18N[currentLang].actionBtn;
+        }
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'ja' ? 'en' : 'ja';
+            document.getElementById('btn-lang').innerText = currentLang === 'ja' ? 'English' : '日本語';
+            updateUI();
+        }
+
+        function showNotification(msg) {
+            const el = document.getElementById('notification');
+            el.innerText = msg;
+            el.style.opacity = '1';
+            setTimeout(() => { el.style.opacity = '0'; }, 2000);
+        }
+
+        // セーブ / ロード
+        function saveGame(isAuto = false) {
+            gameState.playerPos.x = playerGroup.position.x;
+            gameState.playerPos.z = playerGroup.position.z;
+            localStorage.setItem('oil_rush_save', JSON.stringify(gameState));
+            if (isAuto) {
+                showNotification(I18N[currentLang].msgAutoSaved);
+            } else {
+                showNotification(I18N[currentLang].msgDataSaved);
+            }
+        }
+
+        function loadGame() {
+            const data = localStorage.getItem('oil_rush_save');
+            if (data) {
+                try {
+                    gameState = JSON.parse(data);
+                    playerGroup.position.set(gameState.playerPos.x, 0, gameState.playerPos.z);
+                    if (gameState.cameraYaw === undefined) gameState.cameraYaw = 0;
+                    if (gameState.cameraPitch === undefined) gameState.cameraPitch = 0;
+                    updateUI();
+                    showNotification(I18N[currentLang].msgDataLoaded);
+                } catch(e) {
+                    console.error(e);
+                }
+            }
+        }
+
+        // モーダル管理 & データインポート・エクスポート
+        function openDataModal() {
+            document.getElementById('data-modal').style.display = 'flex';
+            document.getElementById('modal-title').innerText = I18N[currentLang].modalTitle;
+            document.getElementById('data-textarea').value = '';
+        }
+
+        function closeDataModal() {
+            document.getElementById('data-modal').style.display = 'none';
+        }
+
+        function exportData() {
+            gameState.playerPos.x = playerGroup.position.x;
+            gameState.playerPos.z = playerGroup.position.z;
+            const b64 = btoa(JSON.stringify(gameState));
+            document.getElementById('data-textarea').value = b64;
+        }
+
+        function importData() {
+            const text = document.getElementById('data-textarea').value.trim();
+            try {
+                const json = JSON.parse(atob(text));
+                if (typeof json.money === 'number' && typeof json.barrels === 'number') {
+                    gameState = json;
+                    playerGroup.position.set(gameState.playerPos.x, 0, gameState.playerPos.z);
+                    if (gameState.cameraYaw === undefined) gameState.cameraYaw = 0;
+                    if (gameState.cameraPitch === undefined) gameState.cameraPitch = 0;
+                    updateUI();
+                    saveGame();
+                    closeDataModal();
+                    showNotification(I18N[currentLang].msgImportSuccess);
+                } else {
+                    throw new Error();
+                }
+            } catch(e) {
+                alert(I18N[currentLang].msgImportFail);
+            }
+        }
+
+        // --- 初期化実行 ---
+        window.addEventListener('DOMContentLoaded', () => {
+            initThree();
+            loadGame();
+            updateUI();
+            requestAnimationFrame(updateGame);
+        });
+    </script>
+</body>
+</html>
