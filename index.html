@@ -320,7 +320,7 @@ function updateHeldMesh() {
     if (heldItem.type === 'ladle') {
         heldMesh = createLadleMesh(heldItem.hasOil);
         heldMesh.position.set(0.28, -0.26, -0.52);
-        heldMesh.rotation.set(0.05, Math.PI/2+0.1, 0.12);
+        heldMesh.rotation.set(0.05, Math.PI/2+0.1+Math.PI, 0.12);
         heldMesh.scale.setScalar(1.0);
     } else {
         heldMesh = createJerryCanMesh(heldItem.fill);
