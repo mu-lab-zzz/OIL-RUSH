@@ -152,6 +152,7 @@ let heldItem = null;   // {type, fill, hasOil}
 let heldMesh = null;   // camera-child mesh
 
 let currentAction = null;
+let highlightedCanIdx = -1; // 現在ハイライト中のジェリ缶インデックス
 
 // ===== テクスチャ =====
 function makeDesertTex() {
@@ -288,11 +289,14 @@ function spawnWorldItem(type, x, z, hasOil=false, fill=0, yPos=0) {
 }
 
 function removeWorldItem(idx) {
+    if (highlightedCanIdx === idx) highlightedCanIdx = -1;
+    else if (highlightedCanIdx > idx) highlightedCanIdx--;
     scene.remove(worldItems[idx].group);
     worldItems.splice(idx, 1);
 }
 
 function refreshWorldItemMesh(idx) {
+    if (highlightedCanIdx === idx) highlightedCanIdx = -1; // グループ差し替え前にリセット
     const item = worldItems[idx];
     const oldG = item.group;
     const pos = oldG.position.clone();
@@ -949,6 +953,25 @@ function updateGame() {
         const prompt=document.getElementById('interaction-prompt');
         if (currentAction) { prompt.style.display='block'; prompt.innerText=currentAction.label; }
         else { prompt.style.display='none'; }
+
+        // ジェリ缶ハイライト（pour対象）
+        const newHighlightIdx = (currentAction&&currentAction.type==='pour') ? currentAction.canIdx : -1;
+        if (newHighlightIdx !== highlightedCanIdx) {
+            // 旧ハイライト解除
+            if (highlightedCanIdx>=0 && highlightedCanIdx<worldItems.length) {
+                worldItems[highlightedCanIdx].group.traverse(m=>{
+                    if (m.isMesh&&m.material) m.material.emissive&&m.material.emissive.set(0x000000);
+                });
+            }
+            highlightedCanIdx = newHighlightIdx;
+        }
+        // 明滅アニメーション
+        if (highlightedCanIdx>=0 && highlightedCanIdx<worldItems.length) {
+            const blink = 0.45 + 0.45*Math.abs(Math.sin(now*0.004));
+            worldItems[highlightedCanIdx].group.traverse(m=>{
+                if (m.isMesh&&m.material&&m.material.emissive) m.material.emissive.set(new THREE.Color(0.1*blink, 0.8*blink, 0.2*blink));
+            });
+        }
 
         autoSaveTimer+=delta;
         if (autoSaveTimer>=10) { autoSaveTimer=0; saveGame(true); }
