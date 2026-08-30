@@ -77,13 +77,11 @@ const I18N = {
         money: "所持金: $", barrels: "ドラム缶: ",
         hintText: "← 西: 油田　東: 町 →",
         promptOil: "[SPACE] 原油を採取",
-        promptTruck: "[SPACE] 野外売却 $40/本",
         promptDepot: "[SPACE] 出荷場で売却 $60/本",
         promptShopFn: (cost) => `[SPACE] 容量アップ +1本 ($${cost})`,
         promptShopMax: "最大容量達成！",
         actionBtn: "アクション",
         msgOilScooped: "原油を採取しました！",
-        msgTruckSold: "野外売却完了！ +$",
         msgDepotSold: "出荷完了！ +$",
         msgNoBarrel: "ドラム缶がありません！",
         msgBought: "購入しました！",
@@ -100,13 +98,11 @@ const I18N = {
         money: "Money: $", barrels: "Barrels: ",
         hintText: "← West: Oil Field　East: Town →",
         promptOil: "[SPACE] Collect Oil",
-        promptTruck: "[SPACE] Quick sell $40/ea",
         promptDepot: "[SPACE] Sell at Depot $60/ea",
         promptShopFn: (cost) => `[SPACE] Barrel Upgrade +1 ($${cost})`,
         promptShopMax: "Max capacity!",
         actionBtn: "ACTION",
         msgOilScooped: "Oil collected!",
-        msgTruckSold: "Quick sold! +$",
         msgDepotSold: "Shipped & sold! +$",
         msgNoBarrel: "No oil barrels!",
         msgBought: "Purchased!",
@@ -133,6 +129,7 @@ let scene, camera, renderer, dirLight;
 let playerGroup, barrelMeshInHand;
 let currentInteractable = null;
 const interactables = [];
+const collisionBoxes = []; // { x, z, hw, hd } ワールド座標・半サイズ
 
 // ===== テクスチャ生成 =====
 function makeDesertTex() {
@@ -272,10 +269,9 @@ function createBarrelMesh() {
 
 // ===== 油田エリア =====
 function createOilField() {
-    createOilSpring(-65, -5, 1.2);
+    createOilSpring(-65, -22, 1.2);
     createOilSpring(-82, 14, 1.0);
     createOilSpring(-54, 20, 0.85);
-    createFieldTruck(-50, -12);
     createDerrick(-72, 6);
     createDerrick(-60, -16);
 }
@@ -323,29 +319,6 @@ function createOilSpring(x, z, scale) {
     });
 }
 
-function createFieldTruck(x, z) {
-    const g = new THREE.Group();
-    g.position.set(x, 0, z);
-
-    const cab = bx(2.2, 2, 2, 0xc0392b);
-    cab.position.set(0, 1.2, 2); g.add(cab);
-
-    const bed = bx(2.4, 0.4, 4, 0x7f8c8d);
-    bed.position.set(0, 0.6, -1); g.add(bed);
-
-    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
-    [[-1.2,0.5,2],[1.2,0.5,2],[-1.2,0.5,-0.5],[1.2,0.5,-0.5],[-1.2,0.5,-2.5],[1.2,0.5,-2.5]].forEach(([wx,wy,wz]) => {
-        const w = new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.5,0.4,12), wheelMat);
-        w.rotation.z = Math.PI/2; w.position.set(wx,wy,wz); w.castShadow = true; g.add(w);
-    });
-
-    scene.add(g);
-    interactables.push({
-        type: 'fieldtruck', group: g, radius: 4.5,
-        getLabel: () => I18N[currentLang].promptTruck
-    });
-}
-
 function createDerrick(x, z) {
     const g = new THREE.Group();
     g.position.set(x, 0, z);
@@ -363,12 +336,26 @@ function createDerrick(x, z) {
     const cap = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.2, 2.6), mat);
     cap.position.y = 9.1; g.add(cap);
     scene.add(g);
+    collisionBoxes.push({ x, z, hw: 1.5, hd: 1.5 });
+}
+
+// ===== 衝突判定 =====
+function checkCollision(x, z) {
+    const pr = 0.45; // プレイヤー半径
+    if (x < -195 || x > 195 || z < -195 || z > 195) return true;
+    for (const b of collisionBoxes) {
+        if (x + pr > b.x - b.hw && x - pr < b.x + b.hw &&
+            z + pr > b.z - b.hd && z - pr < b.z + b.hd) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // ===== 町エリア =====
 function createTown() {
     createShippingDepot(58, -18);
-    createToolShop(42, 22);
+    createToolShop(56, 22);
     createGasStation(30, -30);
     createHouse(70, 6, 0xfff8e1, 0x5d4037, 0);
     createHouse(75, -16, 0xe3f2fd, 0x1a237e, 0.4);
@@ -422,6 +409,9 @@ function createShippingDepot(x, z) {
         type: 'depot', group: g, radius: 7.0,
         getLabel: () => I18N[currentLang].promptDepot
     });
+    // 倉庫本体 + 荷台プラットフォーム
+    collisionBoxes.push({ x: x,   z: z,      hw: 9,  hd: 6   });
+    collisionBoxes.push({ x: x,   z: z+9.3,  hw: 5,  hd: 2   });
 }
 
 function createToolShop(x, z) {
@@ -474,6 +464,7 @@ function createToolShop(x, z) {
             return I18N[currentLang].promptShopFn(gameState.maxBarrels * 100);
         }
     });
+    collisionBoxes.push({ x, z, hw: 4, hd: 3 });
 }
 
 function createGasStation(x, z) {
@@ -511,6 +502,9 @@ function createGasStation(x, z) {
     sign.position.set(-3.5, 4.3, 2.1); g.add(sign);
 
     scene.add(g);
+    // 事務所 (グループ内 offset -3.5) + キャノピー全体をカバー
+    collisionBoxes.push({ x: x - 3.5, z, hw: 2.5, hd: 2   }); // 事務所
+    collisionBoxes.push({ x: x + 2,   z, hw: 5,   hd: 4.2 }); // キャノピー下エリア
 }
 
 function createHouse(x, z, wallColor, roofColor, rotation) {
@@ -547,6 +541,10 @@ function createHouse(x, z, wallColor, roofColor, rotation) {
     chimney.position.set(1.5, H + 2.2 + 0.6, -1); chimney.castShadow = true; g.add(chimney);
 
     scene.add(g);
+    // 回転を考慮して少し大きめのAABBを登録
+    const hw = rotation !== 0 ? 3.5 : 3.0;
+    const hd = rotation !== 0 ? 3.5 : 2.5;
+    collisionBoxes.push({ x, z, hw, hd });
 }
 
 // ===== 道路 =====
@@ -779,8 +777,12 @@ function updateGame() {
             const spd = 8.0 * delta;
             const nx=ix/Math.max(1,ml), nz=iz/Math.max(1,ml);
             const sy=Math.sin(gameState.cameraYaw), cy=Math.cos(gameState.cameraYaw);
-            playerGroup.position.x += (nx*cy + nz*sy) * spd;
-            playerGroup.position.z += (-nx*sy + nz*cy) * spd;
+            const vx = (nx*cy + nz*sy) * spd;
+            const vz = (-nx*sy + nz*cy) * spd;
+            const px = playerGroup.position.x, pz = playerGroup.position.z;
+            // X・Z を独立して判定しスライド移動を実現
+            if (!checkCollision(px + vx, pz))          playerGroup.position.x = px + vx;
+            if (!checkCollision(playerGroup.position.x, pz + vz)) playerGroup.position.z = pz + vz;
         }
 
         playerGroup.rotation.y = gameState.cameraYaw;
@@ -823,10 +825,9 @@ function updateGame() {
 function triggerAction() {
     if (!currentInteractable) return;
     switch (currentInteractable.type) {
-        case 'oil':       collectOil(); break;
-        case 'fieldtruck': sellOil(40, I18N[currentLang].msgTruckSold); break;
-        case 'depot':     sellOil(60, I18N[currentLang].msgDepotSold); break;
-        case 'shop':      buyUpgrade(); break;
+        case 'oil':   collectOil(); break;
+        case 'depot': sellOil(60, I18N[currentLang].msgDepotSold); break;
+        case 'shop':  buyUpgrade(); break;
     }
 }
 
