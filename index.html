@@ -10,42 +10,26 @@
         #canvas-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
         .interactive { pointer-events: auto; }
-        /* Header */
         #header { position: absolute; top: 15px; left: 15px; right: 15px; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
         .stats-card { background: rgba(0,0,0,0.75); border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(5px); padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
         .money-text { font-size: 24px; font-weight: bold; color: #4CAF50; }
-        .inventory-text { font-size: 13px; color: #FFC107; margin-top: 4px; }
+        .held-text { font-size: 13px; color: #FFC107; margin-top: 4px; }
         .hint-text { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 3px; }
         .menu-buttons { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
         .btn { background: #2c3e50; color: white; border: 1px solid #34495e; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; transition: background 0.2s, transform 0.1s; }
-        .btn:hover { background: #34495e; }
-        .btn:active { transform: scale(0.95); }
-        /* Notification */
-        #notification { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: #fff; padding: 10px 20px; border-radius: 20px; border: 1px solid #FFC107; font-weight: bold; pointer-events: none; opacity: 0; transition: opacity 0.3s; text-align: center; white-space: nowrap; z-index: 20; }
-        /* Interaction prompt */
-        #interaction-prompt { position: absolute; bottom: 108px; left: 50%; transform: translateX(-50%); background: rgba(46,204,113,0.92); color: #fff; padding: 8px 18px; border-radius: 12px; font-weight: bold; font-size: 14px; display: none; box-shadow: 0 0 10px rgba(46,204,113,0.5); white-space: nowrap; }
-        /* Toolbar */
-        #toolbar { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; pointer-events: auto; }
-        .tslot { width: 68px; height: 68px; background: rgba(0,0,0,0.75); border: 2px solid rgba(255,255,255,0.28); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
-        .tslot.active { border-color: #FFD700; background: rgba(255,215,0,0.15); box-shadow: 0 0 10px rgba(255,215,0,0.4); }
-        .tslot:hover { background: rgba(255,255,255,0.08); }
-        .tkey { position: absolute; top: 3px; left: 6px; font-size: 10px; color: rgba(255,255,255,0.5); }
-        .ticon { font-size: 24px; line-height: 1; }
-        .tlabel { font-size: 9px; color: rgba(255,255,255,0.75); margin-top: 2px; text-align: center; line-height: 1.2; }
-        .tbadge { position: absolute; top: 3px; right: 5px; background: #e74c3c; color: white; font-size: 10px; font-weight: bold; border-radius: 9px; padding: 0 4px; min-width: 16px; text-align: center; }
-        .toil { display: none; width: 10px; height: 10px; background: #030303; border-radius: 50%; position: absolute; bottom: 6px; right: 7px; }
-        /* Touch controls */
-        #touch-controls { display: none; position: absolute; bottom: 100px; left: 0; width: 100%; justify-content: space-between; align-items: flex-end; padding: 0 20px; pointer-events: none; }
+        .btn:hover { background: #34495e; } .btn:active { transform: scale(0.95); }
+        #notification { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.88); color: #fff; padding: 10px 22px; border-radius: 20px; border: 1px solid #FFC107; font-weight: bold; pointer-events: none; opacity: 0; transition: opacity 0.3s; white-space: nowrap; z-index: 20; }
+        #interaction-prompt { position: absolute; bottom: 160px; left: 50%; transform: translateX(-50%); background: rgba(46,204,113,0.93); color: #fff; padding: 9px 20px; border-radius: 12px; font-weight: bold; font-size: 14px; display: none; box-shadow: 0 0 12px rgba(46,204,113,0.5); white-space: nowrap; }
+        #touch-controls { display: none; position: absolute; bottom: 20px; left: 0; width: 100%; justify-content: space-between; align-items: flex-end; padding: 0 24px; pointer-events: none; }
         #joystick-zone { width: 110px; height: 110px; background: rgba(255,255,255,0.12); border: 2px solid rgba(255,255,255,0.3); border-radius: 55px; position: relative; touch-action: none; pointer-events: auto; }
         #joystick-knob { width: 46px; height: 46px; background: rgba(255,255,255,0.55); border-radius: 23px; position: absolute; top: 32px; left: 32px; pointer-events: none; }
-        #action-button { width: 80px; height: 80px; background: rgba(230,126,34,0.85); border: 3px solid rgba(255,255,255,0.45); border-radius: 40px; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 13px; color: white; touch-action: manipulation; pointer-events: auto; text-align: center; }
-        /* Modal */
+        #action-button { width: 82px; height: 82px; background: rgba(230,126,34,0.88); border: 3px solid rgba(255,255,255,0.45); border-radius: 41px; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 13px; color: white; touch-action: manipulation; pointer-events: auto; text-align: center; line-height: 1.3; }
         .modal { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 100; justify-content: center; align-items: center; pointer-events: auto; }
         .modal-content { background: #222; border: 1px solid #444; width: 90%; max-width: 500px; padding: 20px; border-radius: 8px; }
         .modal-header { font-size: 18px; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #444; padding-bottom: 8px; }
         textarea { width: 100%; height: 120px; background: #111; color: #0f0; border: 1px solid #333; padding: 8px; font-family: monospace; resize: none; margin-bottom: 15px; border-radius: 4px; }
         .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; }
-        @media (pointer: coarse) { #touch-controls { display: flex; } }
+        @media (pointer: coarse) { #touch-controls { display: flex; } #interaction-prompt { bottom: 155px; } }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
@@ -55,7 +39,7 @@
     <div id="header">
         <div class="stats-card">
             <div class="money-text" id="ui-money">$0</div>
-            <div class="inventory-text" id="ui-inv">空缶: 3　満缶: 0</div>
+            <div class="held-text" id="ui-held">手持ち: なし</div>
             <div class="hint-text" id="ui-hint">← 西: 油田　東: 町 →</div>
         </div>
         <div class="menu-buttons interactive">
@@ -67,28 +51,6 @@
     </div>
     <div id="notification"></div>
     <div id="interaction-prompt"></div>
-    <div id="toolbar">
-        <div class="tslot active" id="tslot-0" onclick="selectSlot(0)">
-            <span class="tkey">1</span>
-            <div class="ticon">🪣</div>
-            <div class="tlabel" id="tlabel-0">ひしゃく</div>
-            <div class="toil" id="toil-0"></div>
-        </div>
-        <div class="tslot" id="tslot-1" onclick="selectSlot(1)">
-            <span class="tkey">2</span>
-            <div class="ticon">🫙</div>
-            <div class="tlabel" id="tlabel-1">空缶</div>
-            <span class="tbadge" id="tbadge-1">3</span>
-        </div>
-        <div class="tslot" id="tslot-2" onclick="selectSlot(2)">
-            <span class="tkey">3</span>
-            <div class="ticon" style="color:rgba(255,255,255,0.2);font-size:18px">—</div>
-        </div>
-        <div class="tslot" id="tslot-3" onclick="selectSlot(3)">
-            <span class="tkey">4</span>
-            <div class="ticon" style="color:rgba(255,255,255,0.2);font-size:18px">—</div>
-        </div>
-    </div>
     <div id="touch-controls">
         <div id="joystick-zone"><div id="joystick-knob"></div></div>
         <div id="action-button" onclick="triggerAction()">ACT</div>
@@ -110,74 +72,70 @@
 const I18N = {
     ja: {
         money: "所持金: $",
+        heldNone: "手持ち: なし",
+        heldLadle: (oil) => oil ? "手持ち: ひしゃく (原油あり)" : "手持ち: ひしゃく",
+        heldCan: (f) => f > 0 ? `手持ち: ジェリ缶 (${f}/5)` : "手持ち: ジェリ缶 (空)",
         hintText: "← 西: 油田　東: 町 →",
-        inv: (e, f) => `空缶: ${e}　手持ち満缶: ${f}`,
-        promptScoop: "[SPACE] 原油を掬う (ひしゃく)",
-        promptPour: (n) => `[SPACE] ジェリ缶に注ぐ (${n}/5)`,
-        promptPickup: (n) => `[SPACE] ジェリ缶を回収 (${n}/5)`,
-        promptSell: "[SPACE] 出荷場で売却",
-        promptBuyCan: "[SPACE] 空ジェリ缶を購入 ($100)",
-        promptPlace: "[SPACE] ここにジェリ缶を設置",
-        ladleLabel: "ひしゃく", canLabel: "空缶",
+        promptPickupLadle: "[SPACE] ひしゃくを拾う",
+        promptPickupCan: (f) => f > 0 ? `[SPACE] ジェリ缶を拾う (${f}/5)` : "[SPACE] ジェリ缶を拾う (空)",
+        promptScoop: "[SPACE] 原油を掬う",
+        promptPour: (f) => `[SPACE] ジェリ缶に注ぐ (${f}/5)`,
+        promptSell: (earn) => `[SPACE] タンクへ注いで売却 (+$${earn})`,
+        promptPutDown: "[SPACE] 道具を置く",
+        actionBtn: "アクション",
+        msgPickedUp: (name) => `${name}を持った`,
+        msgPutDown: (name) => `${name}を置いた`,
         msgScooped: "原油を掬った！",
-        msgPoured: (n) => `注いだ！ (${n}/5)`,
-        msgFull: "ジェリ缶が満タン！ 回収しよう",
-        msgPlaced: "ジェリ缶を設置した",
-        msgPickedUp: (n) => `ジェリ缶を回収 (${n}/5)`,
+        msgPoured: (f) => `ジェリ缶に注いだ (${f}/5)`,
+        msgCanFull: "満タン！出荷場へ持って行こう",
         msgSold: (earn) => `売却完了！ +$${earn}`,
-        msgNoCan: "空のジェリ缶がない！",
-        msgNoOil: "ひしゃくに原油がない！",
-        msgBadPlace: "ここには設置できない",
-        msgBought: "ジェリ缶を購入！ (-$100)",
-        msgNoMoney: "お金が足りない！",
-        msgNoFilled: "手持ちの缶がない！",
+        msgCanEmpty: "缶が空です",
         msgAutoSaved: "オートセーブ完了",
         msgDataSaved: "セーブ完了",
         msgDataLoaded: "ロード完了",
         msgImportOk: "インポート成功",
         msgImportFail: "無効なデータです",
-        modalTitle: "セーブデータ管理"
+        modalTitle: "セーブデータ管理",
+        nameLadle: "ひしゃく",
+        nameCan: "ジェリ缶"
     },
     en: {
         money: "Money: $",
+        heldNone: "Holding: nothing",
+        heldLadle: (oil) => oil ? "Holding: ladle (has oil)" : "Holding: ladle",
+        heldCan: (f) => f > 0 ? `Holding: jerry can (${f}/5)` : "Holding: jerry can (empty)",
         hintText: "← West: Oil Field　East: Town →",
-        inv: (e, f) => `Empty cans: ${e}　Filled: ${f}`,
-        promptScoop: "[SPACE] Scoop Oil (ladle)",
-        promptPour: (n) => `[SPACE] Pour into can (${n}/5)`,
-        promptPickup: (n) => `[SPACE] Pick up can (${n}/5)`,
-        promptSell: "[SPACE] Sell at Depot",
-        promptBuyCan: "[SPACE] Buy empty can ($100)",
-        promptPlace: "[SPACE] Place Jerry Can here",
-        ladleLabel: "Ladle", canLabel: "Empty Can",
+        promptPickupLadle: "[SPACE] Pick up ladle",
+        promptPickupCan: (f) => f > 0 ? `[SPACE] Pick up can (${f}/5)` : "[SPACE] Pick up can (empty)",
+        promptScoop: "[SPACE] Scoop oil",
+        promptPour: (f) => `[SPACE] Pour into can (${f}/5)`,
+        promptSell: (earn) => `[SPACE] Pour into tank & sell (+$${earn})`,
+        promptPutDown: "[SPACE] Put down",
+        actionBtn: "ACTION",
+        msgPickedUp: (name) => `Picked up ${name}`,
+        msgPutDown: (name) => `Put down ${name}`,
         msgScooped: "Oil scooped!",
-        msgPoured: (n) => `Poured! (${n}/5)`,
-        msgFull: "Can is full! Pick it up",
-        msgPlaced: "Jerry can placed",
-        msgPickedUp: (n) => `Picked up can (${n}/5)`,
+        msgPoured: (f) => `Poured into can (${f}/5)`,
+        msgCanFull: "Full! Take it to the depot",
         msgSold: (earn) => `Sold! +$${earn}`,
-        msgNoCan: "No empty jerry cans!",
-        msgNoOil: "No oil in ladle!",
-        msgBadPlace: "Can't place here",
-        msgBought: "Bought jerry can! (-$100)",
-        msgNoMoney: "Not enough money!",
-        msgNoFilled: "No filled cans to sell!",
+        msgCanEmpty: "Can is empty",
         msgAutoSaved: "Auto-saved",
         msgDataSaved: "Game saved",
         msgDataLoaded: "Game loaded",
         msgImportOk: "Import successful",
         msgImportFail: "Invalid data format",
-        modalTitle: "Save Data Management"
+        modalTitle: "Save Data Management",
+        nameLadle: "ladle",
+        nameCan: "jerry can"
     }
 };
-
 let currentLang = 'ja';
 
 // ===== ゲーム状態 =====
 let gameState = {
     money: 0,
-    emptyCans: 3,
-    filledCans: [],     // fill levels (1-5) in inventory
-    savedCans: [],      // [{x,z,fill}] placed in world (persisted)
+    savedWorldItems: null, // [{type,x,z,fill,hasOil}] — null means first-time default
+    savedHeldItem: null,   // {type,fill,hasOil} or null
     playerPos: { x: -35, z: 0 },
     cameraYaw: 0, cameraPitch: 0
 };
@@ -188,249 +146,196 @@ let playerGroup;
 const interactables = [];
 const collisionBoxes = [];
 
-// ===== ツールバー/ひしゃく状態 =====
-let activeSlot = 0;
-let ladleHasOil = false;
-let heldMesh = null;
+// ===== ワールドアイテム & 手持ち =====
+const worldItems = []; // {type, group, x, z, fill, hasOil}
+let heldItem = null;   // {type, fill, hasOil}
+let heldMesh = null;   // camera-child mesh
 
-// ===== 設置ジェリ缶 =====
-const placedCans = []; // {group, fill, x, z}
-
-// ===== ゴーストプレビュー =====
-let ghostGroup = null;
-let ghostMaterials = [];
-
-// ===== カレントアクション =====
 let currentAction = null;
 
-// ===== テクスチャ生成 =====
+// ===== テクスチャ =====
 function makeDesertTex() {
-    const c = document.createElement('canvas');
-    c.width = c.height = 512;
+    const c = document.createElement('canvas'); c.width = c.height = 512;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#8c6d46'; ctx.fillRect(0, 0, 512, 512);
-    for (let i = 0; i < 40000; i++) {
-        const x = Math.random()*512, y = Math.random()*512;
-        const r = Math.random()*2+0.5, s = Math.floor(Math.random()*60)-30;
-        ctx.fillStyle = `rgb(${140+s},${109+s},${70+s})`;
-        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#8c6d46'; ctx.fillRect(0,0,512,512);
+    for (let i=0; i<40000; i++) {
+        const x=Math.random()*512, y=Math.random()*512, r=Math.random()*2+0.5, s=Math.floor(Math.random()*60)-30;
+        ctx.fillStyle=`rgb(${140+s},${109+s},${70+s})`;
+        ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
     }
-    ctx.strokeStyle = 'rgba(60,40,20,0.15)'; ctx.lineWidth = 1.5;
-    for (let i = 0; i < 30; i++) {
-        ctx.beginPath();
-        let cx = Math.random()*512, cy = Math.random()*512;
-        ctx.moveTo(cx, cy);
-        for (let j = 0; j < 5; j++) { cx += (Math.random()-0.5)*60; cy += (Math.random()-0.5)*60; ctx.lineTo(cx, cy); }
+    ctx.strokeStyle='rgba(60,40,20,0.15)'; ctx.lineWidth=1.5;
+    for (let i=0; i<30; i++) {
+        ctx.beginPath(); let cx=Math.random()*512, cy=Math.random()*512; ctx.moveTo(cx,cy);
+        for (let j=0; j<5; j++) { cx+=(Math.random()-0.5)*60; cy+=(Math.random()-0.5)*60; ctx.lineTo(cx,cy); }
         ctx.stroke();
     }
     const t = new THREE.CanvasTexture(c);
-    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(20, 20);
-    return t;
+    t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(20,20); return t;
 }
-
 function makeAsphaltTex() {
-    const c = document.createElement('canvas');
-    c.width = c.height = 256;
+    const c = document.createElement('canvas'); c.width=c.height=256;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#1a1a1a'; ctx.fillRect(0, 0, 256, 256);
-    for (let i = 0; i < 5000; i++) {
-        const x = Math.random()*256, y = Math.random()*256, s = Math.floor(Math.random()*20)-10;
-        ctx.fillStyle = `rgb(${26+s},${26+s},${26+s})`; ctx.fillRect(x, y, 2, 2);
+    ctx.fillStyle='#1a1a1a'; ctx.fillRect(0,0,256,256);
+    for (let i=0; i<5000; i++) {
+        const x=Math.random()*256, y=Math.random()*256, s=Math.floor(Math.random()*20)-10;
+        ctx.fillStyle=`rgb(${26+s},${26+s},${26+s})`; ctx.fillRect(x,y,2,2);
     }
     const t = new THREE.CanvasTexture(c);
-    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(4, 4);
-    return t;
+    t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(4,4); return t;
 }
 
 // ===== メッシュヘルパー =====
-function bx(w, h, d, color, roughness=0.8, metalness=0.0) {
+function bx(w,h,d,color,roughness=0.8,metalness=0.0) {
     const m = new THREE.Mesh(
-        new THREE.BoxGeometry(w, h, d),
-        new THREE.MeshStandardMaterial({ color, roughness, metalness })
+        new THREE.BoxGeometry(w,h,d),
+        new THREE.MeshStandardMaterial({color,roughness,metalness})
     );
-    m.castShadow = true; m.receiveShadow = true;
-    return m;
+    m.castShadow=true; m.receiveShadow=true; return m;
 }
 
 // ===== ひしゃくメッシュ =====
 function createLadleMesh(hasOil=false) {
     const g = new THREE.Group();
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0x6d4c41, roughness: 0.9 });
-    const metalMat = new THREE.MeshStandardMaterial({ color: 0x9e9e9e, roughness: 0.3, metalness: 0.8 });
+    const woodMat = new THREE.MeshStandardMaterial({color:0x6d4c41,roughness:0.9});
+    const metalMat = new THREE.MeshStandardMaterial({color:0x9e9e9e,roughness:0.3,metalness:0.8});
 
     // 柄
-    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.018, 0.75, 7), woodMat);
-    handle.rotation.z = Math.PI / 2;
-    handle.position.x = 0.3;
-    handle.castShadow = true; g.add(handle);
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.018,0.75,7), woodMat);
+    handle.rotation.z=Math.PI/2; handle.position.x=0.3; handle.castShadow=true; g.add(handle);
 
-    // お椀部分 (半球)
-    const bowlOuter = new THREE.Mesh(
-        new THREE.SphereGeometry(0.11, 10, 6, 0, Math.PI*2, 0, Math.PI/1.8),
-        metalMat
+    // お椀 (外)
+    const bowl = new THREE.Mesh(
+        new THREE.SphereGeometry(0.11,10,6,0,Math.PI*2,0,Math.PI/1.8), metalMat
     );
-    bowlOuter.rotation.x = Math.PI;
-    bowlOuter.position.set(-0.07, 0.02, 0);
-    bowlOuter.castShadow = true; g.add(bowlOuter);
+    bowl.rotation.x=Math.PI; bowl.position.set(-0.07,0.02,0); bowl.castShadow=true; g.add(bowl);
 
-    const bowlInner = new THREE.Mesh(
-        new THREE.SphereGeometry(0.096, 10, 6, 0, Math.PI*2, 0, Math.PI/1.8),
-        new THREE.MeshStandardMaterial({ color: 0x777777, roughness: 0.4, metalness: 0.7, side: THREE.BackSide })
+    // お椀 (内側)
+    const bowlIn = new THREE.Mesh(
+        new THREE.SphereGeometry(0.096,10,6,0,Math.PI*2,0,Math.PI/1.8),
+        new THREE.MeshStandardMaterial({color:0x777777,roughness:0.4,metalness:0.7,side:THREE.BackSide})
     );
-    bowlInner.rotation.x = Math.PI;
-    bowlInner.position.set(-0.07, 0.02, 0); g.add(bowlInner);
+    bowlIn.rotation.x=Math.PI; bowlIn.position.set(-0.07,0.02,0); g.add(bowlIn);
 
-    // 原油 (掬ったとき)
+    // 原油
     if (hasOil) {
         const oil = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.085, 0.085, 0.025, 10),
-            new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.05, metalness: 0.95 })
+            new THREE.CylinderGeometry(0.085,0.085,0.025,10),
+            new THREE.MeshStandardMaterial({color:0x050505,roughness:0.05,metalness:0.95})
         );
-        oil.position.set(-0.07, -0.055, 0); g.add(oil);
+        oil.position.set(-0.07,-0.055,0); g.add(oil);
     }
     return g;
 }
 
 // ===== ジェリ缶メッシュ =====
-function createJerryCanMesh(fill=0, opacity=1.0) {
+function createJerryCanMesh(fill=0) {
     const g = new THREE.Group();
-    const transp = opacity < 1.0;
-    const canColor = fill >= 5 ? 0x1a5c36 : (fill > 0 ? 0x2d7a4a : 0x546e7a);
-    const bodyMat = new THREE.MeshStandardMaterial({ color: canColor, roughness: 0.45, metalness: 0.55, transparent: transp, opacity });
-    const metalMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.35, metalness: 0.7, transparent: transp, opacity });
-    const darkMat  = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.4, metalness: 0.5, transparent: transp, opacity });
+    const canColor = fill>=5 ? 0x1a5c36 : (fill>0 ? 0x2d7a4a : 0x546e7a);
+    const bodyMat = new THREE.MeshStandardMaterial({color:canColor,roughness:0.45,metalness:0.55});
+    const metalMat= new THREE.MeshStandardMaterial({color:0x888888,roughness:0.35,metalness:0.7});
+    const darkMat = new THREE.MeshStandardMaterial({color:0x222222,roughness:0.4,metalness:0.5});
 
-    // 本体
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.56, 0.22), bodyMat);
-    body.castShadow = true; body.receiveShadow = true; g.add(body);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.38,0.56,0.22),bodyMat);
+    body.castShadow=true; body.receiveShadow=true; g.add(body);
 
-    // 上部リブ
-    const top = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.07, 0.20), metalMat);
-    top.position.y = 0.315; g.add(top);
+    const top = new THREE.Mesh(new THREE.BoxGeometry(0.36,0.07,0.20),metalMat);
+    top.position.y=0.315; g.add(top);
 
-    // 注ぎ口
-    const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.09, 8), metalMat);
-    spout.position.set(-0.09, 0.395, 0); g.add(spout);
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.03, 8), darkMat);
-    cap.position.set(-0.09, 0.445, 0); g.add(cap);
+    const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.038,0.038,0.09,8),metalMat);
+    spout.position.set(-0.09,0.395,0); g.add(spout);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.03,8),darkMat);
+    cap.position.set(-0.09,0.445,0); g.add(cap);
 
-    // 取っ手
-    const handleBar = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.045, 0.045), darkMat);
-    handleBar.position.set(0, 0.34, 0); g.add(handleBar);
-    [-0.15, 0.15].forEach(ox => {
-        const post = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.12, 0.045), darkMat);
-        post.position.set(ox, 0.325, 0); g.add(post);
+    const hbar = new THREE.Mesh(new THREE.BoxGeometry(0.34,0.045,0.045),darkMat);
+    hbar.position.set(0,0.34,0); g.add(hbar);
+    [-0.15,0.15].forEach(ox=>{
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.045,0.12,0.045),darkMat);
+        post.position.set(ox,0.325,0); g.add(post);
+    });
+    [-0.08,0.08].forEach(ox=>{
+        const rib = new THREE.Mesh(new THREE.BoxGeometry(0.04,0.44,0.24),metalMat);
+        rib.position.set(ox,-0.02,0); g.add(rib);
     });
 
-    // 縦リブ (装飾)
-    [-0.08, 0.08].forEach(ox => {
-        const rib = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.44, 0.24), metalMat);
-        rib.position.set(ox, -0.02, 0); g.add(rib);
-    });
-
-    // 中身 (fill > 0 で黒い液体を見せる)
-    if (fill > 0) {
-        const fh = (fill / 5) * 0.44;
-        const oilMat = new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.05, metalness: 0.9, transparent: transp, opacity: opacity * 0.95 });
-        const oilFill = new THREE.Mesh(new THREE.BoxGeometry(0.30, fh, 0.16), oilMat);
-        oilFill.position.y = fh / 2 - 0.26; g.add(oilFill);
+    if (fill>0) {
+        const fh=(fill/5)*0.44;
+        const oilMat=new THREE.MeshStandardMaterial({color:0x080808,roughness:0.05,metalness:0.9});
+        const oilFill=new THREE.Mesh(new THREE.BoxGeometry(0.30,fh,0.16),oilMat);
+        oilFill.position.y=fh/2-0.26; g.add(oilFill);
     }
     return g;
 }
 
-// ===== ゴーストプレビュー初期化 =====
-function initGhost() {
-    ghostGroup = new THREE.Group();
-    ghostMaterials = [];
-    const tempCan = createJerryCanMesh(0, 0.48);
-    tempCan.traverse(m => {
-        if (m.isMesh) { ghostMaterials.push(m.material); }
-    });
-    ghostGroup.add(tempCan);
-    ghostGroup.visible = false;
-    scene.add(ghostGroup);
-}
-
-function updateGhost() {
-    if (activeSlot !== 1 || gameState.emptyCans <= 0) {
-        ghostGroup.visible = false;
-        return;
+// ===== ワールドアイテム スポーン/削除/更新 =====
+function spawnWorldItem(type, x, z, hasOil=false, fill=0, yPos=0) {
+    const g = new THREE.Group();
+    let mesh;
+    if (type === 'ladle') {
+        mesh = createLadleMesh(hasOil);
+        // 地面/テーブルに置いた状態: 柄を水平に寝かせる
+        mesh.rotation.set(0, Math.PI*0.15 + x*0.01, 0);
+        mesh.scale.setScalar(1.5);
+    } else {
+        mesh = createJerryCanMesh(fill);
+        mesh.scale.setScalar(1.3);
     }
-    const { x: gx, z: gz } = getPlacementPos();
-    ghostGroup.position.set(gx, 0, gz);
-    ghostGroup.visible = true;
-    const valid = isValidPlacement(gx, gz);
-    const color = valid ? 0x00ff88 : 0xff2200;
-    ghostMaterials.forEach(m => m.color.set(color));
-}
-
-function getPlacementPos() {
-    const dist = 2.4;
-    const fwdX = -Math.sin(gameState.cameraYaw);
-    const fwdZ = -Math.cos(gameState.cameraYaw);
-    return { x: playerGroup.position.x + fwdX * dist, z: playerGroup.position.z + fwdZ * dist };
-}
-
-function isValidPlacement(x, z) {
-    if (x < -190 || x > 190 || z < -190 || z > 190) return false;
-    for (const b of collisionBoxes) {
-        if (x > b.x - b.hw - 0.3 && x < b.x + b.hw + 0.3 && z > b.z - b.hd - 0.3 && z < b.z + b.hd + 0.3) return false;
-    }
-    for (const c of placedCans) {
-        if (Math.hypot(x - c.x, z - c.z) < 1.2) return false;
-    }
-    return true;
-}
-
-// ===== 設置ジェリ缶の生成/削除 =====
-function spawnPlacedCan(x, z, fill) {
-    const g = createJerryCanMesh(fill);
-    g.position.set(x, 0, z);
-    g.scale.setScalar(1.2);
+    g.add(mesh);
+    g.position.set(x, yPos, z);
     scene.add(g);
-    const entry = { group: g, fill, x, z };
-    placedCans.push(entry);
-    gameState.savedCans.push({ x, z, fill });
+    const entry = { type, group: g, x, z, fill, hasOil };
+    worldItems.push(entry);
     return entry;
 }
 
-function removePlacedCan(idx) {
-    const entry = placedCans[idx];
-    scene.remove(entry.group);
-    placedCans.splice(idx, 1);
-    gameState.savedCans.splice(idx, 1);
+function removeWorldItem(idx) {
+    scene.remove(worldItems[idx].group);
+    worldItems.splice(idx, 1);
 }
 
-function refreshPlacedCanMesh(idx) {
-    const entry = placedCans[idx];
-    entry.group.remove(...entry.group.children);
-    const newMesh = createJerryCanMesh(entry.fill);
-    newMesh.traverse(m => { if (m.isMesh) entry.group.add(m.clone()); });
-    // Simpler: replace group entirely
-    scene.remove(entry.group);
-    const g = createJerryCanMesh(entry.fill);
-    g.position.set(entry.x, 0, entry.z);
-    g.scale.setScalar(1.2);
+function refreshWorldItemMesh(idx) {
+    const item = worldItems[idx];
+    const oldG = item.group;
+    const pos = oldG.position.clone();
+    scene.remove(oldG);
+    // 新しいグループ作成
+    const g = new THREE.Group();
+    let mesh;
+    if (item.type === 'ladle') {
+        mesh = createLadleMesh(item.hasOil);
+        mesh.scale.setScalar(1.5);
+    } else {
+        mesh = createJerryCanMesh(item.fill);
+        mesh.scale.setScalar(1.3);
+    }
+    g.add(mesh);
+    g.position.copy(pos);
     scene.add(g);
-    entry.group = g;
-    if (gameState.savedCans[idx]) gameState.savedCans[idx].fill = entry.fill;
+    item.group = g;
 }
 
-// ===== 手持ちアイテム更新 =====
+// ===== 手持ちメッシュ更新 =====
 function updateHeldMesh() {
     if (heldMesh) { camera.remove(heldMesh); heldMesh = null; }
-    if (activeSlot === 0) {
-        heldMesh = createLadleMesh(ladleHasOil);
+    if (!heldItem) return;
+    if (heldItem.type === 'ladle') {
+        heldMesh = createLadleMesh(heldItem.hasOil);
         heldMesh.position.set(0.28, -0.26, -0.52);
-        heldMesh.rotation.set(0.05, Math.PI / 2 + 0.1, 0.12);
+        heldMesh.rotation.set(0.05, Math.PI/2+0.1, 0.12);
         heldMesh.scale.setScalar(1.0);
-    } else if (activeSlot === 1 && gameState.emptyCans > 0) {
-        heldMesh = createJerryCanMesh(0);
+    } else {
+        heldMesh = createJerryCanMesh(heldItem.fill);
         heldMesh.position.set(0.22, -0.32, -0.50);
         heldMesh.rotation.set(0.08, -0.25, 0.06);
         heldMesh.scale.setScalar(0.65);
     }
-    if (heldMesh) camera.add(heldMesh);
+    camera.add(heldMesh);
+}
+
+// ===== ドロップ位置 =====
+function getDropPos() {
+    const dist=1.2;
+    const fx=-Math.sin(gameState.cameraYaw), fz=-Math.cos(gameState.cameraYaw);
+    return { x: playerGroup.position.x+fx*dist, z: playerGroup.position.z+fz*dist };
 }
 
 // ===== Three.js 初期化 =====
@@ -440,42 +345,41 @@ function initThree() {
     scene.background = new THREE.Color(0x3a2e2b);
     scene.fog = new THREE.FogExp2(0x3a2e2b, 0.006);
 
-    camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
+    camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
     camera.rotation.order = 'YXZ';
 
-    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer = new THREE.WebGLRenderer({antialias:true});
     renderer.setSize(innerWidth, innerHeight);
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+    renderer.shadowMap.enabled=true;
+    renderer.shadowMap.type=THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
     scene.add(new THREE.AmbientLight(0xffdfb3, 0.5));
     dirLight = new THREE.DirectionalLight(0xffbe76, 1.0);
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = dirLight.shadow.mapSize.height = 2048;
-    dirLight.shadow.camera.near = 0.5; dirLight.shadow.camera.far = 80;
-    const sd = 40;
-    dirLight.shadow.camera.left = -sd; dirLight.shadow.camera.right = sd;
-    dirLight.shadow.camera.top = sd; dirLight.shadow.camera.bottom = -sd;
+    dirLight.castShadow=true;
+    dirLight.shadow.mapSize.width=dirLight.shadow.mapSize.height=2048;
+    dirLight.shadow.camera.near=0.5; dirLight.shadow.camera.far=80;
+    const sd=40;
+    dirLight.shadow.camera.left=-sd; dirLight.shadow.camera.right=sd;
+    dirLight.shadow.camera.top=sd; dirLight.shadow.camera.bottom=-sd;
     scene.add(dirLight); scene.add(dirLight.target);
 
     const ground = new THREE.Mesh(
-        new THREE.PlaneGeometry(400, 400),
-        new THREE.MeshStandardMaterial({ map: makeDesertTex(), roughness: 0.9, metalness: 0.05 })
+        new THREE.PlaneGeometry(400,400),
+        new THREE.MeshStandardMaterial({map:makeDesertTex(),roughness:0.9,metalness:0.05})
     );
-    ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true;
-    scene.add(ground);
+    ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene.add(ground);
 
     createPlayer();
-    initGhost();
     createOilField();
+    createLowTable(-45, 8);  // 油田近くのローテーブル
     createTown();
     createRoads();
     populateDecorations();
 
-    window.addEventListener('resize', () => {
-        camera.aspect = innerWidth / innerHeight;
+    window.addEventListener('resize', ()=>{
+        camera.aspect=innerWidth/innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(innerWidth, innerHeight);
     });
@@ -485,758 +389,700 @@ function initThree() {
 function createPlayer() {
     playerGroup = new THREE.Group();
     playerGroup.position.set(-35, 0, 0);
-    const body = bx(0.6, 0.9, 0.6, 0x2980b9);
-    body.position.y = 0.45; playerGroup.add(body);
+    const body = bx(0.6,0.9,0.6, 0x2980b9);
+    body.position.y=0.45; playerGroup.add(body);
     scene.add(camera);
     scene.add(playerGroup);
 }
 
 // ===== 衝突判定 =====
 function checkCollision(x, z) {
-    const pr = 0.45;
-    if (x < -195 || x > 195 || z < -195 || z > 195) return true;
+    const pr=0.45;
+    if (x<-195||x>195||z<-195||z>195) return true;
     for (const b of collisionBoxes) {
-        if (x + pr > b.x - b.hw && x - pr < b.x + b.hw &&
-            z + pr > b.z - b.hd && z - pr < b.z + b.hd) return true;
+        if (x+pr>b.x-b.hw && x-pr<b.x+b.hw && z+pr>b.z-b.hd && z-pr<b.z+b.hd) return true;
     }
     return false;
 }
 
+// ===== ローテーブル =====
+function createLowTable(x, z) {
+    const g = new THREE.Group(); g.position.set(x,0,z);
+
+    // 天板
+    const top = bx(1.5,0.06,0.8, 0x8B5E3C, 0.9);
+    top.position.y=0.85; g.add(top);
+
+    // 脚 x4
+    [[-0.65,-0.34],[0.65,-0.34],[-0.65,0.34],[0.65,0.34]].forEach(([lx,lz])=>{
+        const leg = bx(0.07,0.85,0.07, 0x6B4226, 0.9);
+        leg.position.set(lx,0.425,lz); g.add(leg);
+    });
+
+    scene.add(g);
+}
+
 // ===== 油田エリア =====
 function createOilField() {
-    createOilSpring(-65, -22, 1.2);
-    createOilSpring(-82, 14, 1.0);
-    createOilSpring(-54, 20, 0.85);
-    createDerrick(-72, 6);
-    createDerrick(-60, -16);
+    createOilSpring(-65,-22,1.2);
+    createOilSpring(-82,14,1.0);
+    createOilSpring(-54,20,0.85);
+    createDerrick(-72,6);
+    createDerrick(-60,-16);
 }
 
 function createOilSpring(x, z, scale) {
-    const g = new THREE.Group();
-    g.position.set(x, 0, z);
+    const g = new THREE.Group(); g.position.set(x,0,z);
 
     const rim = new THREE.Mesh(
-        new THREE.CylinderGeometry(3.6*scale, 3.8*scale, 0.15, 16),
-        new THREE.MeshStandardMaterial({ color: 0x3d2d1d, roughness: 0.95 })
+        new THREE.CylinderGeometry(3.6*scale,3.8*scale,0.15,16),
+        new THREE.MeshStandardMaterial({color:0x3d2d1d,roughness:0.95})
     );
-    rim.position.y = 0.07; rim.receiveShadow = true; g.add(rim);
+    rim.position.y=0.07; rim.receiveShadow=true; g.add(rim);
 
     const pool = new THREE.Mesh(
-        new THREE.CylinderGeometry(3.3*scale, 3.3*scale, 0.16, 24),
-        new THREE.MeshStandardMaterial({ color: 0x030303, roughness: 0.05, metalness: 0.95 })
+        new THREE.CylinderGeometry(3.3*scale,3.3*scale,0.16,24),
+        new THREE.MeshStandardMaterial({color:0x030303,roughness:0.05,metalness:0.95})
     );
-    pool.position.y = 0.08; pool.receiveShadow = true; g.add(pool);
+    pool.position.y=0.08; pool.receiveShadow=true; g.add(pool);
 
-    [[2.2, 1.8, 1.1], [-2.0, -1.9, 1.3], [1.5, -2.2, 0.9]].forEach(([ox, oz, r]) => {
+    [[2.2,1.8,1.1],[-2.0,-1.9,1.3],[1.5,-2.2,0.9]].forEach(([ox,oz,r])=>{
         const sp = new THREE.Mesh(
-            new THREE.CylinderGeometry(r*scale, r*scale, 0.17, 10),
-            new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.1, metalness: 0.9 })
+            new THREE.CylinderGeometry(r*scale,r*scale,0.17,10),
+            new THREE.MeshStandardMaterial({color:0x080808,roughness:0.1,metalness:0.9})
         );
-        sp.position.set(ox*scale, 0.085, oz*scale); sp.receiveShadow = true; g.add(sp);
+        sp.position.set(ox*scale,0.085,oz*scale); sp.receiveShadow=true; g.add(sp);
     });
 
-    const rockMat = new THREE.MeshStandardMaterial({ color: 0x5a4838, roughness: 0.9 });
-    [[3.2, 0.5, 0.6], [-3.1, 1.8, 0.8], [2.8, -2.5, 0.7]].forEach(([rx, rz, rs]) => {
-        const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(rs*scale, 1), rockMat);
-        rock.position.set(rx*scale, rs*scale*0.4, rz*scale);
-        rock.rotation.set(Math.random(), Math.random(), Math.random());
-        rock.castShadow = true; g.add(rock);
+    const rockMat = new THREE.MeshStandardMaterial({color:0x5a4838,roughness:0.9});
+    [[3.2,0.5,0.6],[-3.1,1.8,0.8],[2.8,-2.5,0.7]].forEach(([rx,rz,rs])=>{
+        const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(rs*scale,1),rockMat);
+        rock.position.set(rx*scale,rs*scale*0.4,rz*scale);
+        rock.rotation.set(Math.random(),Math.random(),Math.random());
+        rock.castShadow=true; g.add(rock);
     });
 
     scene.add(g);
-    interactables.push({ type: 'oil', group: g, radius: 4.5 * scale });
+    interactables.push({type:'oil', group:g, radius:4.5*scale});
 }
 
-function createDerrick(x, z) {
-    const g = new THREE.Group();
-    g.position.set(x, 0, z);
-    const mat = new THREE.MeshStandardMaterial({ color: 0x455a64, roughness: 0.6, metalness: 0.6 });
-    [[-1.2,-1.2],[1.2,-1.2],[-1.2,1.2],[1.2,1.2]].forEach(([lx,lz]) => {
-        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.12, 9, 6), mat);
-        leg.position.set(lx, 4.5, lz); leg.castShadow = true; g.add(leg);
+function createDerrick(x,z) {
+    const g = new THREE.Group(); g.position.set(x,0,z);
+    const mat = new THREE.MeshStandardMaterial({color:0x455a64,roughness:0.6,metalness:0.6});
+    [[-1.2,-1.2],[1.2,-1.2],[-1.2,1.2],[1.2,1.2]].forEach(([lx,lz])=>{
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.12,9,6),mat);
+        leg.position.set(lx,4.5,lz); leg.castShadow=true; g.add(leg);
     });
-    for (let y = 1.5; y <= 8; y += 2) {
-        [0, Math.PI/2].forEach(a => {
-            const br = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.08, 0.08), mat);
-            br.rotation.y = a; br.position.y = y; g.add(br);
+    for (let y=1.5; y<=8; y+=2) {
+        [0,Math.PI/2].forEach(a=>{
+            const br = new THREE.Mesh(new THREE.BoxGeometry(2.4,0.08,0.08),mat);
+            br.rotation.y=a; br.position.y=y; g.add(br);
         });
     }
-    const cap = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.2, 2.6), mat);
-    cap.position.y = 9.1; g.add(cap);
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(2.6,0.2,2.6),mat);
+    cap.position.y=9.1; g.add(cap);
     scene.add(g);
-    collisionBoxes.push({ x, z, hw: 1.5, hd: 1.5 });
+    collisionBoxes.push({x,z,hw:1.5,hd:1.5});
 }
 
 // ===== 町エリア =====
 function createTown() {
-    createShippingDepot(58, -18);
-    createToolShop(56, 22);
-    createGasStation(30, -30);
-    createHouse(70, 6, 0xfff8e1, 0x5d4037, 0);
-    createHouse(75, -16, 0xe3f2fd, 0x1a237e, 0.4);
-    createHouse(65, 30, 0xf1f8e9, 0x33691e, 0);
-    createHouse(82, 12, 0xfce4ec, 0x880e4f, -0.5);
+    createShippingDepot(58,-18);
+    createToolShop(56,22);
+    createGasStation(30,-30);
+    createHouse(70,6, 0xfff8e1,0x5d4037,0);
+    createHouse(75,-16,0xe3f2fd,0x1a237e,0.4);
+    createHouse(65,30, 0xf1f8e9,0x33691e,0);
+    createHouse(82,12, 0xfce4ec,0x880e4f,-0.5);
 }
 
 function createBarrelMesh() {
     const g = new THREE.Group();
     const barrel = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.35, 0.35, 0.9, 12),
-        new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3, metalness: 0.7 })
+        new THREE.CylinderGeometry(0.35,0.35,0.9,12),
+        new THREE.MeshStandardMaterial({color:0x111111,roughness:0.3,metalness:0.7})
     );
-    barrel.castShadow = true; g.add(barrel);
-    const ringMat = new THREE.MeshStandardMaterial({ color: 0x7f8c8d, metalness: 0.9 });
-    [0.25, -0.25].forEach(y => {
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.02, 8, 16), ringMat);
-        ring.rotation.x = Math.PI / 2; ring.position.y = y; g.add(ring);
+    barrel.castShadow=true; g.add(barrel);
+    const ringMat = new THREE.MeshStandardMaterial({color:0x7f8c8d,metalness:0.9});
+    [0.25,-0.25].forEach(y=>{
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.36,0.02,8,16),ringMat);
+        ring.rotation.x=Math.PI/2; ring.position.y=y; g.add(ring);
     });
     return g;
 }
 
-function createShippingDepot(x, z) {
-    const g = new THREE.Group();
-    g.position.set(x, 0, z);
-    const wall = bx(18, 6, 12, 0x9e9e9e);
-    wall.position.y = 3; g.add(wall);
-    const roof = bx(18.4, 0.35, 12.4, 0x757575);
-    roof.position.y = 6.18; g.add(roof);
-    const eave = bx(18.4, 0.25, 3, 0x616161);
-    eave.position.set(0, 4.5, 7.6); g.add(eave);
-    const dock = bx(10, 1, 3.5, 0x757575);
-    dock.position.set(0, 0.5, 7.8); g.add(dock);
-    const door = bx(4, 4, 0.15, 0x212121);
-    door.position.set(-3, 2, 6.08); g.add(door);
-    const door2 = bx(4, 4, 0.15, 0x212121);
-    door2.position.set(3, 2, 6.08); g.add(door2);
-    const sign = bx(8, 1.8, 0.2, 0x0d47a1);
-    sign.position.set(0, 5.2, 6.1); g.add(sign);
-    const signText = bx(7.6, 1.4, 0.05, 0xffffff);
-    signText.position.set(0, 5.2, 6.22); g.add(signText);
+function createShippingDepot(x,z) {
+    const g = new THREE.Group(); g.position.set(x,0,z);
+    const wall = bx(18,6,12,0x9e9e9e); wall.position.y=3; g.add(wall);
+    const roof = bx(18.4,0.35,12.4,0x757575); roof.position.y=6.18; g.add(roof);
+    const eave = bx(18.4,0.25,3,0x616161); eave.position.set(0,4.5,7.6); g.add(eave);
+    const dock = bx(10,1,3.5,0x757575); dock.position.set(0,0.5,7.8); g.add(dock);
+    const door  = bx(4,4,0.15,0x212121); door.position.set(-3,2,6.08); g.add(door);
+    const door2 = bx(4,4,0.15,0x212121); door2.position.set(3,2,6.08); g.add(door2);
+    const sign  = bx(8,1.8,0.2,0x0d47a1); sign.position.set(0,5.2,6.1); g.add(sign);
+    const signT = bx(7.6,1.4,0.05,0xffffff); signT.position.set(0,5.2,6.22); g.add(signT);
     const chimney = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.3, 0.3, 3, 8),
-        new THREE.MeshStandardMaterial({ color: 0x616161, roughness: 0.8 })
+        new THREE.CylinderGeometry(0.3,0.3,3,8),
+        new THREE.MeshStandardMaterial({color:0x616161,roughness:0.8})
     );
-    chimney.position.set(7, 7.5, -3); chimney.castShadow = true; g.add(chimney);
+    chimney.position.set(7,7.5,-3); chimney.castShadow=true; g.add(chimney);
+
+    // 出荷タンク (ここにジェリ缶の中身を注ぐ)
+    createDepotTank(x, z, g);
+
     scene.add(g);
-    interactables.push({ type: 'depot', group: g, radius: 7.0 });
-    collisionBoxes.push({ x, z, hw: 9, hd: 6 });
-    collisionBoxes.push({ x, z: z+9.3, hw: 5, hd: 2 });
+    interactables.push({type:'depot', group:g, radius:8.0});
+    collisionBoxes.push({x,z,hw:9,hd:6});
+    collisionBoxes.push({x,z:z+9.3,hw:5,hd:2});
 }
 
-function createToolShop(x, z) {
-    const g = new THREE.Group();
-    g.position.set(x, 0, z);
-    const wall = bx(8, 4, 6, 0x8d6e63);
-    wall.position.y = 2; g.add(wall);
-    const roofGeo = new THREE.ConeGeometry(5.2, 2.5, 4);
-    const roof = new THREE.Mesh(roofGeo, new THREE.MeshStandardMaterial({ color: 0xbf360c, roughness: 0.9 }));
-    roof.rotation.y = Math.PI / 4;
-    roof.scale.set(8/(5.2*Math.SQRT2), 1, 6/(5.2*Math.SQRT2));
-    roof.position.y = 5.25; roof.castShadow = true; g.add(roof);
-    const porch = bx(4, 0.15, 2, 0x795548);
-    porch.position.set(0, 0.15, 4); g.add(porch);
-    const sign = bx(5, 1.4, 0.2, 0x1b5e20);
-    sign.position.set(0, 3.4, 3.1); g.add(sign);
-    const signFace = bx(4.6, 1.0, 0.05, 0xa5d6a7);
-    signFace.position.set(0, 3.4, 3.22); g.add(signFace);
-    const door = bx(1.2, 2.2, 0.1, 0x4e342e);
-    door.position.set(0, 1.1, 3.05); g.add(door);
-    [[-2.5, 2.5, 0], [2.5, 2.5, 0]].forEach(([wx, wy]) => {
-        const win = bx(1.5, 1.2, 0.1, 0x90caf9);
-        win.position.set(wx, wy, 3.06); g.add(win);
+function createDepotTank(depotX, depotZ, parentGroup) {
+    // 大型円柱タンク (倉庫の西側に設置)
+    const tankMat = new THREE.MeshStandardMaterial({color:0x37474f,roughness:0.4,metalness:0.7});
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(2.2,2.2,4.5,16),tankMat);
+    body.position.set(-11,2.25,0); body.castShadow=true; parentGroup.add(body);
+
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(2.3,2.3,0.2,16),tankMat);
+    cap.position.set(-11,4.6,0); parentGroup.add(cap);
+
+    // タンクのライン (帯)
+    const bandMat = new THREE.MeshStandardMaterial({color:0x546e7a,roughness:0.3,metalness:0.8});
+    [0.8,2.2,3.6].forEach(y=>{
+        const band = new THREE.Mesh(new THREE.TorusGeometry(2.22,0.07,8,24),bandMat);
+        band.rotation.x=Math.PI/2; band.position.set(-11,y,0); parentGroup.add(band);
     });
-    for (let i = 0; i < 3; i++) {
-        const b = createBarrelMesh();
-        b.position.set(3.2 + i * 0.85, 0.45, 2.8);
-        b.scale.setScalar(0.55); g.add(b);
+
+    // パイプ
+    const pipeMat = new THREE.MeshStandardMaterial({color:0x78909c,roughness:0.4,metalness:0.7});
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,2,8),pipeMat);
+    pipe.rotation.z=Math.PI/2; pipe.position.set(-9,1,0); parentGroup.add(pipe);
+}
+
+function createToolShop(x,z) {
+    const g = new THREE.Group(); g.position.set(x,0,z);
+    const wall = bx(8,4,6,0x8d6e63); wall.position.y=2; g.add(wall);
+    const roofGeo = new THREE.ConeGeometry(5.2,2.5,4);
+    const roof = new THREE.Mesh(roofGeo,new THREE.MeshStandardMaterial({color:0xbf360c,roughness:0.9}));
+    roof.rotation.y=Math.PI/4;
+    roof.scale.set(8/(5.2*Math.SQRT2),1,6/(5.2*Math.SQRT2));
+    roof.position.y=5.25; roof.castShadow=true; g.add(roof);
+    const porch=bx(4,0.15,2,0x795548); porch.position.set(0,0.15,4); g.add(porch);
+    const sign=bx(5,1.4,0.2,0x1b5e20); sign.position.set(0,3.4,3.1); g.add(sign);
+    const signF=bx(4.6,1.0,0.05,0xa5d6a7); signF.position.set(0,3.4,3.22); g.add(signF);
+    const door=bx(1.2,2.2,0.1,0x4e342e); door.position.set(0,1.1,3.05); g.add(door);
+    [[-2.5,2.5],[2.5,2.5]].forEach(([wx,wy])=>{
+        const win=bx(1.5,1.2,0.1,0x90caf9); win.position.set(wx,wy,3.06); g.add(win);
+    });
+    for (let i=0; i<3; i++) {
+        const b=createBarrelMesh(); b.position.set(3.2+i*0.85,0.45,2.8); b.scale.setScalar(0.55); g.add(b);
     }
     scene.add(g);
-    interactables.push({ type: 'shop', group: g, radius: 5.0 });
-    collisionBoxes.push({ x, z, hw: 4, hd: 3 });
+    collisionBoxes.push({x,z,hw:4,hd:3});
 }
 
-function createGasStation(x, z) {
-    const g = new THREE.Group();
-    g.position.set(x, 0, z);
-    const office = bx(5, 3.5, 4, 0xfff9c4);
-    office.position.set(-3.5, 1.75, 0); g.add(office);
-    const offRoof = bx(5.2, 0.2, 4.2, 0xe0e0e0);
-    offRoof.position.set(-3.5, 3.6, 0); g.add(offRoof);
-    const canopy = bx(10, 0.3, 8, 0xeeeeee, 0.5);
-    canopy.position.set(2, 4.8, 0); g.add(canopy);
-    [[-1,3],[5,3],[-1,-3],[5,-3]].forEach(([px, pz]) => {
-        const pole = bx(0.18, 4.8, 0.18, 0x9e9e9e, 0.5, 0.7);
-        pole.position.set(px, 2.4, pz); g.add(pole);
+function createGasStation(x,z) {
+    const g = new THREE.Group(); g.position.set(x,0,z);
+    const office=bx(5,3.5,4,0xfff9c4); office.position.set(-3.5,1.75,0); g.add(office);
+    const offRoof=bx(5.2,0.2,4.2,0xe0e0e0); offRoof.position.set(-3.5,3.6,0); g.add(offRoof);
+    const canopy=bx(10,0.3,8,0xeeeeee,0.5); canopy.position.set(2,4.8,0); g.add(canopy);
+    [[-1,3],[5,3],[-1,-3],[5,-3]].forEach(([px,pz])=>{
+        const pole=bx(0.18,4.8,0.18,0x9e9e9e,0.5,0.7); pole.position.set(px,2.4,pz); g.add(pole);
     });
-    [[1, 0], [3.5, 0]].forEach(([px, pz]) => {
-        const pump = bx(0.6, 1.6, 0.4, 0x546e7a, 0.5, 0.3);
-        pump.position.set(px, 0.8, pz); g.add(pump);
-        const pumpTop = bx(0.5, 0.4, 0.35, 0x37474f, 0.4, 0.4);
-        pumpTop.position.set(px, 1.8, pz); g.add(pumpTop);
-        const hose = bx(0.06, 0.5, 0.06, 0x212121);
-        hose.position.set(px + 0.3, 1.4, pz); g.add(hose);
+    [[1,0],[3.5,0]].forEach(([px,pz])=>{
+        const pump=bx(0.6,1.6,0.4,0x546e7a,0.5,0.3); pump.position.set(px,0.8,pz); g.add(pump);
+        const pumpT=bx(0.5,0.4,0.35,0x37474f,0.4,0.4); pumpT.position.set(px,1.8,pz); g.add(pumpT);
+        const hose=bx(0.06,0.5,0.06,0x212121); hose.position.set(px+0.3,1.4,pz); g.add(hose);
     });
-    const gsign = bx(3, 1.2, 0.2, 0xb71c1c);
-    gsign.position.set(-3.5, 4.3, 2.1); g.add(gsign);
+    const gsign=bx(3,1.2,0.2,0xb71c1c); gsign.position.set(-3.5,4.3,2.1); g.add(gsign);
     scene.add(g);
-    collisionBoxes.push({ x: x - 3.5, z, hw: 2.5, hd: 2 });
-    collisionBoxes.push({ x: x + 2,   z, hw: 5,   hd: 4.2 });
+    collisionBoxes.push({x:x-3.5,z,hw:2.5,hd:2});
+    collisionBoxes.push({x:x+2,z,hw:5,hd:4.2});
 }
 
-function createHouse(x, z, wallColor, roofColor, rotation) {
-    const g = new THREE.Group();
-    g.position.set(x, 0, z); g.rotation.y = rotation;
-    const W = 6, H = 3.5, D = 5;
-    const wall = bx(W, H, D, wallColor); wall.position.y = H / 2; g.add(wall);
-    const roofGeo = new THREE.ConeGeometry(4.5, 2.2, 4);
-    const roof = new THREE.Mesh(roofGeo, new THREE.MeshStandardMaterial({ color: roofColor, roughness: 0.9 }));
-    roof.rotation.y = Math.PI / 4;
-    roof.scale.set(W/(4.5*Math.SQRT2), 1, D/(4.5*Math.SQRT2));
-    roof.position.y = H + 1.1; roof.castShadow = true; g.add(roof);
-    const door = bx(1.1, 2.1, 0.12, 0x4e342e);
-    door.position.set(0, 1.05, D/2 + 0.06); g.add(door);
-    [[-1.8, 2.0], [1.8, 2.0]].forEach(([wx, wy]) => {
-        const win = bx(1.2, 1.0, 0.12, 0x90caf9);
-        win.position.set(wx, wy, D/2 + 0.06); g.add(win);
+function createHouse(x,z,wallColor,roofColor,rotation) {
+    const g = new THREE.Group(); g.position.set(x,0,z); g.rotation.y=rotation;
+    const W=6,H=3.5,D=5;
+    const wall=bx(W,H,D,wallColor); wall.position.y=H/2; g.add(wall);
+    const roofGeo=new THREE.ConeGeometry(4.5,2.2,4);
+    const roof=new THREE.Mesh(roofGeo,new THREE.MeshStandardMaterial({color:roofColor,roughness:0.9}));
+    roof.rotation.y=Math.PI/4;
+    roof.scale.set(W/(4.5*Math.SQRT2),1,D/(4.5*Math.SQRT2));
+    roof.position.y=H+1.1; roof.castShadow=true; g.add(roof);
+    const door=bx(1.1,2.1,0.12,0x4e342e); door.position.set(0,1.05,D/2+0.06); g.add(door);
+    [[-1.8,2.0],[1.8,2.0]].forEach(([wx,wy])=>{
+        const win=bx(1.2,1.0,0.12,0x90caf9); win.position.set(wx,wy,D/2+0.06); g.add(win);
     });
-    const chimney = new THREE.Mesh(
-        new THREE.BoxGeometry(0.5, 1.2, 0.5),
-        new THREE.MeshStandardMaterial({ color: 0x795548, roughness: 0.9 })
+    const chimney=new THREE.Mesh(
+        new THREE.BoxGeometry(0.5,1.2,0.5),
+        new THREE.MeshStandardMaterial({color:0x795548,roughness:0.9})
     );
-    chimney.position.set(1.5, H + 2.2 + 0.6, -1); chimney.castShadow = true; g.add(chimney);
+    chimney.position.set(1.5,H+2.2+0.6,-1); chimney.castShadow=true; g.add(chimney);
     scene.add(g);
-    const hw = rotation !== 0 ? 3.5 : 3.0;
-    const hd = rotation !== 0 ? 3.5 : 2.5;
-    collisionBoxes.push({ x, z, hw, hd });
+    const hw=rotation!==0?3.5:3.0, hd=rotation!==0?3.5:2.5;
+    collisionBoxes.push({x,z,hw,hd});
 }
 
 // ===== 道路 =====
 function createRoads() {
-    const asphaltMat = new THREE.MeshStandardMaterial({ map: makeAsphaltTex(), roughness: 0.95 });
-    const mainRoad = new THREE.Mesh(new THREE.PlaneGeometry(250, 10), asphaltMat);
-    mainRoad.rotation.x = -Math.PI / 2; mainRoad.position.set(-10, 0.02, 0);
-    mainRoad.receiveShadow = true; scene.add(mainRoad);
-    const branchRoad = new THREE.Mesh(new THREE.PlaneGeometry(8, 55), asphaltMat);
-    branchRoad.rotation.x = -Math.PI / 2; branchRoad.position.set(45, 0.02, 30);
-    branchRoad.receiveShadow = true; scene.add(branchRoad);
-    const lineMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
-    for (let x = -125; x < 115; x += 8) {
-        const dash = new THREE.Mesh(new THREE.PlaneGeometry(4, 0.25), lineMat);
-        dash.rotation.x = -Math.PI / 2; dash.position.set(x, 0.04, 0); scene.add(dash);
+    const asphaltMat=new THREE.MeshStandardMaterial({map:makeAsphaltTex(),roughness:0.95});
+    const mainRoad=new THREE.Mesh(new THREE.PlaneGeometry(250,10),asphaltMat);
+    mainRoad.rotation.x=-Math.PI/2; mainRoad.position.set(-10,0.02,0); mainRoad.receiveShadow=true; scene.add(mainRoad);
+    const branchRoad=new THREE.Mesh(new THREE.PlaneGeometry(8,55),asphaltMat);
+    branchRoad.rotation.x=-Math.PI/2; branchRoad.position.set(45,0.02,30); branchRoad.receiveShadow=true; scene.add(branchRoad);
+    const lineMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.8});
+    for (let x=-125; x<115; x+=8) {
+        const dash=new THREE.Mesh(new THREE.PlaneGeometry(4,0.25),lineMat);
+        dash.rotation.x=-Math.PI/2; dash.position.set(x,0.04,0); scene.add(dash);
     }
-    const yellowMat = new THREE.MeshStandardMaterial({ color: 0xffee58, roughness: 0.8 });
-    [-4.6, 4.6].forEach(zOff => {
-        const edge = new THREE.Mesh(new THREE.PlaneGeometry(250, 0.2), yellowMat);
-        edge.rotation.x = -Math.PI / 2; edge.position.set(-10, 0.04, zOff); scene.add(edge);
+    const yellowMat=new THREE.MeshStandardMaterial({color:0xffee58,roughness:0.8});
+    [-4.6,4.6].forEach(zOff=>{
+        const edge=new THREE.Mesh(new THREE.PlaneGeometry(250,0.2),yellowMat);
+        edge.rotation.x=-Math.PI/2; edge.position.set(-10,0.04,zOff); scene.add(edge);
     });
-    createRoadSign(-5, -7); createRoadSign(20, -7);
+    createRoadSign(-5,-7); createRoadSign(20,-7);
 }
-
-function createRoadSign(x, z) {
-    const g = new THREE.Group(); g.position.set(x, 0, z);
-    const pole = bx(0.12, 2.5, 0.12, 0x9e9e9e, 0.5, 0.8); pole.position.y = 1.25; g.add(pole);
-    const board = bx(2.5, 0.9, 0.12, 0x0d47a1); board.position.y = 2.7; g.add(board);
-    const face = bx(2.3, 0.7, 0.05, 0xffffff); face.position.set(0, 2.7, 0.09); g.add(face);
+function createRoadSign(x,z) {
+    const g=new THREE.Group(); g.position.set(x,0,z);
+    const pole=bx(0.12,2.5,0.12,0x9e9e9e,0.5,0.8); pole.position.y=1.25; g.add(pole);
+    const board=bx(2.5,0.9,0.12,0x0d47a1); board.position.y=2.7; g.add(board);
+    const face=bx(2.3,0.7,0.05,0xffffff); face.position.set(0,2.7,0.09); g.add(face);
     scene.add(g);
 }
 
 // ===== 装飾 =====
 function populateDecorations() {
     [[-90,5,0.9],[-70,25,0.7],[-88,-8,1.1],[-45,-20,0.6],[-95,-15,1.3],
-     [-58,8,0.5],[-75,-18,0.8],[-40,30,0.7]].forEach(([x,z,s]) => createRock(x,z,s));
+     [-58,8,0.5],[-75,-18,0.8],[-40,30,0.7]].forEach(([x,z,s])=>createRock(x,z,s));
     [[55,5],[60,-8],[68,-5],[72,20],[80,0],[85,-10],[62,15],[50,-10],
-     [78,-22],[90,5],[88,18]].forEach(([x,z]) => createTree(x,z));
+     [78,-22],[90,5],[88,18]].forEach(([x,z])=>createTree(x,z));
     [[25,-6],[35,-6],[45,-6],[55,-6],[65,-6],
-     [45,10],[45,25],[45,42]].forEach(([x,z]) => createStreetLight(x,z));
-    [[-45,-5],[-68,-20],[-85,0]].forEach(([x,z]) => createJunkPile(x,z));
+     [45,10],[45,25],[45,42]].forEach(([x,z])=>createStreetLight(x,z));
+    [[-45,-5],[-68,-20],[-85,0]].forEach(([x,z])=>createJunkPile(x,z));
 }
-
-function createRock(x, z, s) {
-    const m = new THREE.Mesh(
-        new THREE.DodecahedronGeometry(s * 0.55, 1),
-        new THREE.MeshStandardMaterial({ color: 0x78909c, roughness: 0.9 })
-    );
-    m.position.set(x, s * 0.27, z);
-    m.rotation.set(Math.random()*2, Math.random()*2, Math.random()*2);
-    m.castShadow = true; m.receiveShadow = true; scene.add(m);
+function createRock(x,z,s) {
+    const m=new THREE.Mesh(new THREE.DodecahedronGeometry(s*0.55,1),new THREE.MeshStandardMaterial({color:0x78909c,roughness:0.9}));
+    m.position.set(x,s*0.27,z); m.rotation.set(Math.random()*2,Math.random()*2,Math.random()*2);
+    m.castShadow=true; m.receiveShadow=true; scene.add(m);
 }
-
-function createTree(x, z) {
-    const g = new THREE.Group(); g.position.set(x, 0, z);
-    const trunk = bx(0.35, 2.2, 0.35, 0x5d4037); trunk.position.y = 1.1; g.add(trunk);
-    const foliage = new THREE.Mesh(
-        new THREE.SphereGeometry(1.3, 8, 6),
-        new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.9 })
-    );
-    foliage.position.y = 3.0; foliage.castShadow = true; g.add(foliage);
-    scene.add(g);
+function createTree(x,z) {
+    const g=new THREE.Group(); g.position.set(x,0,z);
+    const trunk=bx(0.35,2.2,0.35,0x5d4037); trunk.position.y=1.1; g.add(trunk);
+    const foliage=new THREE.Mesh(new THREE.SphereGeometry(1.3,8,6),new THREE.MeshStandardMaterial({color:0x2e7d32,roughness:0.9}));
+    foliage.position.y=3.0; foliage.castShadow=true; g.add(foliage); scene.add(g);
 }
-
-function createStreetLight(x, z) {
-    const g = new THREE.Group(); g.position.set(x, 0, z);
-    const pole = bx(0.1, 4.5, 0.1, 0x9e9e9e, 0.5, 0.8); pole.position.y = 2.25; g.add(pole);
-    const arm = bx(0.08, 0.08, 0.8, 0x9e9e9e, 0.5, 0.8); arm.position.set(0, 4.5, -0.4); g.add(arm);
-    const lamp = new THREE.Mesh(
-        new THREE.SphereGeometry(0.18, 8, 6),
-        new THREE.MeshStandardMaterial({ color: 0xffff88, emissive: 0xffff00, emissiveIntensity: 0.8 })
-    );
-    lamp.position.set(0, 4.5, -0.8); g.add(lamp);
-    const light = new THREE.PointLight(0xffeeaa, 0.6, 18);
-    light.position.set(0, 4.4, -0.8); g.add(light);
-    scene.add(g);
+function createStreetLight(x,z) {
+    const g=new THREE.Group(); g.position.set(x,0,z);
+    const pole=bx(0.1,4.5,0.1,0x9e9e9e,0.5,0.8); pole.position.y=2.25; g.add(pole);
+    const arm=bx(0.08,0.08,0.8,0x9e9e9e,0.5,0.8); arm.position.set(0,4.5,-0.4); g.add(arm);
+    const lamp=new THREE.Mesh(new THREE.SphereGeometry(0.18,8,6),
+        new THREE.MeshStandardMaterial({color:0xffff88,emissive:0xffff00,emissiveIntensity:0.8}));
+    lamp.position.set(0,4.5,-0.8); g.add(lamp);
+    const light=new THREE.PointLight(0xffeeaa,0.6,18);
+    light.position.set(0,4.4,-0.8); g.add(light); scene.add(g);
 }
-
-function createJunkPile(x, z) {
-    const g = new THREE.Group(); g.position.set(x, 0, z);
-    const colors = [0x546e7a, 0x37474f, 0x455a64];
-    for (let i = 0; i < 4; i++) {
-        const junk = bx(
-            0.5 + Math.random()*0.8, 0.4 + Math.random()*0.6, 0.4 + Math.random()*0.8,
-            colors[i % colors.length], 0.8, 0.4
-        );
-        junk.position.set((Math.random()-0.5)*2, 0.3, (Math.random()-0.5)*2);
-        junk.rotation.y = Math.random() * Math.PI; g.add(junk);
+function createJunkPile(x,z) {
+    const g=new THREE.Group(); g.position.set(x,0,z);
+    const colors=[0x546e7a,0x37474f,0x455a64];
+    for (let i=0; i<4; i++) {
+        const junk=bx(0.5+Math.random()*0.8,0.4+Math.random()*0.6,0.4+Math.random()*0.8,colors[i%colors.length],0.8,0.4);
+        junk.position.set((Math.random()-0.5)*2,0.3,(Math.random()-0.5)*2);
+        junk.rotation.y=Math.random()*Math.PI; g.add(junk);
     }
     scene.add(g);
 }
 
-// ===== 入力管理 =====
-const keys = { w:false, a:false, s:false, d:false, space:false };
-window.addEventListener('keydown', e => {
-    if (e.code==='KeyW'||e.code==='ArrowUp')    keys.w = true;
-    if (e.code==='KeyA'||e.code==='ArrowLeft')  keys.a = true;
-    if (e.code==='KeyS'||e.code==='ArrowDown')  keys.s = true;
-    if (e.code==='KeyD'||e.code==='ArrowRight') keys.d = true;
-    if (e.code==='Digit1') selectSlot(0);
-    if (e.code==='Digit2') selectSlot(1);
-    if (e.code==='Digit3') selectSlot(2);
-    if (e.code==='Digit4') selectSlot(3);
+// ===== 入力 =====
+const keys={w:false,a:false,s:false,d:false,space:false};
+window.addEventListener('keydown',e=>{
+    if (e.code==='KeyW'||e.code==='ArrowUp')    keys.w=true;
+    if (e.code==='KeyA'||e.code==='ArrowLeft')  keys.a=true;
+    if (e.code==='KeyS'||e.code==='ArrowDown')  keys.s=true;
+    if (e.code==='KeyD'||e.code==='ArrowRight') keys.d=true;
     if (e.code==='Space') { e.preventDefault(); if(!keys.space) triggerAction(); keys.space=true; }
 });
-window.addEventListener('keyup', e => {
-    if (e.code==='KeyW'||e.code==='ArrowUp')    keys.w = false;
-    if (e.code==='KeyA'||e.code==='ArrowLeft')  keys.a = false;
-    if (e.code==='KeyS'||e.code==='ArrowDown')  keys.s = false;
-    if (e.code==='KeyD'||e.code==='ArrowRight') keys.d = false;
-    if (e.code==='Space') keys.space = false;
+window.addEventListener('keyup',e=>{
+    if (e.code==='KeyW'||e.code==='ArrowUp')    keys.w=false;
+    if (e.code==='KeyA'||e.code==='ArrowLeft')  keys.a=false;
+    if (e.code==='KeyS'||e.code==='ArrowDown')  keys.s=false;
+    if (e.code==='KeyD'||e.code==='ArrowRight') keys.d=false;
+    if (e.code==='Space') keys.space=false;
 });
 
-let joystickActive=false, joystickTouchId=null, joystickVector={x:0,y:0};
-let lookTouchId=null, lastTouchPos={x:0,y:0}, isMouseDown=false;
-const joystickZone = document.getElementById('joystick-zone');
-const joystickKnob = document.getElementById('joystick-knob');
+let joystickActive=false,joystickTouchId=null,joystickVector={x:0,y:0};
+let lookTouchId=null,lastTouchPos={x:0,y:0},isMouseDown=false;
+const joystickZone=document.getElementById('joystick-zone');
+const joystickKnob=document.getElementById('joystick-knob');
 
-window.addEventListener('touchstart', e => {
-    for (let i=0; i<e.changedTouches.length; i++) {
-        const t = e.changedTouches[i];
-        const r = joystickZone.getBoundingClientRect();
-        if (t.clientX>=r.left && t.clientX<=r.right && t.clientY>=r.top && t.clientY<=r.bottom) {
+window.addEventListener('touchstart',e=>{
+    for (let i=0;i<e.changedTouches.length;i++) {
+        const t=e.changedTouches[i];
+        const r=joystickZone.getBoundingClientRect();
+        if (t.clientX>=r.left&&t.clientX<=r.right&&t.clientY>=r.top&&t.clientY<=r.bottom) {
             if (joystickTouchId===null) { joystickTouchId=t.identifier; joystickActive=true; updateJoystick(t); }
-        } else if (t.clientX > innerWidth/3 && lookTouchId===null) {
+        } else if (t.clientX>innerWidth/3&&lookTouchId===null) {
             lookTouchId=t.identifier; lastTouchPos.x=t.clientX; lastTouchPos.y=t.clientY;
         }
     }
-}, {passive:false});
-
-window.addEventListener('touchmove', e => {
-    for (let i=0; i<e.changedTouches.length; i++) {
-        const t = e.changedTouches[i];
+},{passive:false});
+window.addEventListener('touchmove',e=>{
+    for (let i=0;i<e.changedTouches.length;i++) {
+        const t=e.changedTouches[i];
         if (t.identifier===joystickTouchId) { updateJoystick(t); }
         else if (t.identifier===lookTouchId) {
-            gameState.cameraYaw  -= (t.clientX - lastTouchPos.x) * 0.005;
-            gameState.cameraPitch -= (t.clientY - lastTouchPos.y) * 0.005;
-            gameState.cameraPitch = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, gameState.cameraPitch));
+            gameState.cameraYaw -=(t.clientX-lastTouchPos.x)*0.005;
+            gameState.cameraPitch-=(t.clientY-lastTouchPos.y)*0.005;
+            gameState.cameraPitch=Math.max(-Math.PI/2.2,Math.min(Math.PI/2.2,gameState.cameraPitch));
             lastTouchPos.x=t.clientX; lastTouchPos.y=t.clientY;
         }
     }
-}, {passive:false});
-
-window.addEventListener('touchend', e => {
-    for (let i=0; i<e.changedTouches.length; i++) {
-        const t = e.changedTouches[i];
+},{passive:false});
+window.addEventListener('touchend',e=>{
+    for (let i=0;i<e.changedTouches.length;i++) {
+        const t=e.changedTouches[i];
         if (t.identifier===joystickTouchId) {
             joystickTouchId=null; joystickActive=false; joystickVector={x:0,y:0};
             joystickKnob.style.top='32px'; joystickKnob.style.left='32px';
         } else if (t.identifier===lookTouchId) { lookTouchId=null; }
     }
 });
-
-window.addEventListener('mousedown', e => {
-    if (e.target.closest('.interactive')||e.target.closest('.modal')||e.target.closest('#toolbar')) return;
+window.addEventListener('mousedown',e=>{
+    if (e.target.closest('.interactive')||e.target.closest('.modal')) return;
     isMouseDown=true; lastTouchPos.x=e.clientX; lastTouchPos.y=e.clientY;
 });
-window.addEventListener('mousemove', e => {
+window.addEventListener('mousemove',e=>{
     if (!isMouseDown) return;
-    gameState.cameraYaw  -= (e.clientX - lastTouchPos.x) * 0.003;
-    gameState.cameraPitch -= (e.clientY - lastTouchPos.y) * 0.003;
-    gameState.cameraPitch = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, gameState.cameraPitch));
+    gameState.cameraYaw -=(e.clientX-lastTouchPos.x)*0.003;
+    gameState.cameraPitch-=(e.clientY-lastTouchPos.y)*0.003;
+    gameState.cameraPitch=Math.max(-Math.PI/2.2,Math.min(Math.PI/2.2,gameState.cameraPitch));
     lastTouchPos.x=e.clientX; lastTouchPos.y=e.clientY;
 });
-window.addEventListener('mouseup', () => { isMouseDown=false; });
+window.addEventListener('mouseup',()=>{isMouseDown=false;});
 
 function updateJoystick(touch) {
-    const r = joystickZone.getBoundingClientRect();
-    let dx = touch.clientX - (r.left + r.width/2);
-    let dy = touch.clientY - (r.top + r.height/2);
+    const r=joystickZone.getBoundingClientRect();
+    let dx=touch.clientX-(r.left+r.width/2), dy=touch.clientY-(r.top+r.height/2);
     const maxR=40, dist=Math.hypot(dx,dy);
     if (dist>maxR) { dx=dx/dist*maxR; dy=dy/dist*maxR; }
     joystickKnob.style.left=`${32+dx}px`; joystickKnob.style.top=`${32+dy}px`;
     joystickVector.x=dx/maxR; joystickVector.y=dy/maxR;
 }
 
-// ===== ツールバー選択 =====
-function selectSlot(idx) {
-    activeSlot = idx;
-    for (let i = 0; i < 4; i++) {
-        document.getElementById(`tslot-${i}`).classList.toggle('active', i === idx);
-    }
-    updateHeldMesh();
-    updateToolbarUI();
-}
-
-function updateToolbarUI() {
-    const L = I18N[currentLang];
-    // Slot 0: ladle
-    document.getElementById('tlabel-0').innerText = L.ladleLabel;
-    const toilEl = document.getElementById('toil-0');
-    toilEl.style.display = ladleHasOil ? 'block' : 'none';
-    // Slot 1: empty can
-    document.getElementById('tlabel-1').innerText = L.canLabel;
-    const badge = document.getElementById('tbadge-1');
-    badge.innerText = gameState.emptyCans;
-    badge.style.display = gameState.emptyCans > 0 ? 'inline' : 'none';
-}
-
 // ===== アクション検出 =====
 function computeCurrentAction() {
-    const px = playerGroup.position.x, pz = playerGroup.position.z;
-    const L = I18N[currentLang];
+    const px=playerGroup.position.x, pz=playerGroup.position.z;
+    const L=I18N[currentLang];
 
-    // 最近傍設置缶
-    let nearCan = null, nearCanIdx = -1, nearCanDist = 2.5;
-    for (let i = 0; i < placedCans.length; i++) {
-        const c = placedCans[i];
-        const d = Math.hypot(px - c.x, pz - c.z);
-        if (d < nearCanDist) { nearCanDist = d; nearCan = c; nearCanIdx = i; }
+    // 最近傍ワールドアイテム (拾える範囲 2.0m)
+    let nearItem=null, nearItemIdx=-1, nearItemDist=2.0;
+    for (let i=0;i<worldItems.length;i++) {
+        const d=Math.hypot(px-worldItems[i].x, pz-worldItems[i].z);
+        if (d<nearItemDist) { nearItemDist=d; nearItem=worldItems[i]; nearItemIdx=i; }
     }
 
     // 最近傍油溜まり
-    let nearOil = null;
+    let nearOil=null;
     for (const it of interactables) {
-        if (it.type !== 'oil') continue;
-        const d = Math.hypot(px - it.group.position.x, pz - it.group.position.z);
-        if (d < it.radius) { nearOil = it; break; }
+        if (it.type!=='oil') continue;
+        const d=Math.hypot(px-it.group.position.x, pz-it.group.position.z);
+        if (d<it.radius) { nearOil=it; break; }
     }
 
     // 最近傍出荷場
-    let nearDepot = null;
+    let nearDepot=null;
     for (const it of interactables) {
-        if (it.type !== 'depot') continue;
-        const d = Math.hypot(px - it.group.position.x, pz - it.group.position.z);
-        if (d < it.radius) { nearDepot = it; break; }
+        if (it.type!=='depot') continue;
+        const d=Math.hypot(px-it.group.position.x, pz-it.group.position.z);
+        if (d<it.radius) { nearDepot=it; break; }
     }
 
-    // 最近傍道具屋
-    let nearShop = null;
-    for (const it of interactables) {
-        if (it.type !== 'shop') continue;
-        const d = Math.hypot(px - it.group.position.x, pz - it.group.position.z);
-        if (d < it.radius) { nearShop = it; break; }
-    }
-
-    // ひしゃく選択中
-    if (activeSlot === 0) {
-        // 油溜まり近く + ひしゃくに油なし → 掬う
-        if (nearOil && !ladleHasOil) {
-            return { type: 'scoop', label: L.promptScoop };
+    // --- 手が空の場合 ---
+    if (!heldItem) {
+        if (nearItem) {
+            const label = nearItem.type==='ladle'
+                ? L.promptPickupLadle
+                : L.promptPickupCan(nearItem.fill);
+            return { type:'pickup', label, itemIdx:nearItemIdx };
         }
-        // 設置缶近く + ひしゃくに油あり + 缶が満タンでない → 注ぐ
-        if (nearCan && ladleHasOil && nearCan.fill < 5) {
-            return { type: 'pour', label: L.promptPour(nearCan.fill), canIdx: nearCanIdx };
+        return null;
+    }
+
+    // --- ひしゃく持ち ---
+    if (heldItem.type==='ladle') {
+        // 油なし + 油溜まり近く → 掬う
+        if (!heldItem.hasOil && nearOil)
+            return { type:'scoop', label:L.promptScoop };
+
+        // 油あり + ワールドジェリ缶近く (満タンでない) → 注ぐ
+        if (heldItem.hasOil) {
+            let nearCan=null, nearCanIdx=-1, nearCanDist=2.5;
+            for (let i=0;i<worldItems.length;i++) {
+                if (worldItems[i].type!=='jerryCan') continue;
+                const d=Math.hypot(px-worldItems[i].x, pz-worldItems[i].z);
+                if (d<nearCanDist&&worldItems[i].fill<5) {
+                    nearCanDist=d; nearCan=worldItems[i]; nearCanIdx=i;
+                }
+            }
+            if (nearCan)
+                return { type:'pour', label:L.promptPour(nearCan.fill), canIdx:nearCanIdx };
         }
-        // 設置缶近く → 回収
-        if (nearCan) {
-            return { type: 'pickup', label: L.promptPickup(nearCan.fill), canIdx: nearCanIdx };
+        return { type:'putDown', label:L.promptPutDown };
+    }
+
+    // --- ジェリ缶持ち ---
+    if (heldItem.type==='jerryCan') {
+        if (heldItem.fill>0 && nearDepot) {
+            const earn=canPrice(heldItem.fill);
+            return { type:'sell', label:L.promptSell(earn) };
         }
-    }
-
-    // 空缶選択中 → 設置
-    if (activeSlot === 1 && gameState.emptyCans > 0) {
-        return { type: 'place', label: L.promptPlace };
-    }
-
-    // どのスロットでも設置缶回収可能
-    if (nearCan) {
-        return { type: 'pickup', label: L.promptPickup(nearCan.fill), canIdx: nearCanIdx };
-    }
-
-    // 出荷場 → 売却
-    if (nearDepot && gameState.filledCans.length > 0) {
-        const earn = gameState.filledCans.reduce((s, f) => s + canPrice(f), 0);
-        return { type: 'sell', label: L.promptSell + ` (+$${earn})` };
-    }
-
-    // 道具屋 → 購入
-    if (nearShop) {
-        return { type: 'buyCan', label: L.promptBuyCan };
+        return { type:'putDown', label:L.promptPutDown };
     }
 
     return null;
 }
 
 function canPrice(fill) {
-    if (fill <= 0) return 0;
-    if (fill >= 5) return 175;
-    return fill * 25;
+    if (fill<=0) return 0;
+    if (fill>=5) return 175;
+    return fill*25;
 }
 
 // ===== アクション実行 =====
 function triggerAction() {
     if (!currentAction) return;
-    const L = I18N[currentLang];
+    const L=I18N[currentLang];
     switch (currentAction.type) {
+        case 'pickup':  doPickup(currentAction.itemIdx); break;
         case 'scoop':   doScoop(); break;
         case 'pour':    doPour(currentAction.canIdx); break;
-        case 'pickup':  doPickup(currentAction.canIdx); break;
-        case 'place':   doPlace(); break;
         case 'sell':    doSell(); break;
-        case 'buyCan':  doBuyCan(); break;
+        case 'putDown': doPutDown(); break;
     }
 }
 
-function doScoop() {
-    ladleHasOil = true;
+function doPickup(idx) {
+    if (idx<0||idx>=worldItems.length) return;
+    const item=worldItems[idx];
+    heldItem={type:item.type, fill:item.fill, hasOil:item.hasOil};
+    removeWorldItem(idx);
     updateHeldMesh();
-    updateToolbarUI();
+    updateUI();
+    showNotification(I18N[currentLang].msgPickedUp(
+        heldItem.type==='ladle' ? I18N[currentLang].nameLadle : I18N[currentLang].nameCan
+    ));
+}
+
+function doScoop() {
+    heldItem.hasOil=true;
+    updateHeldMesh();
+    updateUI();
     showNotification(I18N[currentLang].msgScooped);
 }
 
 function doPour(canIdx) {
-    if (canIdx < 0 || canIdx >= placedCans.length) return;
-    const can = placedCans[canIdx];
+    if (canIdx<0||canIdx>=worldItems.length) return;
+    const can=worldItems[canIdx];
     can.fill++;
-    ladleHasOil = false;
-    refreshPlacedCanMesh(canIdx);
-    gameState.savedCans[canIdx] = { x: can.x, z: can.z, fill: can.fill };
+    heldItem.hasOil=false;
+    refreshWorldItemMesh(canIdx);
     updateHeldMesh();
-    updateToolbarUI();
-    if (can.fill >= 5) {
-        showNotification(I18N[currentLang].msgFull);
-    } else {
-        showNotification(I18N[currentLang].msgPoured(can.fill));
-    }
-}
-
-function doPickup(canIdx) {
-    if (canIdx < 0 || canIdx >= placedCans.length) return;
-    const fill = placedCans[canIdx].fill;
-    gameState.filledCans.push(fill);
-    removePlacedCan(canIdx);
     updateUI();
-    showNotification(I18N[currentLang].msgPickedUp(fill));
-}
-
-function doPlace() {
-    if (gameState.emptyCans <= 0) { showNotification(I18N[currentLang].msgNoCan); return; }
-    const { x: gx, z: gz } = getPlacementPos();
-    if (!isValidPlacement(gx, gz)) { showNotification(I18N[currentLang].msgBadPlace); return; }
-    gameState.emptyCans--;
-    spawnPlacedCan(gx, gz, 0);
-    updateUI();
-    updateToolbarUI();
-    if (gameState.emptyCans <= 0) updateHeldMesh();
-    showNotification(I18N[currentLang].msgPlaced);
+    if (can.fill>=5) showNotification(I18N[currentLang].msgCanFull);
+    else showNotification(I18N[currentLang].msgPoured(can.fill));
 }
 
 function doSell() {
-    if (gameState.filledCans.length === 0) { showNotification(I18N[currentLang].msgNoFilled); return; }
-    const earn = gameState.filledCans.reduce((s, f) => s + canPrice(f), 0);
-    gameState.money += earn;
-    gameState.filledCans = [];
+    if (!heldItem||heldItem.fill<=0) { showNotification(I18N[currentLang].msgCanEmpty); return; }
+    const earn=canPrice(heldItem.fill);
+    gameState.money+=earn;
+    heldItem.fill=0;
+    updateHeldMesh();
     updateUI();
     showNotification(I18N[currentLang].msgSold(earn));
 }
 
-function doBuyCan() {
-    if (gameState.money < 100) { showNotification(I18N[currentLang].msgNoMoney); return; }
-    gameState.money -= 100;
-    gameState.emptyCans++;
+function doPutDown() {
+    if (!heldItem) return;
+    const {x:dx, z:dz}=getDropPos();
+    const name=heldItem.type==='ladle' ? I18N[currentLang].nameLadle : I18N[currentLang].nameCan;
+    spawnWorldItem(heldItem.type, dx, dz, heldItem.hasOil, heldItem.fill, 0.04);
+    if (heldMesh) { camera.remove(heldMesh); heldMesh=null; }
+    heldItem=null;
     updateUI();
-    updateToolbarUI();
-    showNotification(I18N[currentLang].msgBought);
+    showNotification(I18N[currentLang].msgPutDown(name));
 }
 
 // ===== ゲームループ =====
-let lastTime = performance.now();
-let autoSaveTimer = 0;
+let lastTime=performance.now(), autoSaveTimer=0;
 
 function updateGame() {
     try {
-        const now = performance.now();
-        const delta = Math.min((now - lastTime) / 1000, 0.1);
-        lastTime = now;
+        const now=performance.now();
+        const delta=Math.min((now-lastTime)/1000, 0.1);
+        lastTime=now;
 
-        // 移動
-        let ix = 0, iz = 0;
-        if (keys.w) iz -= 1; if (keys.s) iz += 1;
-        if (keys.a) ix -= 1; if (keys.d) ix += 1;
-        if (joystickActive) { ix = joystickVector.x; iz = joystickVector.y; }
+        let ix=0,iz=0;
+        if (keys.w) iz-=1; if (keys.s) iz+=1;
+        if (keys.a) ix-=1; if (keys.d) ix+=1;
+        if (joystickActive) { ix=joystickVector.x; iz=joystickVector.y; }
 
-        const ml = Math.hypot(ix, iz);
-        if (ml > 0.1) {
-            const spd = 8.0 * delta;
-            const nx = ix / Math.max(1, ml), nz = iz / Math.max(1, ml);
-            const sy = Math.sin(gameState.cameraYaw), cy = Math.cos(gameState.cameraYaw);
-            const vx = (nx * cy + nz * sy) * spd;
-            const vz = (-nx * sy + nz * cy) * spd;
-            const px = playerGroup.position.x, pz = playerGroup.position.z;
-            if (!checkCollision(px + vx, pz))                      playerGroup.position.x = px + vx;
-            if (!checkCollision(playerGroup.position.x, pz + vz))  playerGroup.position.z = pz + vz;
+        const ml=Math.hypot(ix,iz);
+        if (ml>0.1) {
+            const spd=8.0*delta;
+            const nx=ix/Math.max(1,ml), nz=iz/Math.max(1,ml);
+            const sy=Math.sin(gameState.cameraYaw), cy=Math.cos(gameState.cameraYaw);
+            const vx=(nx*cy+nz*sy)*spd, vz=(-nx*sy+nz*cy)*spd;
+            const px2=playerGroup.position.x, pz2=playerGroup.position.z;
+            if (!checkCollision(px2+vx,pz2))                      playerGroup.position.x=px2+vx;
+            if (!checkCollision(playerGroup.position.x,pz2+vz))   playerGroup.position.z=pz2+vz;
         }
 
-        playerGroup.rotation.y = gameState.cameraYaw;
-        camera.position.set(playerGroup.position.x, 1.45, playerGroup.position.z);
-        camera.rotation.y = gameState.cameraYaw;
-        camera.rotation.x = gameState.cameraPitch;
+        playerGroup.rotation.y=gameState.cameraYaw;
+        camera.position.set(playerGroup.position.x,1.45,playerGroup.position.z);
+        camera.rotation.y=gameState.cameraYaw;
+        camera.rotation.x=gameState.cameraPitch;
 
-        // 影をプレイヤーに追従
-        dirLight.position.set(playerGroup.position.x + 30, 40, playerGroup.position.z + 20);
+        dirLight.position.set(playerGroup.position.x+30,40,playerGroup.position.z+20);
         dirLight.target.position.copy(playerGroup.position);
         dirLight.target.updateMatrixWorld();
 
-        // ゴースト更新
-        updateGhost();
+        currentAction=computeCurrentAction();
+        const prompt=document.getElementById('interaction-prompt');
+        if (currentAction) { prompt.style.display='block'; prompt.innerText=currentAction.label; }
+        else { prompt.style.display='none'; }
 
-        // アクション検出
-        currentAction = computeCurrentAction();
-        const prompt = document.getElementById('interaction-prompt');
-        if (currentAction) {
-            prompt.style.display = 'block';
-            prompt.innerText = currentAction.label;
-        } else {
-            prompt.style.display = 'none';
-        }
+        autoSaveTimer+=delta;
+        if (autoSaveTimer>=10) { autoSaveTimer=0; saveGame(true); }
 
-        autoSaveTimer += delta;
-        if (autoSaveTimer >= 10) { autoSaveTimer = 0; saveGame(true); }
-
-        renderer.render(scene, camera);
-    } catch(err) { console.error('Loop error:', err); }
+        renderer.render(scene,camera);
+    } catch(err) { console.error('Loop error:',err); }
     requestAnimationFrame(updateGame);
 }
 
-// ===== UI 更新 =====
+// ===== UI =====
 function updateUI() {
-    const L = I18N[currentLang];
-    document.getElementById('ui-money').innerText = L.money + gameState.money;
-    document.getElementById('ui-inv').innerText = L.inv(gameState.emptyCans, gameState.filledCans.length);
-    document.getElementById('ui-hint').innerText = L.hintText;
-    document.getElementById('btn-lang').innerText = currentLang === 'ja' ? 'English' : '日本語';
-    updateToolbarUI();
+    const L=I18N[currentLang];
+    document.getElementById('ui-money').innerText=L.money+gameState.money;
+    let heldText=L.heldNone;
+    if (heldItem) {
+        if (heldItem.type==='ladle') heldText=L.heldLadle(heldItem.hasOil);
+        else heldText=L.heldCan(heldItem.fill);
+    }
+    document.getElementById('ui-held').innerText=heldText;
+    document.getElementById('ui-hint').innerText=L.hintText;
+    document.getElementById('btn-lang').innerText=currentLang==='ja'?'English':'日本語';
 }
 
 function toggleLanguage() {
-    currentLang = currentLang === 'ja' ? 'en' : 'ja';
-    document.getElementById('btn-lang').innerText = currentLang === 'ja' ? 'English' : '日本語';
+    currentLang=currentLang==='ja'?'en':'ja';
+    document.getElementById('btn-lang').innerText=currentLang==='ja'?'English':'日本語';
     updateUI();
 }
 
 function showNotification(msg) {
-    const el = document.getElementById('notification');
-    el.innerText = msg; el.style.opacity = '1';
-    setTimeout(() => { el.style.opacity = '0'; }, 2500);
+    const el=document.getElementById('notification');
+    el.innerText=msg; el.style.opacity='1';
+    setTimeout(()=>{ el.style.opacity='0'; },2500);
 }
 
-// ===== セーブ / ロード =====
-function saveGame(isAuto = false) {
-    gameState.playerPos.x = playerGroup.position.x;
-    gameState.playerPos.z = playerGroup.position.z;
-    gameState.savedCans = placedCans.map(c => ({ x: c.x, z: c.z, fill: c.fill }));
-    localStorage.setItem('oil_rush_save', JSON.stringify(gameState));
-    showNotification(isAuto ? I18N[currentLang].msgAutoSaved : I18N[currentLang].msgDataSaved);
+// ===== セーブ/ロード =====
+function saveGame(isAuto=false) {
+    gameState.playerPos.x=playerGroup.position.x;
+    gameState.playerPos.z=playerGroup.position.z;
+    gameState.savedWorldItems=worldItems.map(i=>({type:i.type,x:i.x,z:i.z,fill:i.fill,hasOil:i.hasOil}));
+    gameState.savedHeldItem=heldItem?{...heldItem}:null;
+    localStorage.setItem('oil_rush_save',JSON.stringify(gameState));
+    showNotification(isAuto?I18N[currentLang].msgAutoSaved:I18N[currentLang].msgDataSaved);
 }
 
 function loadGame() {
-    const data = localStorage.getItem('oil_rush_save');
+    const data=localStorage.getItem('oil_rush_save');
     if (!data) return;
     try {
-        const saved = JSON.parse(data);
-        if (typeof saved.money !== 'number') throw new Error('bad data');
-        // migrate old barrel saves
-        if (saved.barrels !== undefined) {
-            saved.emptyCans = saved.maxBarrels || 3;
-            saved.filledCans = [];
-            saved.savedCans = [];
-            delete saved.barrels; delete saved.maxBarrels;
-        }
-        if (!Array.isArray(saved.filledCans)) saved.filledCans = [];
-        if (!Array.isArray(saved.savedCans))  saved.savedCans = [];
-        if (saved.emptyCans === undefined) saved.emptyCans = 3;
-        if (saved.cameraYaw === undefined) saved.cameraYaw = 0;
-        if (saved.cameraPitch === undefined) saved.cameraPitch = 0;
-        Object.assign(gameState, saved);
-        if (playerGroup) playerGroup.position.set(gameState.playerPos.x, 0, gameState.playerPos.z);
-        // 設置缶を復元
-        while (placedCans.length > 0) {
-            scene.remove(placedCans[0].group);
-            placedCans.splice(0, 1);
-        }
-        gameState.savedCans.forEach(sc => {
-            const g = createJerryCanMesh(sc.fill);
-            g.position.set(sc.x, 0, sc.z);
-            g.scale.setScalar(1.2);
-            scene.add(g);
-            placedCans.push({ group: g, fill: sc.fill, x: sc.x, z: sc.z });
-        });
-        updateUI();
+        const saved=JSON.parse(data);
+        if (typeof saved.money!=='number') throw new Error('bad');
+        // 旧データ移行
+        if (saved.barrels!==undefined) { delete saved.barrels; delete saved.maxBarrels; }
+        if (saved.emptyCans!==undefined) { delete saved.emptyCans; delete saved.filledCans; delete saved.savedCans; }
+        if (!saved.playerPos) saved.playerPos={x:-35,z:0};
+        if (saved.cameraYaw===undefined) saved.cameraYaw=0;
+        if (saved.cameraPitch===undefined) saved.cameraPitch=0;
+        Object.assign(gameState,saved);
+
+        if (playerGroup) playerGroup.position.set(gameState.playerPos.x,0,gameState.playerPos.z);
+
+        // ワールドアイテム再構築
+        clearWorldItems();
+        const items=gameState.savedWorldItems||getDefaultWorldItems();
+        items.forEach(i=>spawnWorldItem(i.type,i.x,i.z,i.hasOil||false,i.fill||0,0.04));
+
+        // 手持ち復元
+        heldItem=gameState.savedHeldItem?{...gameState.savedHeldItem}:null;
         updateHeldMesh();
+        updateUI();
         showNotification(I18N[currentLang].msgDataLoaded);
     } catch(e) { console.error(e); }
 }
 
-function openDataModal() {
-    document.getElementById('data-modal').style.display = 'flex';
-    document.getElementById('modal-title').innerText = I18N[currentLang].modalTitle;
-    document.getElementById('data-textarea').value = '';
+function clearWorldItems() {
+    while (worldItems.length>0) { scene.remove(worldItems[0].group); worldItems.splice(0,1); }
 }
-function closeDataModal() { document.getElementById('data-modal').style.display = 'none'; }
+
+function getDefaultWorldItems() {
+    // テーブル上の初期配置 (テーブルは (-45, 8), 天板 y=0.85)
+    return [
+        {type:'ladle',   x:-44.3, z:7.7,  fill:0, hasOil:false},
+        {type:'jerryCan',x:-45.0, z:8.3,  fill:0, hasOil:false},
+        {type:'jerryCan',x:-45.8, z:8.9,  fill:0, hasOil:false},
+    ];
+}
+
+function initWorldItemsDefault() {
+    clearWorldItems();
+    getDefaultWorldItems().forEach(i=>spawnWorldItem(i.type,i.x,i.z,i.hasOil,i.fill,0.88));
+}
+
+function openDataModal() {
+    document.getElementById('data-modal').style.display='flex';
+    document.getElementById('modal-title').innerText=I18N[currentLang].modalTitle;
+    document.getElementById('data-textarea').value='';
+}
+function closeDataModal() { document.getElementById('data-modal').style.display='none'; }
 
 function exportData() {
-    gameState.playerPos.x = playerGroup.position.x;
-    gameState.playerPos.z = playerGroup.position.z;
-    gameState.savedCans = placedCans.map(c => ({ x: c.x, z: c.z, fill: c.fill }));
-    document.getElementById('data-textarea').value = btoa(JSON.stringify(gameState));
+    gameState.playerPos.x=playerGroup.position.x;
+    gameState.playerPos.z=playerGroup.position.z;
+    gameState.savedWorldItems=worldItems.map(i=>({type:i.type,x:i.x,z:i.z,fill:i.fill,hasOil:i.hasOil}));
+    gameState.savedHeldItem=heldItem?{...heldItem}:null;
+    document.getElementById('data-textarea').value=btoa(JSON.stringify(gameState));
 }
 
 function importData() {
-    const text = document.getElementById('data-textarea').value.trim();
+    const text=document.getElementById('data-textarea').value.trim();
     try {
-        const json = JSON.parse(atob(text));
-        if (typeof json.money !== 'number') throw new Error();
-        Object.assign(gameState, json);
-        if (!Array.isArray(gameState.filledCans)) gameState.filledCans = [];
-        if (!Array.isArray(gameState.savedCans))  gameState.savedCans = [];
-        if (gameState.cameraYaw === undefined) gameState.cameraYaw = 0;
-        if (gameState.cameraPitch === undefined) gameState.cameraPitch = 0;
-        playerGroup.position.set(gameState.playerPos.x, 0, gameState.playerPos.z);
-        while (placedCans.length > 0) { scene.remove(placedCans[0].group); placedCans.splice(0, 1); }
-        gameState.savedCans.forEach(sc => {
-            const g = createJerryCanMesh(sc.fill);
-            g.position.set(sc.x, 0, sc.z); g.scale.setScalar(1.2);
-            scene.add(g);
-            placedCans.push({ group: g, fill: sc.fill, x: sc.x, z: sc.z });
-        });
-        updateUI(); updateHeldMesh(); saveGame(); closeDataModal();
+        const json=JSON.parse(atob(text));
+        if (typeof json.money!=='number') throw new Error();
+        Object.assign(gameState,json);
+        if (!gameState.playerPos) gameState.playerPos={x:-35,z:0};
+        playerGroup.position.set(gameState.playerPos.x,0,gameState.playerPos.z);
+        clearWorldItems();
+        const items=gameState.savedWorldItems||getDefaultWorldItems();
+        items.forEach(i=>spawnWorldItem(i.type,i.x,i.z,i.hasOil||false,i.fill||0,0.04));
+        heldItem=gameState.savedHeldItem?{...gameState.savedHeldItem}:null;
+        updateHeldMesh(); updateUI(); saveGame(); closeDataModal();
         showNotification(I18N[currentLang].msgImportOk);
     } catch(e) { alert(I18N[currentLang].msgImportFail); }
 }
 
 // ===== 初期化 =====
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded',()=>{
     initThree();
-    loadGame();
-    updateUI();
-    updateHeldMesh();
+    const hasSave=!!localStorage.getItem('oil_rush_save');
+    if (hasSave) {
+        loadGame();
+    } else {
+        initWorldItemsDefault();
+        updateUI();
+    }
     requestAnimationFrame(updateGame);
 });
 </script>
