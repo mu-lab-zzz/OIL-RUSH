@@ -393,8 +393,9 @@ function initThree() {
 function createPlayer() {
     playerGroup = new THREE.Group();
     playerGroup.position.set(-35, 0, 0);
+    // FPS視点のため自分の体は非表示（下を向いた時に視界を塞がないよう）
     const body = bx(0.6,0.9,0.6, 0x2980b9);
-    body.position.y=0.45; playerGroup.add(body);
+    body.position.y=0.45; body.visible=false; playerGroup.add(body);
     scene.add(camera);
     scene.add(playerGroup);
 }
