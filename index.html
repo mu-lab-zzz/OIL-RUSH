@@ -114,6 +114,7 @@ const I18N = {
         promptBuy: (name, price) => `[SPACE] ${name}を購入 ($${price})`,
         msgBought: (name, price) => `${name}を購入しました (-$${price})`,
         msgNoMoney: "所持金が足りません",
+        nameCart: "リヤカー",
         nameHandPump: "手動汲み上げ機",
         promptInstallPump: "[SPACE] 汲み上げ機を設置",
         promptRemovePump:  "[SPACE] 汲み上げ機を撤去",
@@ -168,6 +169,7 @@ const I18N = {
         promptBuy: (name, price) => `[SPACE] Buy ${name} ($${price})`,
         msgBought: (name, price) => `Bought ${name} (-$${price})`,
         msgNoMoney: "Not enough money",
+        nameCart: "handcart",
         nameHandPump: "hand pump",
         promptInstallPump: "[SPACE] Install pump",
         promptRemovePump:  "[SPACE] Remove pump",
@@ -186,9 +188,11 @@ let currentLang = 'ja';
 
 // ===== ゲーム状態 =====
 let gameState = {
-    money: 0,
-    savedWorldItems: null, // [{type,x,z,fill,hasOil}] — null means first-time default
-    savedHeldItem: null,   // {type,fill,hasOil} or null
+    money: 100,
+    hasCart: false,
+    savedWorldItems: null,
+    savedHeldItem: null,
+    savedPumps: null,
     playerPos: { x: -35, z: 0 },
     cameraYaw: 0, cameraPitch: 0
 };
@@ -928,9 +932,19 @@ function createHandcart(x, z) {
 
     cartObj = {
         group: g, x, z, isHeld: false,
+        purchased: false,
         slots: new Array(10).fill(null),
         cartItemMeshMap: new Map()
     };
+
+    // 未購入なら商品として登録
+    if (gameState.hasCart) {
+        cartObj.purchased = true;
+    } else {
+        const idx = shopDisplayItems.length;
+        g.traverse(m => { if(m.isMesh) shopMeshToIdx.set(m.uuid, idx); });
+        shopDisplayItems.push({ type:'handcart', price:100, mesh:g, dropX:x, dropZ:z });
+    }
 }
 
 function createGasStation(x,z) {
@@ -1139,7 +1153,7 @@ function computeCurrentAction() {
         if (Math.hypot(px-it.group.position.x, pz-it.group.position.z)<it.radius) { nearDepot=it; break; }
     }
 
-    const nearCart = cartObj && Math.hypot(px-cartObj.x, pz-cartObj.z) < 3.5;
+    const nearCart = cartObj && cartObj.purchased && Math.hypot(px-cartObj.x, pz-cartObj.z) < 3.5;
 
     // --- ひしゃく持ち ---
     if (heldItem && heldItem.type==='ladle') {
@@ -1182,7 +1196,10 @@ function computeCurrentAction() {
         // ショップ展示品に照準 → 購入
         if (raycastShopItemIdx>=0) {
             const si = shopDisplayItems[raycastShopItemIdx];
-            const name = si.type==='ladle' ? L.nameLadle : L.nameCan;
+            const name = si.type==='ladle' ? L.nameLadle
+                : si.type==='handPump' ? L.nameHandPump
+                : si.type==='handcart' ? L.nameCart
+                : L.nameCan;
             return { type:'buyItem', label:L.promptBuy(name, si.price), shopItemIdx:raycastShopItemIdx };
         }
         // カートアイテムに照準 → 降ろす
@@ -1239,6 +1256,21 @@ function doBuyItem(idx) {
     const L = I18N[currentLang];
     if (gameState.money < si.price) { showNotification(L.msgNoMoney); return; }
     gameState.money -= si.price;
+
+    if (si.type === 'handcart') {
+        // カートはすでにシーンにある — 商品登録を解除して有効化
+        si.mesh.traverse(m => { if(m.isMesh) shopMeshToIdx.delete(m.uuid); });
+        gameState.hasCart = true;
+        cartObj.purchased = true;
+        if (highlightedShopItemIdx === idx) {
+            si.mesh.traverse(m => { if(m.isMesh&&m.material&&m.material.emissive) m.material.emissive.set(0x000000); });
+            highlightedShopItemIdx = -1;
+        }
+        updateUI();
+        showNotification(L.msgBought(L.nameCart, si.price));
+        return;
+    }
+
     spawnWorldItem(si.type, si.dropX, si.dropZ, false, 0, 0.04);
     updateUI();
     const name = si.type==='ladle' ? L.nameLadle : si.type==='handPump' ? L.nameHandPump : L.nameCan;
@@ -1696,17 +1728,25 @@ function loadGame() {
         if (!saved.playerPos) saved.playerPos={x:-35,z:0};
         if (saved.cameraYaw===undefined) saved.cameraYaw=0;
         if (saved.cameraPitch===undefined) saved.cameraPitch=0;
+        if (saved.hasCart===undefined) saved.hasCart=false;
         Object.assign(gameState,saved);
 
         if (playerGroup) playerGroup.position.set(gameState.playerPos.x,0,gameState.playerPos.z);
 
-        // カートリセット
+        // カートリセット & 購入状態復元
         if (cartObj) {
             cartObj.slots.forEach((s,i)=>{
                 if (s) { cartObj.group.remove(s.mesh); cartObj.slots[i]=null; }
             });
             cartObj.cartItemMeshMap.clear();
             cartObj.isHeld = false;
+            if (gameState.hasCart) {
+                cartObj.purchased = true;
+                cartObj.group.traverse(m => { if(m.isMesh) shopMeshToIdx.delete(m.uuid); });
+            } else {
+                cartObj.purchased = false;
+                // createHandcart()で登録済み — 再登録は不要
+            }
         }
 
         // ワールドアイテム再構築
@@ -1754,11 +1794,7 @@ function restorePump(x, z, attachedCan) {
 }
 
 function getDefaultWorldItems() {
-    return [
-        {type:'ladle',   x:-44.3, z:7.7,  fill:0, hasOil:false},
-        {type:'jerryCan',x:-45.0, z:8.3,  fill:0, hasOil:false},
-        {type:'jerryCan',x:-45.8, z:8.9,  fill:0, hasOil:false},
-    ];
+    return []; // 道具は道具屋で購入
 }
 
 function initWorldItemsDefault() {
@@ -1788,12 +1824,21 @@ function importData() {
         if (typeof json.money!=='number') throw new Error();
         Object.assign(gameState,json);
         if (!gameState.playerPos) gameState.playerPos={x:-35,z:0};
+        if (gameState.hasCart===undefined) gameState.hasCart=false;
         playerGroup.position.set(gameState.playerPos.x,0,gameState.playerPos.z);
         clearWorldItems();
         const items=gameState.savedWorldItems||getDefaultWorldItems();
         items.forEach(i=>spawnWorldItem(i.type,i.x,i.z,i.hasOil||false,i.fill||0,0.04));
         clearPumpObjs();
         (gameState.savedPumps||[]).forEach(p=>restorePump(p.x,p.z,p.attachedCan));
+        if (cartObj) {
+            cartObj.slots.forEach((s,i)=>{ if(s){cartObj.group.remove(s.mesh);cartObj.slots[i]=null;} });
+            cartObj.cartItemMeshMap.clear(); cartObj.isHeld=false;
+            if (gameState.hasCart) {
+                cartObj.purchased=true;
+                cartObj.group.traverse(m=>{if(m.isMesh)shopMeshToIdx.delete(m.uuid);});
+            } else { cartObj.purchased=false; }
+        }
         heldItem=gameState.savedHeldItem?{...gameState.savedHeldItem}:null;
         updateHeldMesh(); updateUI(); saveGame(); closeDataModal();
         showNotification(I18N[currentLang].msgImportOk);
