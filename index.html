@@ -790,11 +790,21 @@ function createDepotTank(depotX, depotZ, parentGroup) {
 function createToolShop(x,z) {
     const g = new THREE.Group(); g.position.set(x,0,z);
     const wall = bx(8,4,6,0x8d6e63); wall.position.y=2; g.add(wall);
-    const roofGeo = new THREE.ConeGeometry(5.2,2.5,4);
-    const roof = new THREE.Mesh(roofGeo,new THREE.MeshStandardMaterial({color:0xbf360c,roughness:0.9}));
-    roof.rotation.y=Math.PI/4;
-    roof.scale.set(8/(5.2*Math.SQRT2),1,6/(5.2*Math.SQRT2));
-    roof.position.y=5.25; roof.castShadow=true; g.add(roof);
+    // 長方形ピラミッド屋根 (8×6 底面、高さ2.5) — BufferGeometry で正確に生成
+    (()=>{
+        const rW=8, rD=6, rH=2.5, hw=rW/2, hd_=rD/2;
+        const v = new Float32Array([
+            -hw,0, hd_,  hw,0, hd_,  0,rH,0,   // 前面
+             hw,0,-hd_, -hw,0,-hd_,  0,rH,0,   // 背面
+            -hw,0,-hd_, -hw,0, hd_,  0,rH,0,   // 左面
+             hw,0, hd_,  hw,0,-hd_,  0,rH,0,   // 右面
+        ]);
+        const roofGeo = new THREE.BufferGeometry();
+        roofGeo.setAttribute('position', new THREE.BufferAttribute(v,3));
+        roofGeo.computeVertexNormals();
+        const roof = new THREE.Mesh(roofGeo, new THREE.MeshStandardMaterial({color:0xbf360c,roughness:0.9}));
+        roof.position.y=4; roof.castShadow=true; g.add(roof);
+    })();
     const porch=bx(4,0.15,2,0x795548); porch.position.set(0,0.15,4); g.add(porch);
     const sign=bx(5,1.4,0.2,0x1b5e20); sign.position.set(0,3.4,3.1); g.add(sign);
     const signF=bx(4.6,1.0,0.05,0xa5d6a7); signF.position.set(0,3.4,3.22); g.add(signF);
