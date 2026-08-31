@@ -405,7 +405,6 @@ function initThree() {
 
     createPlayer();
     createOilField();
-    createLowTable(-45, 8);  // 油田近くのローテーブル
     createTown();
     createRoads();
     populateDecorations();
@@ -438,22 +437,6 @@ function checkCollision(x, z) {
     return false;
 }
 
-// ===== ローテーブル =====
-function createLowTable(x, z) {
-    const g = new THREE.Group(); g.position.set(x,0,z);
-
-    // 天板
-    const top = bx(1.5,0.06,0.8, 0x8B5E3C, 0.9);
-    top.position.y=0.85; g.add(top);
-
-    // 脚 x4
-    [[-0.65,-0.34],[0.65,-0.34],[-0.65,0.34],[0.65,0.34]].forEach(([lx,lz])=>{
-        const leg = bx(0.07,0.85,0.07, 0x6B4226, 0.9);
-        leg.position.set(lx,0.425,lz); g.add(leg);
-    });
-
-    scene.add(g);
-}
 
 // ===== 油田エリア =====
 function createOilField() {
@@ -1086,7 +1069,6 @@ function clearWorldItems() {
 }
 
 function getDefaultWorldItems() {
-    // テーブル上の初期配置 (テーブルは (-45, 8), 天板 y=0.85)
     return [
         {type:'ladle',   x:-44.3, z:7.7,  fill:0, hasOil:false},
         {type:'jerryCan',x:-45.0, z:8.3,  fill:0, hasOil:false},
