@@ -1764,6 +1764,8 @@ function saveGame(isAuto=false) {
     gameState.savedWorldItems=worldItems.map(i=>({type:i.type,x:i.x,z:i.z,fill:i.fill,hasOil:i.hasOil}));
     gameState.savedHeldItem=heldItem?{...heldItem}:null;
     gameState.savedPumps=pumpObjs.map(po=>({x:po.x,z:po.z,attachedCan:po.attachedCan?{...po.attachedCan}:null}));
+    gameState.savedCartSlots=cartObj?cartObj.slots.map(s=>s?{type:s.type,fill:s.fill,hasOil:s.hasOil}:null):[];
+    gameState.savedCartPos=cartObj?{x:cartObj.x,z:cartObj.z}:null;
     localStorage.setItem('oil_rush_save',JSON.stringify(gameState));
     showNotification(isAuto?I18N[currentLang].msgAutoSaved:I18N[currentLang].msgDataSaved);
 }
@@ -1795,6 +1797,23 @@ function loadGame() {
             if (gameState.hasCart) {
                 cartObj.purchased = true;
                 cartObj.group.traverse(m => { if(m.isMesh) shopMeshToIdx.delete(m.uuid); });
+                // カート位置復元
+                if (gameState.savedCartPos) {
+                    cartObj.x=gameState.savedCartPos.x; cartObj.z=gameState.savedCartPos.z;
+                    cartObj.group.position.set(cartObj.x,0,cartObj.z);
+                }
+                // カートスロット復元
+                (gameState.savedCartSlots||[]).forEach((s,i)=>{
+                    if (!s) return;
+                    const [lx,lz]=CART_SLOTS[i];
+                    let m;
+                    if (s.type==='ladle') { m=createLadleMesh(s.hasOil); m.scale.setScalar(1.5); }
+                    else { m=createJerryCanMesh(s.fill); m.scale.setScalar(1.3); }
+                    m.position.set(lx,0.59,lz); m.rotation.y=(i%2===0?-0.1:0.1);
+                    cartObj.group.add(m);
+                    m.traverse(c=>{if(c.isMesh)cartObj.cartItemMeshMap.set(c.uuid,i);});
+                    cartObj.slots[i]={type:s.type,fill:s.fill,hasOil:s.hasOil,mesh:m};
+                });
             } else {
                 cartObj.purchased = false;
                 // createHandcart()で登録済み — 再登録は不要
@@ -1889,6 +1908,21 @@ function importData() {
             if (gameState.hasCart) {
                 cartObj.purchased=true;
                 cartObj.group.traverse(m=>{if(m.isMesh)shopMeshToIdx.delete(m.uuid);});
+                if (gameState.savedCartPos) {
+                    cartObj.x=gameState.savedCartPos.x; cartObj.z=gameState.savedCartPos.z;
+                    cartObj.group.position.set(cartObj.x,0,cartObj.z);
+                }
+                (gameState.savedCartSlots||[]).forEach((s,i)=>{
+                    if (!s) return;
+                    const [lx,lz]=CART_SLOTS[i];
+                    let m;
+                    if (s.type==='ladle') { m=createLadleMesh(s.hasOil); m.scale.setScalar(1.5); }
+                    else { m=createJerryCanMesh(s.fill); m.scale.setScalar(1.3); }
+                    m.position.set(lx,0.59,lz); m.rotation.y=(i%2===0?-0.1:0.1);
+                    cartObj.group.add(m);
+                    m.traverse(c=>{if(c.isMesh)cartObj.cartItemMeshMap.set(c.uuid,i);});
+                    cartObj.slots[i]={type:s.type,fill:s.fill,hasOil:s.hasOil,mesh:m};
+                });
             } else { cartObj.purchased=false; }
         }
         heldItem=gameState.savedHeldItem?{...gameState.savedHeldItem}:null;
