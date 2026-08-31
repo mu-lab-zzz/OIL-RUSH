@@ -1436,7 +1436,7 @@ function computeCurrentAction() {
             return { type:'pour', label:L.promptPour(aimItem.fill), canIdx:aimIdx };
         if (heldItem.hasOil && aimItem && aimItem.type==='drum' && aimItem.contentType!=='gas' && aimItem.fill<10)
             return { type:'pourDrum', label:L.promptPourDrum(aimItem.fill), canIdx:aimIdx };
-        if (nearCart && cartObj.slots.some(s=>s===null)) return { type:'loadCart', label:L.promptLoadCart };
+        if (nearCart && cartCapacityUsed()+1<=10) return { type:'loadCart', label:L.promptLoadCart };
         return { type:'putDown', label:L.promptPutDown };
     }
 
@@ -1480,7 +1480,7 @@ function computeCurrentAction() {
             return { type:'attachCan', label:L.promptAttachCan, pumpIdx:raycastPumpIdx };
         if (heldItem.contentType==='gas' && raycastEnginePumpIdx>=0)
             return { type:'fuelEnginePump', label:L.promptFuelEnginePump(enginePumpObjs[raycastEnginePumpIdx].gasFuel), epIdx:raycastEnginePumpIdx };
-        if (nearCart && cartObj.slots.some(s=>s===null)) return { type:'loadCart', label:L.promptLoadCart };
+        if (nearCart && cartCapacityUsed()+1<=10) return { type:'loadCart', label:L.promptLoadCart };
         return { type:'putDown', label:L.promptPutDown };
     }
 
@@ -1490,22 +1490,21 @@ function computeCurrentAction() {
             return { type:'sellDrum', label:L.promptSellDrum(drumPrice(heldItem.fill)) };
         if (heldItem.contentType==='gas' && raycastEnginePumpIdx>=0)
             return { type:'fuelEnginePump', label:L.promptFuelEnginePump(enginePumpObjs[raycastEnginePumpIdx].gasFuel), epIdx:raycastEnginePumpIdx };
-        const drumCount = cartObj ? cartObj.slots.filter(s=>s&&s.type==='drum').length : 0;
-        if (nearCart && cartObj.slots.some(s=>s===null) && drumCount<2) return { type:'loadCart', label:L.promptLoadCart };
+        if (nearCart && cartCapacityUsed()+5<=10) return { type:'loadCart', label:L.promptLoadCart };
         return { type:'putDown', label:L.promptPutDown };
     }
 
     // --- 汲み上げ機持ち ---
     if (heldItem && heldItem.type==='handPump') {
         if (nearOil) return { type:'installPump', label:L.promptInstallPump };
-        if (nearCart && cartObj.slots.some(s=>s===null)) return { type:'loadCart', label:L.promptLoadCart };
+        if (nearCart && cartCapacityUsed()+1<=10) return { type:'loadCart', label:L.promptLoadCart };
         return { type:'putDown', label:L.promptPutDown };
     }
 
     // --- エンジンポンプ持ち ---
     if (heldItem && heldItem.type==='enginePump') {
         if (nearOil) return { type:'installEnginePump', label:L.promptInstallEnginePump };
-        if (nearCart && cartObj.slots.some(s=>s===null)) return { type:'loadCart', label:L.promptLoadCart };
+        if (nearCart && cartCapacityUsed()+1<=10) return { type:'loadCart', label:L.promptLoadCart };
         return { type:'putDown', label:L.promptPutDown };
     }
 
@@ -1968,13 +1967,17 @@ function doReleaseCart() {
     showNotification(I18N[currentLang].msgReleasedCart);
 }
 
+function cartCapacityUsed() {
+    if (!cartObj) return 0;
+    return cartObj.slots.reduce((sum,s)=>sum+(s?(s.type==='drum'?5:1):0),0);
+}
+
 function doLoadCart() {
     if (!heldItem || !cartObj) return;
+    const needed = heldItem.type==='drum' ? 5 : 1;
+    if (cartCapacityUsed()+needed > 10) { showNotification(I18N[currentLang].msgCartFull); return; }
     const slotIdx = cartObj.slots.findIndex(s=>s===null);
     if (slotIdx<0) { showNotification(I18N[currentLang].msgCartFull); return; }
-    if (heldItem.type==='drum' && cartObj.slots.filter(s=>s&&s.type==='drum').length>=2) {
-        showNotification(I18N[currentLang].msgDrumCartFull); return;
-    }
 
     const [lx,lz] = CART_SLOTS[slotIdx];
     let m;
@@ -2324,8 +2327,7 @@ function updateUI() {
         else heldText=L.heldCan(heldItem.fill, heldItem.contentType);
     }
     if (cartObj && cartObj.isHeld) {
-        const n = cartObj.slots.filter(s=>s!==null).length;
-        heldText += ' / ' + L.heldCart(n);
+        heldText += ' / ' + L.heldCart(cartCapacityUsed());
     }
     document.getElementById('ui-held').innerText=heldText;
     document.getElementById('ui-hint').innerText=L.hintText;
