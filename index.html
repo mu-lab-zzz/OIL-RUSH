@@ -100,7 +100,17 @@ const I18N = {
         msgImportFail: "無効なデータです",
         modalTitle: "セーブデータ管理",
         nameLadle: "ひしゃく",
-        nameCan: "ジェリ缶"
+        nameCan: "ジェリ缶",
+        promptGrabCart: "[SPACE] リヤカーを引く",
+        promptReleaseCart: "[SPACE] リヤカーを離す",
+        promptLoadCart: "[SPACE] リヤカーに乗せる",
+        promptUnloadCart: "[SPACE] 道具を降ろす",
+        heldCart: (n) => `リヤカー引き中 (${n}/10)`,
+        msgGrabbedCart: "リヤカーを引いている",
+        msgReleasedCart: "リヤカーを離した",
+        msgLoadedCart: "リヤカーに乗せた",
+        msgUnloadedCart: "リヤカーから降ろした",
+        msgCartFull: "リヤカーが満載です"
     },
     en: {
         money: "Money: $",
@@ -129,7 +139,17 @@ const I18N = {
         msgImportFail: "Invalid data format",
         modalTitle: "Save Data Management",
         nameLadle: "ladle",
-        nameCan: "jerry can"
+        nameCan: "jerry can",
+        promptGrabCart: "[SPACE] Grab handcart",
+        promptReleaseCart: "[SPACE] Release handcart",
+        promptLoadCart: "[SPACE] Load onto cart",
+        promptUnloadCart: "[SPACE] Unload item",
+        heldCart: (n) => `Pulling cart (${n}/10)`,
+        msgGrabbedCart: "Pulling handcart",
+        msgReleasedCart: "Released handcart",
+        msgLoadedCart: "Loaded onto cart",
+        msgUnloadedCart: "Unloaded from cart",
+        msgCartFull: "Cart is full"
     }
 };
 let currentLang = 'ja';
@@ -155,9 +175,21 @@ let heldItem = null;   // {type, fill, hasOil}
 let heldMesh = null;   // camera-child mesh
 
 let currentAction = null;
-let highlightedItemIdx = -1; // 現在ハイライト中のワールドアイテムインデックス
-let raycastTargetIdx = -1;   // レイキャストで照準中のアイテムインデックス
-let raycaster;               // initScene内で初期化
+let highlightedItemIdx = -1;     // ハイライト中ワールドアイテム
+let raycastTargetIdx = -1;       // 照準中ワールドアイテム
+let raycastCartSlotIdx = -1;     // 照準中カートスロット
+let highlightedCartSlotIdx = -1; // ハイライト中カートスロット
+let raycaster;                   // initScene内で初期化
+
+// ===== リヤカー =====
+let cartObj = null; // { group, x, z, isHeld, slots[10], cartItemMeshMap }
+const CART_SLOTS = [
+    [-0.35,-1.0],[0.35,-1.0],
+    [-0.35,-0.5],[0.35,-0.5],
+    [-0.35, 0.0],[0.35, 0.0],
+    [-0.35, 0.5],[0.35, 0.5],
+    [-0.35, 1.0],[0.35, 1.0],
+];
 
 // ===== テクスチャ =====
 function makeDesertTex() {
@@ -594,6 +626,71 @@ function createToolShop(x,z) {
     }
     scene.add(g);
     collisionBoxes.push({x,z,hw:4,hd:3});
+
+    // 道具屋の前にリヤカーを配置
+    createHandcart(x+1, z+8);
+}
+
+function createHandcart(x, z) {
+    const g = new THREE.Group();
+    const metalMat = new THREE.MeshStandardMaterial({color:0x607d8b,roughness:0.4,metalness:0.7});
+    const woodMat  = new THREE.MeshStandardMaterial({color:0x8d6e63,roughness:0.85});
+    const wheelMat = new THREE.MeshStandardMaterial({color:0x212121,roughness:0.8});
+    const rimMat   = new THREE.MeshStandardMaterial({color:0x78909c,roughness:0.3,metalness:0.8});
+
+    // 荷台床板
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(1.2,0.07,2.8), woodMat);
+    bed.position.y=0.55; bed.castShadow=true; g.add(bed);
+
+    // 荷台左右・前後サイド枠
+    [[-0.62,0,0.04,2.82,0.18],[0.62,0,0.04,2.82,0.18],[0,-1.43,1.28,0.04,0.22],[0,1.43,1.28,0.04,0.22]].forEach(([ex,ez,ew,ed,eh])=>{
+        const f = bx(ew,eh,ed,0x546e7a,0.4,0.6);
+        f.position.set(ex,0.64,ez); g.add(f);
+    });
+
+    // 車輪 2個 (前方)
+    for (const sx of [-0.68,0.68]) {
+        const whl = new THREE.Mesh(new THREE.CylinderGeometry(0.36,0.36,0.10,20), wheelMat);
+        whl.rotation.z=Math.PI/2; whl.position.set(sx,0.36,-1.2); whl.castShadow=true; g.add(whl);
+        const rim = new THREE.Mesh(new THREE.TorusGeometry(0.36,0.04,8,20), rimMat);
+        rim.rotation.x=Math.PI/2; rim.position.set(sx,0.36,-1.2); g.add(rim);
+        const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,0.12,8), rimMat);
+        hub.rotation.z=Math.PI/2; hub.position.set(sx,0.36,-1.2); g.add(hub);
+    }
+    // 車軸
+    const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,1.5,8), metalMat);
+    axle.rotation.z=Math.PI/2; axle.position.set(0,0.36,-1.2); g.add(axle);
+
+    // フレーム下桁
+    const fbl = bx(1.28,0.07,2.86,0x546e7a,0.4,0.6); fbl.position.set(0,0.37,0); g.add(fbl);
+
+    // ハンドル支柱 (後方)
+    for (const sx of [-0.5,0.5]) {
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.7,8), metalMat);
+        pole.position.set(sx,0.93,1.4); g.add(pole);
+    }
+    // ハンドルバー
+    const hbar = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,1.1,8), metalMat);
+    hbar.rotation.z=Math.PI/2; hbar.position.set(0,1.28,1.4); g.add(hbar);
+    // ハンドルグリップ
+    for (const sx of [-0.48,0.48]) {
+        const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.18,8), new THREE.MeshStandardMaterial({color:0x212121,roughness:0.9}));
+        grip.rotation.z=Math.PI/2; grip.position.set(sx,1.28,1.4); g.add(grip);
+    }
+    // 前足 (駐車支え)
+    for (const sx of [-0.38,0.38]) {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.55,8), metalMat);
+        leg.position.set(sx,0.275,-1.47); g.add(leg);
+    }
+
+    g.position.set(x,0,z);
+    scene.add(g);
+
+    cartObj = {
+        group: g, x, z, isHeld: false,
+        slots: new Array(10).fill(null),
+        cartItemMeshMap: new Map()
+    };
 }
 
 function createGasStation(x,z) {
@@ -788,57 +885,54 @@ function computeCurrentAction() {
     const px=playerGroup.position.x, pz=playerGroup.position.z;
     const L=I18N[currentLang];
 
-    // レイキャストで照準中のワールドアイテム
-    const aimIdx = raycastTargetIdx;
+    const aimIdx  = raycastTargetIdx;
     const aimItem = (aimIdx>=0 && aimIdx<worldItems.length) ? worldItems[aimIdx] : null;
 
-    // 最近傍油溜まり（範囲判定）
     let nearOil=null;
     for (const it of interactables) {
         if (it.type!=='oil') continue;
-        const d=Math.hypot(px-it.group.position.x, pz-it.group.position.z);
-        if (d<it.radius) { nearOil=it; break; }
+        if (Math.hypot(px-it.group.position.x, pz-it.group.position.z)<it.radius) { nearOil=it; break; }
     }
-
-    // 最近傍出荷場（範囲判定）
     let nearDepot=null;
     for (const it of interactables) {
         if (it.type!=='depot') continue;
-        const d=Math.hypot(px-it.group.position.x, pz-it.group.position.z);
-        if (d<it.radius) { nearDepot=it; break; }
+        if (Math.hypot(px-it.group.position.x, pz-it.group.position.z)<it.radius) { nearDepot=it; break; }
     }
 
-    // --- 手が空の場合 ---
-    if (!heldItem) {
-        if (aimItem) {
-            const label = aimItem.type==='ladle'
-                ? L.promptPickupLadle
-                : L.promptPickupCan(aimItem.fill);
-            return { type:'pickup', label, itemIdx:aimIdx };
-        }
-        return null;
-    }
+    const nearCart = cartObj && Math.hypot(px-cartObj.x, pz-cartObj.z) < 3.5;
 
     // --- ひしゃく持ち ---
-    if (heldItem.type==='ladle') {
-        // 油なし + 油溜まり近く → 掬う
-        if (!heldItem.hasOil && nearOil)
-            return { type:'scoop', label:L.promptScoop };
-
-        // 油あり + 照準中ジェリ缶 (満タンでない) → 注ぐ
+    if (heldItem && heldItem.type==='ladle') {
+        if (!heldItem.hasOil && nearOil) return { type:'scoop', label:L.promptScoop };
         if (heldItem.hasOil && aimItem && aimItem.type==='jerryCan' && aimItem.fill<5)
             return { type:'pour', label:L.promptPour(aimItem.fill), canIdx:aimIdx };
-
+        if (nearCart && cartObj.slots.some(s=>s===null)) return { type:'loadCart', label:L.promptLoadCart };
         return { type:'putDown', label:L.promptPutDown };
     }
 
     // --- ジェリ缶持ち ---
-    if (heldItem.type==='jerryCan') {
-        if (heldItem.fill>0 && nearDepot) {
-            const earn=canPrice(heldItem.fill);
-            return { type:'sell', label:L.promptSell(earn) };
-        }
+    if (heldItem && heldItem.type==='jerryCan') {
+        if (heldItem.fill>0 && nearDepot) return { type:'sell', label:L.promptSell(canPrice(heldItem.fill)) };
+        if (nearCart && cartObj.slots.some(s=>s===null)) return { type:'loadCart', label:L.promptLoadCart };
         return { type:'putDown', label:L.promptPutDown };
+    }
+
+    // --- 手が空の場合 ---
+    if (!heldItem) {
+        // カートアイテムに照準 → 降ろす
+        if (raycastCartSlotIdx>=0) return { type:'unloadCart', label:L.promptUnloadCart, slotIdx:raycastCartSlotIdx };
+        // ワールドアイテムに照準 → 拾う
+        if (aimItem) {
+            const label = aimItem.type==='ladle' ? L.promptPickupLadle : L.promptPickupCan(aimItem.fill);
+            return { type:'pickup', label, itemIdx:aimIdx };
+        }
+        // カート近傍 → 引く/離す
+        if (nearCart) {
+            return cartObj.isHeld
+                ? { type:'releaseCart', label:L.promptReleaseCart }
+                : { type:'grabCart',   label:L.promptGrabCart };
+        }
+        return null;
     }
 
     return null;
@@ -855,11 +949,15 @@ function triggerAction() {
     if (!currentAction) return;
     const L=I18N[currentLang];
     switch (currentAction.type) {
-        case 'pickup':  doPickup(currentAction.itemIdx); break;
-        case 'scoop':   doScoop(); break;
-        case 'pour':    doPour(currentAction.canIdx); break;
-        case 'sell':    doSell(); break;
-        case 'putDown': doPutDown(); break;
+        case 'pickup':      doPickup(currentAction.itemIdx); break;
+        case 'scoop':       doScoop(); break;
+        case 'pour':        doPour(currentAction.canIdx); break;
+        case 'sell':        doSell(); break;
+        case 'putDown':     doPutDown(); break;
+        case 'grabCart':    doGrabCart(); break;
+        case 'releaseCart': doReleaseCart(); break;
+        case 'loadCart':    doLoadCart(); break;
+        case 'unloadCart':  doUnloadCart(currentAction.slotIdx); break;
     }
 }
 
@@ -902,6 +1000,61 @@ function doSell() {
     updateHeldMesh();
     updateUI();
     showNotification(I18N[currentLang].msgSold(earn));
+}
+
+function doGrabCart() {
+    if (!cartObj) return;
+    cartObj.isHeld = true;
+    updateUI();
+    showNotification(I18N[currentLang].msgGrabbedCart);
+}
+
+function doReleaseCart() {
+    if (!cartObj) return;
+    cartObj.isHeld = false;
+    updateUI();
+    showNotification(I18N[currentLang].msgReleasedCart);
+}
+
+function doLoadCart() {
+    if (!heldItem || !cartObj) return;
+    const slotIdx = cartObj.slots.findIndex(s=>s===null);
+    if (slotIdx<0) { showNotification(I18N[currentLang].msgCartFull); return; }
+
+    const [lx,lz] = CART_SLOTS[slotIdx];
+    let m;
+    if (heldItem.type==='ladle') {
+        m = createLadleMesh(heldItem.hasOil); m.scale.setScalar(1.5);
+    } else {
+        m = createJerryCanMesh(heldItem.fill); m.scale.setScalar(1.3);
+    }
+    m.position.set(lx, 0.59, lz);
+    m.rotation.y = (slotIdx % 2 === 0 ? -0.1 : 0.1);
+    cartObj.group.add(m);
+    m.traverse(child => { if(child.isMesh) cartObj.cartItemMeshMap.set(child.uuid, slotIdx); });
+
+    cartObj.slots[slotIdx] = { type:heldItem.type, fill:heldItem.fill, hasOil:heldItem.hasOil, mesh:m };
+
+    if (heldMesh) { camera.remove(heldMesh); heldMesh=null; }
+    heldItem = null;
+    updateUI();
+    showNotification(I18N[currentLang].msgLoadedCart);
+}
+
+function doUnloadCart(slotIdx) {
+    if (!cartObj || slotIdx<0 || !cartObj.slots[slotIdx]) return;
+    const slot = cartObj.slots[slotIdx];
+
+    // カートから削除
+    cartObj.group.remove(slot.mesh);
+    slot.mesh.traverse(child => { if(child.isMesh) cartObj.cartItemMeshMap.delete(child.uuid); });
+    cartObj.slots[slotIdx] = null;
+
+    // 手に持つ（カートは引き続き引ける状態を維持）
+    heldItem = { type:slot.type, fill:slot.fill, hasOil:slot.hasOil };
+    updateHeldMesh();
+    updateUI();
+    showNotification(I18N[currentLang].msgUnloadedCart);
 }
 
 function doPutDown() {
@@ -949,7 +1102,16 @@ function updateGame() {
         dirLight.target.position.copy(playerGroup.position);
         dirLight.target.updateMatrixWorld();
 
-        // レイキャスト：カメラ中心から照準アイテムを決定
+        // カート追従
+        if (cartObj && cartObj.isHeld) {
+            const sy=Math.sin(gameState.cameraYaw), cy=Math.cos(gameState.cameraYaw);
+            cartObj.x = playerGroup.position.x + sy*1.8;
+            cartObj.z = playerGroup.position.z + cy*1.8;
+            cartObj.group.position.set(cartObj.x, 0, cartObj.z);
+            cartObj.group.rotation.y = gameState.cameraYaw + Math.PI;
+        }
+
+        // レイキャスト：ワールドアイテム + カートアイテム
         raycaster.setFromCamera({x:0,y:0}, camera);
         const itemMeshes = [];
         const meshToIdx = new Map();
@@ -958,6 +1120,18 @@ function updateGame() {
         });
         const hits = raycaster.intersectObjects(itemMeshes, false);
         raycastTargetIdx = (hits.length>0) ? (meshToIdx.get(hits[0].object.uuid)??-1) : -1;
+
+        // カートアイテムレイキャスト
+        raycastCartSlotIdx = -1;
+        if (cartObj && cartObj.cartItemMeshMap.size>0) {
+            const cartMeshes = [];
+            cartObj.group.traverse(m=>{ if(m.isMesh && cartObj.cartItemMeshMap.has(m.uuid)) cartMeshes.push(m); });
+            const cartHits = raycaster.intersectObjects(cartMeshes, false);
+            if (cartHits.length>0) {
+                const slot = cartObj.cartItemMeshMap.get(cartHits[0].object.uuid);
+                if (slot!==undefined) raycastCartSlotIdx = slot;
+            }
+        }
 
         currentAction=computeCurrentAction();
         const prompt=document.getElementById('interaction-prompt');
@@ -991,6 +1165,24 @@ function updateGame() {
             });
         }
 
+        // カートアイテムハイライト
+        const newCartHighlight = raycastCartSlotIdx;
+        if (newCartHighlight !== highlightedCartSlotIdx) {
+            if (highlightedCartSlotIdx>=0 && cartObj && cartObj.slots[highlightedCartSlotIdx]) {
+                cartObj.slots[highlightedCartSlotIdx].mesh.traverse(m=>{
+                    if(m.isMesh&&m.material&&m.material.emissive) m.material.emissive.set(0x000000);
+                });
+            }
+            highlightedCartSlotIdx = newCartHighlight;
+        }
+        if (highlightedCartSlotIdx>=0 && cartObj && cartObj.slots[highlightedCartSlotIdx]) {
+            const blink2 = 0.45+0.45*Math.abs(Math.sin(now*0.005));
+            cartObj.slots[highlightedCartSlotIdx].mesh.traverse(m=>{
+                if(m.isMesh&&m.material&&m.material.emissive)
+                    m.material.emissive.set(new THREE.Color(0.05*blink2,0.9*blink2,0.1*blink2));
+            });
+        }
+
         autoSaveTimer+=delta;
         if (autoSaveTimer>=10) { autoSaveTimer=0; saveGame(true); }
 
@@ -1007,6 +1199,10 @@ function updateUI() {
     if (heldItem) {
         if (heldItem.type==='ladle') heldText=L.heldLadle(heldItem.hasOil);
         else heldText=L.heldCan(heldItem.fill);
+    }
+    if (cartObj && cartObj.isHeld) {
+        const n = cartObj.slots.filter(s=>s!==null).length;
+        heldText += ' / ' + L.heldCart(n);
     }
     document.getElementById('ui-held').innerText=heldText;
     document.getElementById('ui-hint').innerText=L.hintText;
@@ -1050,6 +1246,15 @@ function loadGame() {
         Object.assign(gameState,saved);
 
         if (playerGroup) playerGroup.position.set(gameState.playerPos.x,0,gameState.playerPos.z);
+
+        // カートリセット
+        if (cartObj) {
+            cartObj.slots.forEach((s,i)=>{
+                if (s) { cartObj.group.remove(s.mesh); cartObj.slots[i]=null; }
+            });
+            cartObj.cartItemMeshMap.clear();
+            cartObj.isHeld = false;
+        }
 
         // ワールドアイテム再構築
         clearWorldItems();
