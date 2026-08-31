@@ -809,15 +809,21 @@ function createToolShop(x,z) {
     collisionBoxes.push({x,z,hw:4,hd:3});
 
     // 道具屋の右横に大型展示倉庫 (handcartは内部で生成)
-    createShopDisplay(x + 22, z);
+    // 展示倉庫: 分岐道路東側に入口を道路側(西)に向けて配置
+    createShopDisplay(x + 6, z + 20, -Math.PI/2);
 }
 
 // ===== 商品展示倉庫 =====
-function createShopDisplay(x, z) {
+function createShopDisplay(x, z, rotY=0) {
     const g = new THREE.Group(); g.position.set(x, 0, z);
+    g.rotation.y = rotY;
 
-    const W=24, D=20, H=6;   // 幅24m・奥行20m・高さ6m
-    const hw=W/2, hd=D/2;    // hw=12, hd=10
+    // ローカル座標 → ワールド座標変換
+    const cosR = Math.cos(rotY), sinR = Math.sin(rotY);
+    function wld(lx, lz) { return [x + lx*cosR + lz*sinR, z - lx*sinR + lz*cosR]; }
+
+    const W=24, D=20, H=6;
+    const hw=W/2, hd=D/2;
 
     // 床
     const floor = bx(W, 0.1, D, 0x9e9e9e, 0.93);
@@ -858,69 +864,71 @@ function createShopDisplay(x, z) {
 
     scene.add(g);
 
-    // コリジョン (奥壁・左右壁)
-    collisionBoxes.push({x,       z: z-hd,              hw: hw,  hd: 0.35}); // 奥
-    collisionBoxes.push({x: x-hw, z: z-hd+sideLen/2,   hw: 0.35, hd: sideLen/2}); // 左
-    collisionBoxes.push({x: x+hw, z: z-hd+sideLen/2,   hw: 0.35, hd: sideLen/2}); // 右
+    // コリジョン: 回転後のワールド座標で奥壁・左右壁を登録
+    const [bwx,bwz] = wld(0, -hd);
+    const [lwx,lwz] = wld(-hw, -hd+sideLen/2);
+    const [rwx,rwz] = wld( hw, -hd+sideLen/2);
+    const is90 = Math.abs(Math.abs(rotY) - Math.PI/2) < 0.01;
+    if (is90) {
+        // ±90°: 奥壁は z 方向に広がる、側壁は x 方向に広がる
+        collisionBoxes.push({x:bwx, z:bwz, hw:0.35,      hd:hw});
+        collisionBoxes.push({x:lwx, z:lwz, hw:sideLen/2,  hd:0.35});
+        collisionBoxes.push({x:rwx, z:rwz, hw:sideLen/2,  hd:0.35});
+    } else {
+        // 0°/180°: 奥壁は x 方向に広がる、側壁は z 方向に広がる
+        collisionBoxes.push({x:bwx, z:bwz, hw:hw,         hd:0.35});
+        collisionBoxes.push({x:lwx, z:lwz, hw:0.35,        hd:sideLen/2});
+        collisionBoxes.push({x:rwx, z:rwz, hw:0.35,        hd:sideLen/2});
+    }
 
-    // --- 商品台座 (3列 × 2行 = 6スロット, 将来の追加にも対応) ---
-    const COLS = [-8, 0, 8];   // x オフセット
-    const ROWS = [+5, -3];     // z オフセット (前段/後段)
+    // --- 商品台座 (3列 × 2行 = 6スロット) ---
+    const COLS = [-8, 0, 8];
+    const ROWS = [+5, -3];
 
     const CATALOG = [
         {type:'ladle',    price:50,  col:0, row:0},
         {type:'jerryCan', price:30,  col:1, row:0},
         {type:'jerryCan', price:30,  col:2, row:0},
         {type:'handPump', price:80,  col:0, row:1},
-        // col:1 row:1 = リヤカー (createHandcart で配置)
-        // col:2 row:1 = 空き (将来の商品用)
     ];
 
     CATALOG.forEach(({type, price, col, row}) => {
         const lx = COLS[col], lz = ROWS[row];
 
-        // 台座本体
         const ped = bx(1.8, 0.9, 1.8, 0x5d4037, 0.9);
         ped.position.set(lx, 0.45, lz); g.add(ped);
-        // 台座天板
         const pedTop = bx(1.9, 0.06, 1.9, 0xd7ccc8, 0.82);
         pedTop.position.set(lx, 0.93, lz); g.add(pedTop);
-        // 値札プレート (台座正面)
         const plac = bx(1.0, 0.35, 0.09, 0xfff9c4, 0.7);
         plac.position.set(lx, 1.08, lz+0.95); g.add(plac);
 
-        // 商品メッシュ (台座天板の上)
         const baseY = 0.96;
         let m;
         if (type === 'ladle') {
-            m = createLadleMesh(false);
-            m.scale.setScalar(2.2);
-            m.position.set(lx, baseY+0.22, lz);
-            m.rotation.y = 0.4;
+            m = createLadleMesh(false); m.scale.setScalar(2.2);
+            m.position.set(lx, baseY+0.22, lz); m.rotation.y = 0.4;
         } else if (type === 'handPump') {
-            m = createHandPumpMesh();
-            m.scale.setScalar(0.78);
+            m = createHandPumpMesh(); m.scale.setScalar(0.78);
             m.position.set(lx, baseY, lz);
-        } else { // jerryCan
-            m = createJerryCanMesh(0);
-            m.scale.setScalar(2.0);
+        } else {
+            m = createJerryCanMesh(0); m.scale.setScalar(2.0);
             m.position.set(lx, baseY+0.06, lz);
         }
         g.add(m);
 
         const idx = shopDisplayItems.length;
         m.traverse(child => { if (child.isMesh) shopMeshToIdx.set(child.uuid, idx); });
-        // ドロップ位置: 出入り口の外 (倉庫床の下に埋まらないよう)
-        shopDisplayItems.push({ type, price, mesh:m, dropX: x+lx, dropZ: z+hd+2 });
+        // ドロップ位置: 入口の外 (回転考慮)
+        const [dropX, dropZ] = wld(lx, hd+2);
+        shopDisplayItems.push({ type, price, mesh:m, dropX, dropZ });
     });
 
-    // --- リヤカー (col:1 row:1) ---
-    const cLX = COLS[1], cLZ = ROWS[1]; // x=0, z=-3
-    // 床面マーキング (カートの展示エリア)
+    // --- リヤカー ---
+    const cLX = COLS[1], cLZ = ROWS[1];
     const cartMark = bx(3.5, 0.06, 6.0, 0x8d6e63, 0.92);
     cartMark.position.set(cLX, 0.03, cLZ); g.add(cartMark);
-    // カートを倉庫内に生成
-    createHandcart(x + cLX, z + cLZ);
+    const [cartWX, cartWZ] = wld(cLX, cLZ);
+    createHandcart(cartWX, cartWZ);
 }
 
 function createHandcart(x, z) {
