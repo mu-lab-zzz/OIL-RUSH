@@ -77,13 +77,18 @@ const I18N = {
         money: "所持金: $",
         heldNone: "手持ち: なし",
         heldLadle: (oil) => oil ? "手持ち: ひしゃく (原油あり)" : "手持ち: ひしゃく",
-        heldCan: (f) => f > 0 ? `手持ち: ジェリ缶 (${f}/5)` : "手持ち: ジェリ缶 (空)",
+        heldCan: (f, ct) => ct==='gas' ? (f>0?`手持ち: ジェリ缶 (ガス ${f}/5)`:"手持ち: ジェリ缶 (空)") : (f>0?`手持ち: ジェリ缶 (${f}/5)`:"手持ち: ジェリ缶 (空)"),
+        heldDrum: (f, ct) => ct==='gas' ? (f>0?`手持ち: ドラム缶 (ガス ${f}/10)`:"手持ち: ドラム缶 (空)") : (f>0?`手持ち: ドラム缶 (原油 ${f}/10)`:"手持ち: ドラム缶 (空)"),
+        heldNozzle: (n) => `ノズル保持中 (燃料 ${n}/10)`,
         hintText: "← 西: 油田　東: 町 →",
         promptPickupLadle: "[SPACE] ひしゃくを拾う",
-        promptPickupCan: (f) => f > 0 ? `[SPACE] ジェリ缶を拾う (${f}/5)` : "[SPACE] ジェリ缶を拾う (空)",
+        promptPickupCan: (f, ct) => ct==='gas' ? (f>0?`[SPACE] ジェリ缶を拾う (ガス ${f}/5)`:"[SPACE] ジェリ缶を拾う (空)") : (f>0?`[SPACE] ジェリ缶を拾う (${f}/5)`:"[SPACE] ジェリ缶を拾う (空)"),
+        promptPickupDrum: (f, ct) => ct==='gas' ? (f>0?`[SPACE] ドラム缶を拾う (ガス ${f}/10)`:"[SPACE] ドラム缶を拾う (空)") : (f>0?`[SPACE] ドラム缶を拾う (原油 ${f}/10)`:"[SPACE] ドラム缶を拾う (空)"),
         promptScoop: "[SPACE] 原油を掬う",
         promptPour: (f) => `[SPACE] ジェリ缶に注ぐ (${f}/5)`,
+        promptPourDrum: (f) => `[SPACE] ドラム缶に注ぐ (${f}/10)`,
         promptSell: (earn) => `[SPACE] タンクへ注いで売却 (+$${earn})`,
+        promptSellDrum: (earn) => `[SPACE] タンクへ注いで売却 (+$${earn})`,
         promptPutDown: "[SPACE] 道具を置く",
         actionBtn: "アクション",
         msgPickedUp: (name) => `${name}を持った`,
@@ -126,19 +131,42 @@ const I18N = {
         msgCanAttachedPump:"ジェリ缶を装着した",
         msgCanDetachedPump:"ジェリ缶を取り外した",
         msgPumped: (n) => `ポンプ完了 (${n}/10)`,
-        msgNotNearOil: "油田の近くに設置してください"
+        msgNotNearOil: "油田の近くに設置してください",
+        nameDrum: "ドラム缶",
+        nameEnginePump: "エンジン式ポンプ",
+        promptInstallEnginePump: "[SPACE] エンジンポンプを設置",
+        promptRemoveEnginePump: "[SPACE] エンジンポンプを撤去",
+        promptGrabNozzle: (n) => `[SPACE] ノズルを持つ (燃料 ${n}/10)`,
+        promptReleaseNozzle: "[SPACE] ノズルを離す",
+        promptNozzleFill: (f, cap) => `[SPACE] 原油を注入 (${f}/${cap})`,
+        promptFuelEnginePump: (n) => `[SPACE] エンジンポンプに給油 (燃料 ${n}/10)`,
+        promptFillGas: (cost) => `[SPACE] ガソリンを給油 ($${cost})`,
+        msgEnginePumpInstalled: "エンジンポンプを設置した",
+        msgEnginePumpRemoved: "エンジンポンプを撤去した",
+        msgNozzleGrabbed: "ノズルを持った",
+        msgNozzleReleased: "ノズルを離した",
+        msgNozzleFilled: (f, cap) => `原油を注入した (${f}/${cap})`,
+        msgFueledEnginePump: (n) => `燃料補給完了 (${n}/10)`,
+        msgGotGas: (cost) => `ガソリン給油完了 (-$${cost})`,
+        msgOutOfGas: "燃料切れ",
+        msgGasOnly: "ガソリン缶のみ給油できます"
     },
     en: {
         money: "Money: $",
         heldNone: "Holding: nothing",
         heldLadle: (oil) => oil ? "Holding: ladle (has oil)" : "Holding: ladle",
-        heldCan: (f) => f > 0 ? `Holding: jerry can (${f}/5)` : "Holding: jerry can (empty)",
+        heldCan: (f, ct) => ct==='gas' ? (f>0?`Holding: jerry can (gas ${f}/5)`:"Holding: jerry can (empty)") : (f>0?`Holding: jerry can (${f}/5)`:"Holding: jerry can (empty)"),
+        heldDrum: (f, ct) => ct==='gas' ? (f>0?`Holding: drum (gas ${f}/10)`:"Holding: drum (empty)") : (f>0?`Holding: drum (oil ${f}/10)`:"Holding: drum (empty)"),
+        heldNozzle: (n) => `Holding nozzle (fuel ${n}/10)`,
         hintText: "← West: Oil Field　East: Town →",
         promptPickupLadle: "[SPACE] Pick up ladle",
-        promptPickupCan: (f) => f > 0 ? `[SPACE] Pick up can (${f}/5)` : "[SPACE] Pick up can (empty)",
+        promptPickupCan: (f, ct) => ct==='gas' ? (f>0?`[SPACE] Pick up can (gas ${f}/5)`:"[SPACE] Pick up can (empty)") : (f>0?`[SPACE] Pick up can (${f}/5)`:"[SPACE] Pick up can (empty)"),
+        promptPickupDrum: (f, ct) => ct==='gas' ? (f>0?`[SPACE] Pick up drum (gas ${f}/10)`:"[SPACE] Pick up drum (empty)") : (f>0?`[SPACE] Pick up drum (oil ${f}/10)`:"[SPACE] Pick up drum (empty)"),
         promptScoop: "[SPACE] Scoop oil",
         promptPour: (f) => `[SPACE] Pour into can (${f}/5)`,
+        promptPourDrum: (f) => `[SPACE] Pour into drum (${f}/10)`,
         promptSell: (earn) => `[SPACE] Pour into tank & sell (+$${earn})`,
+        promptSellDrum: (earn) => `[SPACE] Pour into tank & sell (+$${earn})`,
         promptPutDown: "[SPACE] Put down",
         actionBtn: "ACTION",
         msgPickedUp: (name) => `Picked up ${name}`,
@@ -181,7 +209,25 @@ const I18N = {
         msgCanAttachedPump:"Can attached to pump",
         msgCanDetachedPump:"Can detached from pump",
         msgPumped: (n) => `Pumped (${n}/10)`,
-        msgNotNearOil: "Place near an oil spring"
+        msgNotNearOil: "Place near an oil spring",
+        nameDrum: "drum",
+        nameEnginePump: "engine pump",
+        promptInstallEnginePump: "[SPACE] Install engine pump",
+        promptRemoveEnginePump: "[SPACE] Remove engine pump",
+        promptGrabNozzle: (n) => `[SPACE] Grab nozzle (fuel ${n}/10)`,
+        promptReleaseNozzle: "[SPACE] Release nozzle",
+        promptNozzleFill: (f, cap) => `[SPACE] Pump oil (${f}/${cap})`,
+        promptFuelEnginePump: (n) => `[SPACE] Fuel engine pump (${n}/10)`,
+        promptFillGas: (cost) => `[SPACE] Fill with gas ($${cost})`,
+        msgEnginePumpInstalled: "Engine pump installed",
+        msgEnginePumpRemoved: "Engine pump removed",
+        msgNozzleGrabbed: "Grabbed nozzle",
+        msgNozzleReleased: "Released nozzle",
+        msgNozzleFilled: (f, cap) => `Pumped oil (${f}/${cap})`,
+        msgFueledEnginePump: (n) => `Engine pump fueled (${n}/10)`,
+        msgGotGas: (cost) => `Filled with gas (-$${cost})`,
+        msgOutOfGas: "Out of fuel",
+        msgGasOnly: "Only gas cans can fuel the pump"
     }
 };
 let currentLang = 'ja';
@@ -229,6 +275,14 @@ let highlightedPumpIdx = -1;
 
 // ===== リヤカー =====
 let cartObj = null; // { group, x, z, isHeld, slots[10], cartItemMeshMap }
+
+// ===== エンジン式ポンプ =====
+const enginePumpObjs = []; // { group, x, z, gasFuel }
+const enginePumpMeshToIdx = new Map();
+let raycastEnginePumpIdx = -1;
+let highlightedEnginePumpIdx = -1;
+const ENGINE_HOSE_LENGTH = 4.5;
+const GAS_FILL_COST = 20; // ガソリン1単位あたりのコスト (ジェリ缶1本=20、ドラム=40)
 
 // ===== 空 =====
 let skyDome = null;
@@ -394,8 +448,89 @@ function createHandPumpMesh() {
     return g;
 }
 
+// ===== ドラム缶メッシュ =====
+function createDrumMesh(fill=0, contentType=null) {
+    const g = new THREE.Group();
+    const bodyColor = contentType==='gas' ? 0xb71c1c : (fill>0 ? 0x1a237e : 0x263238);
+    const drumMat = new THREE.MeshStandardMaterial({color:bodyColor,roughness:0.4,metalness:0.6});
+    const ringMat = new THREE.MeshStandardMaterial({color:0x607d8b,metalness:0.8,roughness:0.3});
+    const capMat  = new THREE.MeshStandardMaterial({color:0x546e7a,roughness:0.35,metalness:0.7});
+
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.5,1.0,14),drumMat);
+    body.castShadow=true; g.add(body);
+    const capT = new THREE.Mesh(new THREE.CylinderGeometry(0.51,0.51,0.06,14),capMat);
+    capT.position.y=0.53; g.add(capT);
+    const capB = new THREE.Mesh(new THREE.CylinderGeometry(0.51,0.51,0.06,14),capMat);
+    capB.position.y=-0.53; g.add(capB);
+    [-0.28,0.28].forEach(y=>{
+        const ring=new THREE.Mesh(new THREE.TorusGeometry(0.51,0.025,6,20),ringMat);
+        ring.rotation.x=Math.PI/2; ring.position.y=y; g.add(ring);
+    });
+    const bung=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.07,8),
+        new THREE.MeshStandardMaterial({color:0x424242,roughness:0.7}));
+    bung.position.set(0.22,0.57,0); g.add(bung);
+    if (fill>0) {
+        const fh=(fill/10)*0.88;
+        const fillColor=contentType==='gas'?0xff6f00:0x060606;
+        const oilMesh=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.42,fh,12),
+            new THREE.MeshStandardMaterial({color:fillColor,roughness:0.05,metalness:0.9}));
+        oilMesh.position.y=fh/2-0.44; g.add(oilMesh);
+    }
+    return g;
+}
+
+// ===== エンジン式ポンプメッシュ =====
+function createEnginePumpMesh() {
+    const g = new THREE.Group();
+    const metalMat = new THREE.MeshStandardMaterial({color:0x455a64,roughness:0.4,metalness:0.7});
+    const engineMat= new THREE.MeshStandardMaterial({color:0x2e7d32,roughness:0.6,metalness:0.3});
+    const hoseMat  = new THREE.MeshStandardMaterial({color:0x1a1a1a,roughness:0.9});
+    const redMat   = new THREE.MeshStandardMaterial({color:0xc62828,roughness:0.6});
+
+    // ベースプレート
+    const base=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.12,0.6),metalMat);
+    base.position.y=0.06; base.castShadow=true; g.add(base);
+    // エンジン本体
+    const eng=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.5,0.38),engineMat);
+    eng.position.set(-0.1,0.37,0); eng.castShadow=true; g.add(eng);
+    // 排気管
+    const ex=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.38,6),metalMat);
+    ex.position.set(-0.05,0.78,0); g.add(ex);
+    ex.castShadow=true;
+    // ポンプシリンダー
+    const cyl=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.1,0.55,8),metalMat);
+    cyl.position.set(0.2,0.35,0); cyl.castShadow=true; g.add(cyl);
+    // 燃料タンク
+    const tank=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.3,8),redMat);
+    tank.rotation.z=Math.PI/2; tank.position.set(-0.1,0.73,0.1); g.add(tank);
+    // ホース
+    const hose=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,1.4,6),hoseMat);
+    hose.rotation.z=Math.PI/2; hose.position.set(0.85,0.12,0); g.add(hose);
+    // ノズル先端
+    const noz=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.05,0.22,6),metalMat);
+    noz.rotation.z=Math.PI/2; noz.position.set(1.62,0.12,0); g.add(noz);
+    return g;
+}
+
+// ===== ノズルメッシュ (手持ち) =====
+function createNozzleMesh() {
+    const g = new THREE.Group();
+    const metalMat=new THREE.MeshStandardMaterial({color:0x455a64,roughness:0.35,metalness:0.8});
+    const hoseMat =new THREE.MeshStandardMaterial({color:0x1a1a1a,roughness:0.9});
+    // グリップ
+    const grip=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.2,0.07),metalMat);
+    g.add(grip);
+    // バレル
+    const barrel=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.05,0.28,6),metalMat);
+    barrel.rotation.z=Math.PI/2; barrel.position.set(0.12,0.02,0); g.add(barrel);
+    // ホーススタブ
+    const hose=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.14,6),hoseMat);
+    hose.rotation.z=Math.PI/2; hose.position.set(-0.1,0,0); g.add(hose);
+    return g;
+}
+
 // ===== ワールドアイテム スポーン/削除/更新 =====
-function spawnWorldItem(type, x, z, hasOil=false, fill=0, yPos=0) {
+function spawnWorldItem(type, x, z, hasOil=false, fill=0, yPos=0, contentType=null) {
     const g = new THREE.Group();
     let mesh;
     if (type === 'ladle') {
@@ -405,6 +540,12 @@ function spawnWorldItem(type, x, z, hasOil=false, fill=0, yPos=0) {
     } else if (type === 'handPump') {
         mesh = createHandPumpMesh();
         mesh.scale.setScalar(1.0);
+    } else if (type === 'drum') {
+        mesh = createDrumMesh(fill, contentType);
+        mesh.scale.setScalar(1.0);
+    } else if (type === 'enginePump') {
+        mesh = createEnginePumpMesh();
+        mesh.scale.setScalar(1.0);
     } else {
         mesh = createJerryCanMesh(fill);
         mesh.scale.setScalar(1.3);
@@ -412,7 +553,7 @@ function spawnWorldItem(type, x, z, hasOil=false, fill=0, yPos=0) {
     g.add(mesh);
     g.position.set(x, yPos, z);
     scene.add(g);
-    const entry = { type, group: g, x, z, fill, hasOil };
+    const entry = { type, group: g, x, z, fill, hasOil, contentType };
     worldItems.push(entry);
     return entry;
 }
@@ -436,6 +577,9 @@ function refreshWorldItemMesh(idx) {
     if (item.type === 'ladle') {
         mesh = createLadleMesh(item.hasOil);
         mesh.scale.setScalar(1.5);
+    } else if (item.type === 'drum') {
+        mesh = createDrumMesh(item.fill, item.contentType);
+        mesh.scale.setScalar(1.0);
     } else {
         mesh = createJerryCanMesh(item.fill);
         mesh.scale.setScalar(1.3);
@@ -460,6 +604,21 @@ function updateHeldMesh() {
         heldMesh.position.set(0.3, -0.38, -0.55);
         heldMesh.rotation.set(0.1, 0.4, 0.05);
         heldMesh.scale.setScalar(0.55);
+    } else if (heldItem.type === 'enginePump') {
+        heldMesh = createEnginePumpMesh();
+        heldMesh.position.set(0.3, -0.38, -0.6);
+        heldMesh.rotation.set(0.05, 0.3, 0.05);
+        heldMesh.scale.setScalar(0.5);
+    } else if (heldItem.type === 'drum') {
+        heldMesh = createDrumMesh(heldItem.fill, heldItem.contentType);
+        heldMesh.position.set(0.2, -0.42, -0.52);
+        heldMesh.rotation.set(0.05, -0.2, 0.06);
+        heldMesh.scale.setScalar(0.55);
+    } else if (heldItem.type === 'engineNozzle') {
+        heldMesh = createNozzleMesh();
+        heldMesh.position.set(0.24, -0.28, -0.48);
+        heldMesh.rotation.set(0.05, Math.PI/2+0.1, 0.08);
+        heldMesh.scale.setScalar(1.2);
     } else {
         heldMesh = createJerryCanMesh(heldItem.fill);
         heldMesh.position.set(0.22, -0.32, -0.50);
@@ -896,10 +1055,11 @@ function createShopDisplay(x, z, rotY=0) {
     const ROWS = [+5, -3];
 
     const CATALOG = [
-        {type:'ladle',    price:50,  col:0, row:0},
-        {type:'jerryCan', price:30,  col:1, row:0},
-        {type:'jerryCan', price:30,  col:2, row:0},
-        {type:'handPump', price:80,  col:0, row:1},
+        {type:'ladle',       price:50,  col:0, row:0},
+        {type:'jerryCan',    price:30,  col:1, row:0},
+        {type:'drum',        price:80,  col:2, row:0},
+        {type:'handPump',    price:80,  col:0, row:1},
+        {type:'enginePump',  price:200, col:1, row:1},
     ];
 
     CATALOG.forEach(({type, price, col, row}) => {
@@ -919,6 +1079,12 @@ function createShopDisplay(x, z, rotY=0) {
             m.position.set(lx, baseY+0.22, lz); m.rotation.y = 0.4;
         } else if (type === 'handPump') {
             m = createHandPumpMesh(); m.scale.setScalar(0.78);
+            m.position.set(lx, baseY, lz);
+        } else if (type === 'drum') {
+            m = createDrumMesh(0, null); m.scale.setScalar(1.6);
+            m.position.set(lx, baseY+0.08, lz);
+        } else if (type === 'enginePump') {
+            m = createEnginePumpMesh(); m.scale.setScalar(0.75);
             m.position.set(lx, baseY, lz);
         } else {
             m = createJerryCanMesh(0); m.scale.setScalar(2.0);
@@ -1028,6 +1194,7 @@ function createGasStation(x,z) {
     });
     const gsign=bx(3,1.2,0.2,0xb71c1c); gsign.position.set(-3.5,4.3,2.1); g.add(gsign);
     scene.add(g);
+    interactables.push({type:'gasStation', group:g, radius:6.0});
     collisionBoxes.push({x:x-3.5,z,hw:2.5,hd:2});
     collisionBoxes.push({x:x+2,z,hw:5,hd:4.2});
 }
@@ -1220,6 +1387,11 @@ function computeCurrentAction() {
         if (it.type!=='depot') continue;
         if (Math.hypot(px-it.group.position.x, pz-it.group.position.z)<it.radius) { nearDepot=it; break; }
     }
+    let nearGasStation=null;
+    for (const it of interactables) {
+        if (it.type!=='gasStation') continue;
+        if (Math.hypot(px-it.group.position.x, pz-it.group.position.z)<it.radius) { nearGasStation=it; break; }
+    }
 
     const nearCart = cartObj && cartObj.purchased && Math.hypot(px-cartObj.x, pz-cartObj.z) < 3.5;
 
@@ -1228,15 +1400,51 @@ function computeCurrentAction() {
         if (!heldItem.hasOil && nearOil) return { type:'scoop', label:L.promptScoop };
         if (heldItem.hasOil && aimItem && aimItem.type==='jerryCan' && aimItem.fill<5)
             return { type:'pour', label:L.promptPour(aimItem.fill), canIdx:aimIdx };
+        if (heldItem.hasOil && aimItem && aimItem.type==='drum' && aimItem.contentType!=='gas' && aimItem.fill<10)
+            return { type:'pourDrum', label:L.promptPourDrum(aimItem.fill), canIdx:aimIdx };
         if (nearCart && cartObj.slots.some(s=>s===null)) return { type:'loadCart', label:L.promptLoadCart };
         return { type:'putDown', label:L.promptPutDown };
     }
 
+    // --- ノズル持ち ---
+    if (heldItem && heldItem.type==='engineNozzle') {
+        const ep = enginePumpObjs[heldItem.pumpIdx];
+        if (ep) {
+            const distToPump = Math.hypot(px-ep.x, pz-ep.z);
+            if (distToPump <= ENGINE_HOSE_LENGTH) {
+                if (ep.gasFuel > 0) {
+                    if (aimItem && aimItem.type==='jerryCan' && aimItem.contentType!=='gas' && aimItem.fill<5)
+                        return { type:'nozzleFill', label:L.promptNozzleFill(aimItem.fill, 5), canIdx:aimIdx };
+                    if (aimItem && aimItem.type==='drum' && aimItem.contentType!=='gas' && aimItem.fill<10)
+                        return { type:'nozzleFill', label:L.promptNozzleFill(aimItem.fill, 10), canIdx:aimIdx };
+                }
+            }
+        }
+        return { type:'releaseNozzle', label:L.promptReleaseNozzle };
+    }
+
     // --- ジェリ缶持ち ---
     if (heldItem && heldItem.type==='jerryCan') {
-        if (heldItem.fill>0 && nearDepot) return { type:'sell', label:L.promptSell(canPrice(heldItem.fill)) };
+        if (heldItem.fill>0 && heldItem.contentType!=='gas' && nearDepot)
+            return { type:'sell', label:L.promptSell(canPrice(heldItem.fill)) };
+        if (nearGasStation && heldItem.fill<5)
+            return { type:'fillGas', label:L.promptFillGas(GAS_FILL_COST*(5-heldItem.fill)) };
         if (raycastPumpIdx>=0 && !pumpObjs[raycastPumpIdx].attachedCan)
             return { type:'attachCan', label:L.promptAttachCan, pumpIdx:raycastPumpIdx };
+        if (heldItem.contentType==='gas' && raycastEnginePumpIdx>=0)
+            return { type:'fuelEnginePump', label:L.promptFuelEnginePump(enginePumpObjs[raycastEnginePumpIdx].gasFuel), epIdx:raycastEnginePumpIdx };
+        if (nearCart && cartObj.slots.some(s=>s===null)) return { type:'loadCart', label:L.promptLoadCart };
+        return { type:'putDown', label:L.promptPutDown };
+    }
+
+    // --- ドラム缶持ち ---
+    if (heldItem && heldItem.type==='drum') {
+        if (heldItem.fill>0 && heldItem.contentType!=='gas' && nearDepot)
+            return { type:'sellDrum', label:L.promptSellDrum(drumPrice(heldItem.fill)) };
+        if (nearGasStation && heldItem.fill<10 && heldItem.contentType!=='oil')
+            return { type:'fillGasDrum', label:L.promptFillGas(GAS_FILL_COST*2*(10-heldItem.fill)) };
+        if (heldItem.contentType==='gas' && raycastEnginePumpIdx>=0)
+            return { type:'fuelEnginePump', label:L.promptFuelEnginePump(enginePumpObjs[raycastEnginePumpIdx].gasFuel), epIdx:raycastEnginePumpIdx };
         if (nearCart && cartObj.slots.some(s=>s===null)) return { type:'loadCart', label:L.promptLoadCart };
         return { type:'putDown', label:L.promptPutDown };
     }
@@ -1248,8 +1456,22 @@ function computeCurrentAction() {
         return { type:'putDown', label:L.promptPutDown };
     }
 
+    // --- エンジンポンプ持ち ---
+    if (heldItem && heldItem.type==='enginePump') {
+        if (nearOil) return { type:'installEnginePump', label:L.promptInstallEnginePump };
+        if (nearCart && cartObj.slots.some(s=>s===null)) return { type:'loadCart', label:L.promptLoadCart };
+        return { type:'putDown', label:L.promptPutDown };
+    }
+
     // --- 手が空の場合 ---
     if (!heldItem) {
+        // エンジンポンプに照準
+        if (raycastEnginePumpIdx>=0) {
+            const ep = enginePumpObjs[raycastEnginePumpIdx];
+            if (ep.gasFuel > 0)
+                return { type:'grabNozzle', label:L.promptGrabNozzle(ep.gasFuel), epIdx:raycastEnginePumpIdx };
+            return { type:'removeEnginePump', label:L.promptRemoveEnginePump, epIdx:raycastEnginePumpIdx };
+        }
         // 設置済みポンプに照準
         if (raycastPumpIdx>=0) {
             const po = pumpObjs[raycastPumpIdx];
@@ -1267,6 +1489,8 @@ function computeCurrentAction() {
             const name = si.type==='ladle' ? L.nameLadle
                 : si.type==='handPump' ? L.nameHandPump
                 : si.type==='handcart' ? L.nameCart
+                : si.type==='drum' ? L.nameDrum
+                : si.type==='enginePump' ? L.nameEnginePump
                 : L.nameCan;
             return { type:'buyItem', label:L.promptBuy(name, si.price), shopItemIdx:raycastShopItemIdx };
         }
@@ -1274,7 +1498,10 @@ function computeCurrentAction() {
         if (raycastCartSlotIdx>=0) return { type:'unloadCart', label:L.promptUnloadCart, slotIdx:raycastCartSlotIdx };
         // ワールドアイテムに照準 → 拾う
         if (aimItem) {
-            const label = aimItem.type==='ladle' ? L.promptPickupLadle : L.promptPickupCan(aimItem.fill);
+            let label;
+            if (aimItem.type==='ladle') label=L.promptPickupLadle;
+            else if (aimItem.type==='drum') label=L.promptPickupDrum(aimItem.fill, aimItem.contentType);
+            else label=L.promptPickupCan(aimItem.fill, aimItem.contentType);
             return { type:'pickup', label, itemIdx:aimIdx };
         }
         // カート近傍 → 引く/離す
@@ -1294,27 +1521,42 @@ function canPrice(fill) {
     if (fill>=5) return 175;
     return fill*25;
 }
+function drumPrice(fill) {
+    if (fill<=0) return 0;
+    if (fill>=10) return 400;
+    return fill*40;
+}
 
 // ===== アクション実行 =====
 function triggerAction() {
     if (!currentAction) return;
     const L=I18N[currentLang];
     switch (currentAction.type) {
-        case 'pickup':      doPickup(currentAction.itemIdx); break;
-        case 'scoop':       doScoop(); break;
-        case 'pour':        doPour(currentAction.canIdx); break;
-        case 'sell':        doSell(); break;
-        case 'putDown':     doPutDown(); break;
-        case 'grabCart':    doGrabCart(); break;
-        case 'releaseCart': doReleaseCart(); break;
-        case 'loadCart':    doLoadCart(); break;
-        case 'unloadCart':  doUnloadCart(currentAction.slotIdx); break;
-        case 'buyItem':     doBuyItem(currentAction.shopItemIdx); break;
-        case 'installPump': doInstallPump(); break;
-        case 'removePump':  doRemovePump(currentAction.pumpIdx); break;
-        case 'attachCan':   doAttachCan(currentAction.pumpIdx); break;
-        case 'detachCan':   doDetachCan(currentAction.pumpIdx); break;
-        case 'pumpOnce':    doPumpOnce(currentAction.pumpIdx); break;
+        case 'pickup':             doPickup(currentAction.itemIdx); break;
+        case 'scoop':              doScoop(); break;
+        case 'pour':               doPour(currentAction.canIdx); break;
+        case 'pourDrum':           doPourDrum(currentAction.canIdx); break;
+        case 'sell':               doSell(); break;
+        case 'sellDrum':           doSellDrum(); break;
+        case 'putDown':            doPutDown(); break;
+        case 'grabCart':           doGrabCart(); break;
+        case 'releaseCart':        doReleaseCart(); break;
+        case 'loadCart':           doLoadCart(); break;
+        case 'unloadCart':         doUnloadCart(currentAction.slotIdx); break;
+        case 'buyItem':            doBuyItem(currentAction.shopItemIdx); break;
+        case 'installPump':        doInstallPump(); break;
+        case 'removePump':         doRemovePump(currentAction.pumpIdx); break;
+        case 'attachCan':          doAttachCan(currentAction.pumpIdx); break;
+        case 'detachCan':          doDetachCan(currentAction.pumpIdx); break;
+        case 'pumpOnce':           doPumpOnce(currentAction.pumpIdx); break;
+        case 'installEnginePump':  doInstallEnginePump(); break;
+        case 'removeEnginePump':   doRemoveEnginePump(currentAction.epIdx); break;
+        case 'grabNozzle':         doGrabNozzle(currentAction.epIdx); break;
+        case 'releaseNozzle':      doReleaseNozzle(); break;
+        case 'nozzleFill':         doNozzleFill(currentAction.canIdx); break;
+        case 'fuelEnginePump':     doFuelEnginePump(currentAction.epIdx); break;
+        case 'fillGas':            doFillGas(); break;
+        case 'fillGasDrum':        doFillGasDrum(); break;
     }
 }
 
@@ -1341,7 +1583,8 @@ function doBuyItem(idx) {
 
     spawnWorldItem(si.type, si.dropX, si.dropZ, false, 0, 0.04);
     updateUI();
-    const name = si.type==='ladle' ? L.nameLadle : si.type==='handPump' ? L.nameHandPump : L.nameCan;
+    const name = si.type==='ladle' ? L.nameLadle : si.type==='handPump' ? L.nameHandPump
+        : si.type==='drum' ? L.nameDrum : si.type==='enginePump' ? L.nameEnginePump : L.nameCan;
     showNotification(L.msgBought(name, si.price));
 }
 
@@ -1444,16 +1687,149 @@ function doPumpOnce(pumpIdx) {
     }
 }
 
+// ===== ドラム缶アクション =====
+function doPourDrum(drumIdx) {
+    if (drumIdx<0||drumIdx>=worldItems.length) return;
+    const drum=worldItems[drumIdx];
+    if (drum.contentType==='gas') return;
+    drum.fill++; drum.contentType='oil';
+    heldItem.hasOil=false;
+    refreshWorldItemMesh(drumIdx);
+    updateHeldMesh(); updateUI();
+    const L=I18N[currentLang];
+    if (drum.fill>=10) showNotification(L.msgCanFull);
+    else showNotification(L.promptPourDrum(drum.fill));
+}
+
+function doSellDrum() {
+    const L=I18N[currentLang];
+    if (!heldItem||heldItem.fill<=0||heldItem.contentType==='gas') { showNotification(L.msgCanEmpty); return; }
+    const earn=drumPrice(heldItem.fill);
+    gameState.money+=earn;
+    heldItem.fill=0; heldItem.contentType=null;
+    updateHeldMesh(); updateUI();
+    showNotification(L.msgSold(earn));
+}
+
+// ===== ガソリンスタンド =====
+function doFillGas() {
+    const L=I18N[currentLang];
+    if (!heldItem||heldItem.type!=='jerryCan') return;
+    if (heldItem.contentType==='oil') { showNotification(L.msgGasOnly); return; }
+    const needed=5-heldItem.fill;
+    const cost=GAS_FILL_COST*needed;
+    if (gameState.money<cost) { showNotification(L.msgNoMoney); return; }
+    gameState.money-=cost;
+    heldItem.fill=5; heldItem.contentType='gas';
+    updateHeldMesh(); updateUI();
+    showNotification(L.msgGotGas(cost));
+}
+
+function doFillGasDrum() {
+    const L=I18N[currentLang];
+    if (!heldItem||heldItem.type!=='drum') return;
+    if (heldItem.contentType==='oil') { showNotification(L.msgGasOnly); return; }
+    const needed=10-heldItem.fill;
+    const cost=GAS_FILL_COST*2*needed;
+    if (gameState.money<cost) { showNotification(L.msgNoMoney); return; }
+    gameState.money-=cost;
+    heldItem.fill=10; heldItem.contentType='gas';
+    updateHeldMesh(); updateUI();
+    showNotification(L.msgGotGas(cost));
+}
+
+// ===== エンジンポンプアクション =====
+function doInstallEnginePump() {
+    const L=I18N[currentLang];
+    const dp=getDropPos();
+    const g=new THREE.Group();
+    g.add(createEnginePumpMesh());
+    g.position.set(dp.x,0,dp.z);
+    scene.add(g);
+    const idx=enginePumpObjs.length;
+    g.traverse(m=>{ if(m.isMesh) enginePumpMeshToIdx.set(m.uuid,idx); });
+    enginePumpObjs.push({group:g, x:dp.x, z:dp.z, gasFuel:0});
+    heldItem=null; raycastEnginePumpIdx=-1; highlightedEnginePumpIdx=-1;
+    updateHeldMesh(); updateUI();
+    showNotification(L.msgEnginePumpInstalled);
+}
+
+function doRemoveEnginePump(epIdx) {
+    const L=I18N[currentLang];
+    const ep=enginePumpObjs[epIdx];
+    if (!ep) return;
+    ep.group.traverse(m=>{ if(m.isMesh) enginePumpMeshToIdx.delete(m.uuid); });
+    scene.remove(ep.group);
+    enginePumpObjs.splice(epIdx,1);
+    enginePumpMeshToIdx.forEach((v,k)=>{ if(v>epIdx) enginePumpMeshToIdx.set(k,v-1); });
+    heldItem={type:'enginePump', fill:0, hasOil:false, contentType:null};
+    raycastEnginePumpIdx=-1; highlightedEnginePumpIdx=-1;
+    updateHeldMesh(); updateUI();
+    showNotification(L.msgEnginePumpRemoved);
+}
+
+function doGrabNozzle(epIdx) {
+    const L=I18N[currentLang];
+    const ep=enginePumpObjs[epIdx];
+    if (!ep||ep.gasFuel<=0) return;
+    heldItem={type:'engineNozzle', pumpIdx:epIdx, fill:0, hasOil:false, contentType:null};
+    updateHeldMesh(); updateUI();
+    showNotification(L.msgNozzleGrabbed);
+}
+
+function doReleaseNozzle() {
+    const L=I18N[currentLang];
+    if (heldMesh) { camera.remove(heldMesh); heldMesh=null; }
+    heldItem=null;
+    updateUI();
+    showNotification(L.msgNozzleReleased);
+}
+
+function doNozzleFill(canIdx) {
+    const L=I18N[currentLang];
+    if (!heldItem||heldItem.type!=='engineNozzle') return;
+    const ep=enginePumpObjs[heldItem.pumpIdx];
+    if (!ep||ep.gasFuel<=0) { showNotification(L.msgOutOfGas); return; }
+    if (canIdx<0||canIdx>=worldItems.length) return;
+    const target=worldItems[canIdx];
+    if (target.contentType==='gas') return;
+    const cap=target.type==='drum'?10:5;
+    if (target.fill>=cap) return;
+    target.fill++; target.contentType='oil';
+    ep.gasFuel=Math.max(0, ep.gasFuel-1);
+    refreshWorldItemMesh(canIdx);
+    updateUI();
+    if (ep.gasFuel<=0) {
+        showNotification(L.msgOutOfGas);
+    } else {
+        showNotification(L.msgNozzleFilled(target.fill, cap));
+    }
+}
+
+function doFuelEnginePump(epIdx) {
+    const L=I18N[currentLang];
+    const ep=enginePumpObjs[epIdx];
+    if (!ep) return;
+    if (!heldItem||heldItem.contentType!=='gas') { showNotification(L.msgGasOnly); return; }
+    const transfer=Math.min(heldItem.fill, 10-ep.gasFuel);
+    ep.gasFuel+=transfer;
+    heldItem.fill-=transfer;
+    if (heldItem.fill<=0) heldItem.contentType=null;
+    updateHeldMesh(); updateUI();
+    showNotification(L.msgFueledEnginePump(ep.gasFuel));
+}
+
 function doPickup(idx) {
     if (idx<0||idx>=worldItems.length) return;
     const item=worldItems[idx];
-    heldItem={type:item.type, fill:item.fill, hasOil:item.hasOil};
+    heldItem={type:item.type, fill:item.fill, hasOil:item.hasOil, contentType:item.contentType||null};
     removeWorldItem(idx);
     updateHeldMesh();
     updateUI();
-    showNotification(I18N[currentLang].msgPickedUp(
-        heldItem.type==='ladle' ? I18N[currentLang].nameLadle : I18N[currentLang].nameCan
-    ));
+    const L=I18N[currentLang];
+    const name=item.type==='ladle'?L.nameLadle:item.type==='drum'?L.nameDrum
+        :item.type==='enginePump'?L.nameEnginePump:item.type==='handPump'?L.nameHandPump:L.nameCan;
+    showNotification(L.msgPickedUp(name));
 }
 
 function doScoop() {
@@ -1508,6 +1884,8 @@ function doLoadCart() {
     let m;
     if (heldItem.type==='ladle') {
         m = createLadleMesh(heldItem.hasOil); m.scale.setScalar(1.5);
+    } else if (heldItem.type==='drum') {
+        m = createDrumMesh(heldItem.fill, heldItem.contentType); m.scale.setScalar(0.75);
     } else {
         m = createJerryCanMesh(heldItem.fill); m.scale.setScalar(1.3);
     }
@@ -1516,7 +1894,7 @@ function doLoadCart() {
     cartObj.group.add(m);
     m.traverse(child => { if(child.isMesh) cartObj.cartItemMeshMap.set(child.uuid, slotIdx); });
 
-    cartObj.slots[slotIdx] = { type:heldItem.type, fill:heldItem.fill, hasOil:heldItem.hasOil, mesh:m };
+    cartObj.slots[slotIdx] = { type:heldItem.type, fill:heldItem.fill, hasOil:heldItem.hasOil, contentType:heldItem.contentType||null, mesh:m };
 
     if (heldMesh) { camera.remove(heldMesh); heldMesh=null; }
     heldItem = null;
@@ -1534,7 +1912,7 @@ function doUnloadCart(slotIdx) {
     cartObj.slots[slotIdx] = null;
 
     // 手に持つ（カートは引き続き引ける状態を維持）
-    heldItem = { type:slot.type, fill:slot.fill, hasOil:slot.hasOil };
+    heldItem = { type:slot.type, fill:slot.fill, hasOil:slot.hasOil, contentType:slot.contentType||null };
     updateHeldMesh();
     updateUI();
     showNotification(I18N[currentLang].msgUnloadedCart);
@@ -1542,13 +1920,15 @@ function doUnloadCart(slotIdx) {
 
 function doPutDown() {
     if (!heldItem) return;
+    const L=I18N[currentLang];
     const {x:dx, z:dz}=getDropPos();
-    const name=heldItem.type==='ladle' ? I18N[currentLang].nameLadle : I18N[currentLang].nameCan;
-    spawnWorldItem(heldItem.type, dx, dz, heldItem.hasOil, heldItem.fill, 0.04);
+    const name=heldItem.type==='ladle'?L.nameLadle:heldItem.type==='drum'?L.nameDrum
+        :heldItem.type==='enginePump'?L.nameEnginePump:heldItem.type==='handPump'?L.nameHandPump:L.nameCan;
+    spawnWorldItem(heldItem.type, dx, dz, heldItem.hasOil, heldItem.fill, 0.04, heldItem.contentType||null);
     if (heldMesh) { camera.remove(heldMesh); heldMesh=null; }
     heldItem=null;
     updateUI();
-    showNotification(I18N[currentLang].msgPutDown(name));
+    showNotification(L.msgPutDown(name));
 }
 
 // ===== ゲームループ =====
@@ -1574,6 +1954,19 @@ function updateGame() {
             const px2=playerGroup.position.x, pz2=playerGroup.position.z;
             if (!checkCollision(px2+vx,pz2))                      playerGroup.position.x=px2+vx;
             if (!checkCollision(playerGroup.position.x,pz2+vz))   playerGroup.position.z=pz2+vz;
+        }
+
+        // ホース距離制限（エンジンノズル保持中）
+        if (heldItem && heldItem.type==='engineNozzle') {
+            const ep=enginePumpObjs[heldItem.pumpIdx];
+            if (ep) {
+                const hx=playerGroup.position.x-ep.x, hz=playerGroup.position.z-ep.z;
+                const hd=Math.hypot(hx,hz);
+                if (hd>ENGINE_HOSE_LENGTH) {
+                    playerGroup.position.x=ep.x+hx/hd*ENGINE_HOSE_LENGTH;
+                    playerGroup.position.z=ep.z+hz/hd*ENGINE_HOSE_LENGTH;
+                }
+            }
         }
 
         playerGroup.rotation.y=gameState.cameraYaw;
@@ -1637,6 +2030,18 @@ function updateGame() {
             if (pumpHits.length > 0) {
                 const idx = pumpMeshToIdx.get(pumpHits[0].object.uuid);
                 if (idx !== undefined) raycastPumpIdx = idx;
+            }
+        }
+
+        // エンジンポンプレイキャスト（ノズル非保持時のみ）
+        raycastEnginePumpIdx = -1;
+        if (enginePumpObjs.length > 0 && !(heldItem && heldItem.type==='engineNozzle')) {
+            const epMeshes = [];
+            enginePumpObjs.forEach(ep => { ep.group.traverse(m=>{ if(m.isMesh) epMeshes.push(m); }); });
+            const epHits = raycaster.intersectObjects(epMeshes, false);
+            if (epHits.length > 0) {
+                const idx = enginePumpMeshToIdx.get(epHits[0].object.uuid);
+                if (idx !== undefined) raycastEnginePumpIdx = idx;
             }
         }
 
@@ -1726,6 +2131,24 @@ function updateGame() {
             });
         }
 
+        // エンジンポンプハイライト（オレンジ点滅）
+        const newEpHighlight = raycastEnginePumpIdx;
+        if (newEpHighlight !== highlightedEnginePumpIdx) {
+            if (highlightedEnginePumpIdx>=0 && enginePumpObjs[highlightedEnginePumpIdx]) {
+                enginePumpObjs[highlightedEnginePumpIdx].group.traverse(m=>{
+                    if(m.isMesh&&m.material&&m.material.emissive) m.material.emissive.set(0x000000);
+                });
+            }
+            highlightedEnginePumpIdx = newEpHighlight;
+        }
+        if (highlightedEnginePumpIdx>=0 && enginePumpObjs[highlightedEnginePumpIdx]) {
+            const blinkE = 0.4+0.4*Math.abs(Math.sin(now*0.005));
+            enginePumpObjs[highlightedEnginePumpIdx].group.traverse(m=>{
+                if(m.isMesh&&m.material&&m.material.emissive)
+                    m.material.emissive.set(new THREE.Color(0.9*blinkE, 0.4*blinkE, 0.0));
+            });
+        }
+
         autoSaveTimer+=delta;
         if (autoSaveTimer>=10) { autoSaveTimer=0; saveGame(true); }
 
@@ -1750,7 +2173,13 @@ function updateUI() {
     if (heldItem) {
         if (heldItem.type==='ladle') heldText=L.heldLadle(heldItem.hasOil);
         else if (heldItem.type==='handPump') heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.nameHandPump;
-        else heldText=L.heldCan(heldItem.fill);
+        else if (heldItem.type==='enginePump') heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.nameEnginePump;
+        else if (heldItem.type==='drum') heldText=L.heldDrum(heldItem.fill, heldItem.contentType);
+        else if (heldItem.type==='engineNozzle') {
+            const ep=enginePumpObjs[heldItem.pumpIdx];
+            heldText=L.heldNozzle(ep?ep.gasFuel:0);
+        }
+        else heldText=L.heldCan(heldItem.fill, heldItem.contentType);
     }
     if (cartObj && cartObj.isHeld) {
         const n = cartObj.slots.filter(s=>s!==null).length;
@@ -1777,10 +2206,11 @@ function showNotification(msg) {
 function saveGame(isAuto=false) {
     gameState.playerPos.x=playerGroup.position.x;
     gameState.playerPos.z=playerGroup.position.z;
-    gameState.savedWorldItems=worldItems.map(i=>({type:i.type,x:i.x,z:i.z,fill:i.fill,hasOil:i.hasOil}));
+    gameState.savedWorldItems=worldItems.map(i=>({type:i.type,x:i.x,z:i.z,fill:i.fill,hasOil:i.hasOil,contentType:i.contentType||null}));
     gameState.savedHeldItem=heldItem?{...heldItem}:null;
     gameState.savedPumps=pumpObjs.map(po=>({x:po.x,z:po.z,attachedCan:po.attachedCan?{...po.attachedCan}:null}));
-    gameState.savedCartSlots=cartObj?cartObj.slots.map(s=>s?{type:s.type,fill:s.fill,hasOil:s.hasOil}:null):[];
+    gameState.savedEnginePumps=enginePumpObjs.map(ep=>({x:ep.x,z:ep.z,gasFuel:ep.gasFuel}));
+    gameState.savedCartSlots=cartObj?cartObj.slots.map(s=>s?{type:s.type,fill:s.fill,hasOil:s.hasOil,contentType:s.contentType||null}:null):[];
     gameState.savedCartPos=cartObj?{x:cartObj.x,z:cartObj.z}:null;
     localStorage.setItem('oil_rush_save',JSON.stringify(gameState));
     showNotification(isAuto?I18N[currentLang].msgAutoSaved:I18N[currentLang].msgDataSaved);
@@ -1824,11 +2254,12 @@ function loadGame() {
                     const [lx,lz]=CART_SLOTS[i];
                     let m;
                     if (s.type==='ladle') { m=createLadleMesh(s.hasOil); m.scale.setScalar(1.5); }
+                    else if (s.type==='drum') { m=createDrumMesh(s.fill,s.contentType||null); m.scale.setScalar(0.75); }
                     else { m=createJerryCanMesh(s.fill); m.scale.setScalar(1.3); }
                     m.position.set(lx,0.59,lz); m.rotation.y=(i%2===0?-0.1:0.1);
                     cartObj.group.add(m);
                     m.traverse(c=>{if(c.isMesh)cartObj.cartItemMeshMap.set(c.uuid,i);});
-                    cartObj.slots[i]={type:s.type,fill:s.fill,hasOil:s.hasOil,mesh:m};
+                    cartObj.slots[i]={type:s.type,fill:s.fill,hasOil:s.hasOil,contentType:s.contentType||null,mesh:m};
                 });
             } else {
                 cartObj.purchased = false;
@@ -1839,11 +2270,15 @@ function loadGame() {
         // ワールドアイテム再構築
         clearWorldItems();
         const items=gameState.savedWorldItems||getDefaultWorldItems();
-        items.forEach(i=>spawnWorldItem(i.type,i.x,i.z,i.hasOil||false,i.fill||0,0.04));
+        items.forEach(i=>spawnWorldItem(i.type,i.x,i.z,i.hasOil||false,i.fill||0,0.04,i.contentType||null));
 
         // ポンプ再構築
         clearPumpObjs();
         (gameState.savedPumps||[]).forEach(p=>restorePump(p.x,p.z,p.attachedCan));
+
+        // エンジンポンプ再構築
+        clearEnginePumpObjs();
+        (gameState.savedEnginePumps||[]).forEach(ep=>restoreEnginePump(ep.x,ep.z,ep.gasFuel));
 
         // 手持ち復元
         heldItem=gameState.savedHeldItem?{...gameState.savedHeldItem}:null;
@@ -1878,6 +2313,22 @@ function restorePump(x, z, attachedCan) {
         cm.traverse(m => { if(m.isMesh) pumpMeshToIdx.set(m.uuid, idx); });
     }
     pumpObjs.push(po);
+}
+
+function clearEnginePumpObjs() {
+    while (enginePumpObjs.length>0) { scene.remove(enginePumpObjs[0].group); enginePumpObjs.splice(0,1); }
+    enginePumpMeshToIdx.clear();
+    raycastEnginePumpIdx=-1; highlightedEnginePumpIdx=-1;
+}
+
+function restoreEnginePump(x, z, gasFuel) {
+    const g=new THREE.Group();
+    g.add(createEnginePumpMesh());
+    g.position.set(x,0,z);
+    scene.add(g);
+    const idx=enginePumpObjs.length;
+    g.traverse(m=>{ if(m.isMesh) enginePumpMeshToIdx.set(m.uuid,idx); });
+    enginePumpObjs.push({group:g, x, z, gasFuel:gasFuel||0});
 }
 
 function getDefaultWorldItems() {
@@ -1915,9 +2366,11 @@ function importData() {
         playerGroup.position.set(gameState.playerPos.x,0,gameState.playerPos.z);
         clearWorldItems();
         const items=gameState.savedWorldItems||getDefaultWorldItems();
-        items.forEach(i=>spawnWorldItem(i.type,i.x,i.z,i.hasOil||false,i.fill||0,0.04));
+        items.forEach(i=>spawnWorldItem(i.type,i.x,i.z,i.hasOil||false,i.fill||0,0.04,i.contentType||null));
         clearPumpObjs();
         (gameState.savedPumps||[]).forEach(p=>restorePump(p.x,p.z,p.attachedCan));
+        clearEnginePumpObjs();
+        (gameState.savedEnginePumps||[]).forEach(ep=>restoreEnginePump(ep.x,ep.z,ep.gasFuel));
         if (cartObj) {
             cartObj.slots.forEach((s,i)=>{ if(s){cartObj.group.remove(s.mesh);cartObj.slots[i]=null;} });
             cartObj.cartItemMeshMap.clear(); cartObj.isHeld=false;
@@ -1933,11 +2386,12 @@ function importData() {
                     const [lx,lz]=CART_SLOTS[i];
                     let m;
                     if (s.type==='ladle') { m=createLadleMesh(s.hasOil); m.scale.setScalar(1.5); }
+                    else if (s.type==='drum') { m=createDrumMesh(s.fill,s.contentType||null); m.scale.setScalar(0.75); }
                     else { m=createJerryCanMesh(s.fill); m.scale.setScalar(1.3); }
                     m.position.set(lx,0.59,lz); m.rotation.y=(i%2===0?-0.1:0.1);
                     cartObj.group.add(m);
                     m.traverse(c=>{if(c.isMesh)cartObj.cartItemMeshMap.set(c.uuid,i);});
-                    cartObj.slots[i]={type:s.type,fill:s.fill,hasOil:s.hasOil,mesh:m};
+                    cartObj.slots[i]={type:s.type,fill:s.fill,hasOil:s.hasOil,contentType:s.contentType||null,mesh:m};
                 });
             } else { cartObj.purchased=false; }
         }
