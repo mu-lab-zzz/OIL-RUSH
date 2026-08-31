@@ -77,16 +77,16 @@ const I18N = {
         money: "所持金: $",
         heldNone: "手持ち: なし",
         heldLadle: (oil) => oil ? "手持ち: ひしゃく (原油あり)" : "手持ち: ひしゃく",
-        heldCan: (f, ct) => ct==='gas' ? (f>0?`手持ち: ジェリ缶 (ガス ${f}/5)`:"手持ち: ジェリ缶 (空)") : (f>0?`手持ち: ジェリ缶 (${f}/5)`:"手持ち: ジェリ缶 (空)"),
-        heldDrum: (f, ct) => ct==='gas' ? (f>0?`手持ち: ドラム缶 (ガス ${f}/10)`:"手持ち: ドラム缶 (空)") : (f>0?`手持ち: ドラム缶 (原油 ${f}/10)`:"手持ち: ドラム缶 (空)"),
-        heldNozzle: (n) => `ノズル保持中 (燃料 ${n}/10)`,
+        heldCan: (f, ct) => ct==='gas' ? (f>0?`手持ち: ジェリ缶 (ガス ${f}L/10L)`:"手持ち: ジェリ缶 (空)") : (f>0?`手持ち: ジェリ缶 (原油 ${f}L/10L)`:"手持ち: ジェリ缶 (空)"),
+        heldDrum: (f, ct) => ct==='gas' ? (f>0?`手持ち: ドラム缶 (ガス ${f}L/100L)`:"手持ち: ドラム缶 (空)") : (f>0?`手持ち: ドラム缶 (原油 ${f}L/100L)`:"手持ち: ドラム缶 (空)"),
+        heldNozzle: (n) => `ノズル保持中 (燃料 ${n.toFixed(1)}L/20L)`,
         hintText: "← 西: 油田　東: 町 →",
         promptPickupLadle: "[SPACE] ひしゃくを拾う",
-        promptPickupCan: (f, ct) => ct==='gas' ? (f>0?`[SPACE] ジェリ缶を拾う (ガス ${f}/5)`:"[SPACE] ジェリ缶を拾う (空)") : (f>0?`[SPACE] ジェリ缶を拾う (${f}/5)`:"[SPACE] ジェリ缶を拾う (空)"),
-        promptPickupDrum: (f, ct) => ct==='gas' ? (f>0?`[SPACE] ドラム缶を拾う (ガス ${f}/10)`:"[SPACE] ドラム缶を拾う (空)") : (f>0?`[SPACE] ドラム缶を拾う (原油 ${f}/10)`:"[SPACE] ドラム缶を拾う (空)"),
+        promptPickupCan: (f, ct) => ct==='gas' ? (f>0?`[SPACE] ジェリ缶を拾う (ガス ${f}L/10L)`:"[SPACE] ジェリ缶を拾う (空)") : (f>0?`[SPACE] ジェリ缶を拾う (原油 ${f}L/10L)`:"[SPACE] ジェリ缶を拾う (空)"),
+        promptPickupDrum: (f, ct) => ct==='gas' ? (f>0?`[SPACE] ドラム缶を拾う (ガス ${f}L/100L)`:"[SPACE] ドラム缶を拾う (空)") : (f>0?`[SPACE] ドラム缶を拾う (原油 ${f}L/100L)`:"[SPACE] ドラム缶を拾う (空)"),
         promptScoop: "[SPACE] 原油を掬う",
-        promptPour: (f) => `[SPACE] ジェリ缶に注ぐ (${f}/5)`,
-        promptPourDrum: (f) => `[SPACE] ドラム缶に注ぐ (${f}/10)`,
+        promptPour: (f) => `[SPACE] ジェリ缶に注ぐ (${f}L/10L)`,
+        promptPourDrum: (f) => `[SPACE] ドラム缶に注ぐ (${f}L/100L)`,
         promptSell: (earn) => `[SPACE] タンクへ注いで売却 (+$${earn})`,
         promptSellDrum: (earn) => `[SPACE] タンクへ注いで売却 (+$${earn})`,
         promptPutDown: "[SPACE] 道具を置く",
@@ -94,7 +94,7 @@ const I18N = {
         msgPickedUp: (name) => `${name}を持った`,
         msgPutDown: (name) => `${name}を置いた`,
         msgScooped: "原油を掬った！",
-        msgPoured: (f) => `ジェリ缶に注いだ (${f}/5)`,
+        msgPoured: (f) => `ジェリ缶に注いだ (${f}L/10L)`,
         msgCanFull: "満タン！出荷場へ持って行こう",
         msgSold: (earn) => `売却完了！ +$${earn}`,
         msgCanEmpty: "缶が空です",
@@ -124,7 +124,7 @@ const I18N = {
         promptInstallPump: "[SPACE] 汲み上げ機を設置",
         promptRemovePump:  "[SPACE] 汲み上げ機を撤去",
         promptAttachCan:   "[SPACE] ジェリ缶を装着",
-        promptPump: (n) => `[SPACE] ポンプを押す (${n}/10)`,
+        promptPump: (n) => `[SPACE] ポンプを押す (${n}L/10L)`,
         promptDetachCan:   "[SPACE] ジェリ缶を取り外す",
         msgPumpInstalled:  "汲み上げ機を設置した",
         msgPumpRemoved:    "汲み上げ機を撤去した",
@@ -136,17 +136,17 @@ const I18N = {
         nameEnginePump: "エンジン式ポンプ",
         promptInstallEnginePump: "[SPACE] エンジンポンプを設置",
         promptRemoveEnginePump: "[SPACE] エンジンポンプを撤去",
-        promptGrabNozzle: (n) => `[SPACE] ノズルを持つ (燃料 ${n}/10)`,
+        promptGrabNozzle: (n) => `[SPACE] ノズルを持つ (燃料 ${n.toFixed(1)}L/20L)`,
         promptReleaseNozzle: "[SPACE] ノズルを離す",
-        promptNozzleFill: (f, cap) => `[SPACE] 原油を注入 (${f}/${cap})`,
-        promptFuelEnginePump: (n) => `[SPACE] エンジンポンプに給油 (燃料 ${n}/10)`,
+        promptNozzleFill: (f, cap) => `[SPACE] 原油を注入中 (${f}L/${cap}L) 5L/秒`,
+        promptFuelEnginePump: (n) => `[SPACE] エンジンポンプに給油 (燃料 ${n.toFixed(1)}L/20L)`,
         promptFillGas: (cost) => `[SPACE] ガソリンを給油 ($${cost})`,
         msgEnginePumpInstalled: "エンジンポンプを設置した",
         msgEnginePumpRemoved: "エンジンポンプを撤去した",
         msgNozzleGrabbed: "ノズルを持った",
         msgNozzleReleased: "ノズルを離した",
-        msgNozzleFilled: (f, cap) => `原油を注入した (${f}/${cap})`,
-        msgFueledEnginePump: (n) => `燃料補給完了 (${n}/10)`,
+        msgNozzleFilled: (f, cap) => `原油を注入した (${f}L/${cap}L)`,
+        msgFueledEnginePump: (n) => `燃料補給完了 (${n.toFixed(1)}L/20L)`,
         msgGotGas: (cost) => `ガソリン給油完了 (-$${cost})`,
         msgOutOfGas: "燃料切れ",
         msgGasOnly: "ガソリン缶のみ給油できます",
@@ -163,16 +163,16 @@ const I18N = {
         money: "Money: $",
         heldNone: "Holding: nothing",
         heldLadle: (oil) => oil ? "Holding: ladle (has oil)" : "Holding: ladle",
-        heldCan: (f, ct) => ct==='gas' ? (f>0?`Holding: jerry can (gas ${f}/5)`:"Holding: jerry can (empty)") : (f>0?`Holding: jerry can (${f}/5)`:"Holding: jerry can (empty)"),
-        heldDrum: (f, ct) => ct==='gas' ? (f>0?`Holding: drum (gas ${f}/10)`:"Holding: drum (empty)") : (f>0?`Holding: drum (oil ${f}/10)`:"Holding: drum (empty)"),
-        heldNozzle: (n) => `Holding nozzle (fuel ${n}/10)`,
+        heldCan: (f, ct) => ct==='gas' ? (f>0?`Holding: jerry can (gas ${f}L/10L)`:"Holding: jerry can (empty)") : (f>0?`Holding: jerry can (oil ${f}L/10L)`:"Holding: jerry can (empty)"),
+        heldDrum: (f, ct) => ct==='gas' ? (f>0?`Holding: drum (gas ${f}L/100L)`:"Holding: drum (empty)") : (f>0?`Holding: drum (oil ${f}L/100L)`:"Holding: drum (empty)"),
+        heldNozzle: (n) => `Holding nozzle (fuel ${n.toFixed(1)}L/20L)`,
         hintText: "← West: Oil Field　East: Town →",
         promptPickupLadle: "[SPACE] Pick up ladle",
-        promptPickupCan: (f, ct) => ct==='gas' ? (f>0?`[SPACE] Pick up can (gas ${f}/5)`:"[SPACE] Pick up can (empty)") : (f>0?`[SPACE] Pick up can (${f}/5)`:"[SPACE] Pick up can (empty)"),
-        promptPickupDrum: (f, ct) => ct==='gas' ? (f>0?`[SPACE] Pick up drum (gas ${f}/10)`:"[SPACE] Pick up drum (empty)") : (f>0?`[SPACE] Pick up drum (oil ${f}/10)`:"[SPACE] Pick up drum (empty)"),
+        promptPickupCan: (f, ct) => ct==='gas' ? (f>0?`[SPACE] Pick up can (gas ${f}L/10L)`:"[SPACE] Pick up can (empty)") : (f>0?`[SPACE] Pick up can (oil ${f}L/10L)`:"[SPACE] Pick up can (empty)"),
+        promptPickupDrum: (f, ct) => ct==='gas' ? (f>0?`[SPACE] Pick up drum (gas ${f}L/100L)`:"[SPACE] Pick up drum (empty)") : (f>0?`[SPACE] Pick up drum (oil ${f}L/100L)`:"[SPACE] Pick up drum (empty)"),
         promptScoop: "[SPACE] Scoop oil",
-        promptPour: (f) => `[SPACE] Pour into can (${f}/5)`,
-        promptPourDrum: (f) => `[SPACE] Pour into drum (${f}/10)`,
+        promptPour: (f) => `[SPACE] Pour into can (${f}L/10L)`,
+        promptPourDrum: (f) => `[SPACE] Pour into drum (${f}L/100L)`,
         promptSell: (earn) => `[SPACE] Pour into tank & sell (+$${earn})`,
         promptSellDrum: (earn) => `[SPACE] Pour into tank & sell (+$${earn})`,
         promptPutDown: "[SPACE] Put down",
@@ -180,7 +180,7 @@ const I18N = {
         msgPickedUp: (name) => `Picked up ${name}`,
         msgPutDown: (name) => `Put down ${name}`,
         msgScooped: "Oil scooped!",
-        msgPoured: (f) => `Poured into can (${f}/5)`,
+        msgPoured: (f) => `Poured into can (${f}L/10L)`,
         msgCanFull: "Full! Take it to the depot",
         msgSold: (earn) => `Sold! +$${earn}`,
         msgCanEmpty: "Can is empty",
@@ -210,7 +210,7 @@ const I18N = {
         promptInstallPump: "[SPACE] Install pump",
         promptRemovePump:  "[SPACE] Remove pump",
         promptAttachCan:   "[SPACE] Attach jerry can",
-        promptPump: (n) => `[SPACE] Pump (${n}/10)`,
+        promptPump: (n) => `[SPACE] Pump (${n}L/10L)`,
         promptDetachCan:   "[SPACE] Detach can",
         msgPumpInstalled:  "Pump installed",
         msgPumpRemoved:    "Pump removed",
@@ -222,17 +222,17 @@ const I18N = {
         nameEnginePump: "engine pump",
         promptInstallEnginePump: "[SPACE] Install engine pump",
         promptRemoveEnginePump: "[SPACE] Remove engine pump",
-        promptGrabNozzle: (n) => `[SPACE] Grab nozzle (fuel ${n}/10)`,
+        promptGrabNozzle: (n) => `[SPACE] Grab nozzle (fuel ${n.toFixed(1)}L/20L)`,
         promptReleaseNozzle: "[SPACE] Release nozzle",
-        promptNozzleFill: (f, cap) => `[SPACE] Pump oil (${f}/${cap})`,
-        promptFuelEnginePump: (n) => `[SPACE] Fuel engine pump (${n}/10)`,
+        promptNozzleFill: (f, cap) => `[SPACE] Pumping oil (${f}L/${cap}L) 5L/s`,
+        promptFuelEnginePump: (n) => `[SPACE] Fuel engine pump (${n.toFixed(1)}L/20L)`,
         promptFillGas: (cost) => `[SPACE] Fill with gas ($${cost})`,
         msgEnginePumpInstalled: "Engine pump installed",
         msgEnginePumpRemoved: "Engine pump removed",
         msgNozzleGrabbed: "Grabbed nozzle",
         msgNozzleReleased: "Released nozzle",
-        msgNozzleFilled: (f, cap) => `Pumped oil (${f}/${cap})`,
-        msgFueledEnginePump: (n) => `Engine pump fueled (${n}/10)`,
+        msgNozzleFilled: (f, cap) => `Pumped oil (${f}L/${cap}L)`,
+        msgFueledEnginePump: (n) => `Engine pump fueled (${n.toFixed(1)}L/20L)`,
         msgGotGas: (cost) => `Filled with gas (-$${cost})`,
         msgOutOfGas: "Out of fuel",
         msgGasOnly: "Only gas cans can fuel the pump",
@@ -298,7 +298,16 @@ const enginePumpMeshToIdx = new Map();
 let raycastEnginePumpIdx = -1;
 let highlightedEnginePumpIdx = -1;
 const ENGINE_HOSE_LENGTH = 4.5;
-const GAS_FILL_COST = 20; // ガソリン1単位あたりのコスト (ジェリ缶1本=20、ドラム=40)
+// ===== 液体容量 (リットル) =====
+const JERRY_CAN_CAP = 10;          // ジェリ缶容量
+const DRUM_CAP = 100;              // ドラム缶容量
+const LADLE_AMOUNT = 2;            // ひしゃく1杯
+const HAND_PUMP_AMOUNT = 1;        // 手動ポンプ1回
+const ENGINE_PUMP_FUEL_CAP = 20;   // エンジンポンプ燃料タンク容量
+const ENGINE_PUMP_OIL_RATE = 5;    // 吐出量 L/秒
+const ENGINE_PUMP_GAS_RATE = 1;    // 燃料消費 L/秒 (1:5比率)
+const GAS_FILL_COST = 10;          // ガソリンスタンド価格 (円/L)
+let engineNozzleFillAccum = 0;     // 連続充填タイムアキュムレータ
 
 // ===== ガソリンスタンド ノズル =====
 const gasStationObjs = []; // { group, x, z, nozzleMesh }
@@ -1432,9 +1441,9 @@ function computeCurrentAction() {
     // --- ひしゃく持ち ---
     if (heldItem && heldItem.type==='ladle') {
         if (!heldItem.hasOil && nearOil) return { type:'scoop', label:L.promptScoop };
-        if (heldItem.hasOil && aimItem && aimItem.type==='jerryCan' && aimItem.fill<5)
+        if (heldItem.hasOil && aimItem && aimItem.type==='jerryCan' && aimItem.fill+LADLE_AMOUNT<=JERRY_CAN_CAP)
             return { type:'pour', label:L.promptPour(aimItem.fill), canIdx:aimIdx };
-        if (heldItem.hasOil && aimItem && aimItem.type==='drum' && aimItem.contentType!=='gas' && aimItem.fill<10)
+        if (heldItem.hasOil && aimItem && aimItem.type==='drum' && aimItem.contentType!=='gas' && aimItem.fill+LADLE_AMOUNT<=DRUM_CAP)
             return { type:'pourDrum', label:L.promptPourDrum(aimItem.fill), canIdx:aimIdx };
         if (nearCart && cartCapacityUsed()+1<=10) return { type:'loadCart', label:L.promptLoadCart };
         return { type:'putDown', label:L.promptPutDown };
@@ -1447,10 +1456,10 @@ function computeCurrentAction() {
             const distToPump = Math.hypot(px-ep.x, pz-ep.z);
             if (distToPump <= ENGINE_HOSE_LENGTH) {
                 if (ep.gasFuel > 0) {
-                    if (aimItem && aimItem.type==='jerryCan' && aimItem.contentType!=='gas' && aimItem.fill<5)
-                        return { type:'nozzleFill', label:L.promptNozzleFill(aimItem.fill, 5), canIdx:aimIdx };
-                    if (aimItem && aimItem.type==='drum' && aimItem.contentType!=='gas' && aimItem.fill<10)
-                        return { type:'nozzleFill', label:L.promptNozzleFill(aimItem.fill, 10), canIdx:aimIdx };
+                    if (aimItem && aimItem.type==='jerryCan' && aimItem.contentType!=='gas' && aimItem.fill<JERRY_CAN_CAP)
+                        return { type:'nozzleFill', label:L.promptNozzleFill(aimItem.fill, JERRY_CAN_CAP), canIdx:aimIdx };
+                    if (aimItem && aimItem.type==='drum' && aimItem.contentType!=='gas' && aimItem.fill<DRUM_CAP)
+                        return { type:'nozzleFill', label:L.promptNozzleFill(aimItem.fill, DRUM_CAP), canIdx:aimIdx };
                 }
             }
         }
@@ -1463,10 +1472,10 @@ function computeCurrentAction() {
         if (gs) {
             const distToStation = Math.hypot(px-gs.x, pz-gs.z);
             if (distToStation <= GAS_HOSE_LENGTH) {
-                if (aimItem && aimItem.type==='jerryCan' && aimItem.contentType!=='oil' && aimItem.fill<5)
-                    return { type:'gasNozzleFill', label:L.promptGasNozzleFill(aimItem.fill, 5, GAS_FILL_COST), canIdx:aimIdx };
-                if (aimItem && aimItem.type==='drum' && aimItem.contentType!=='oil' && aimItem.fill<10)
-                    return { type:'gasNozzleFill', label:L.promptGasNozzleFill(aimItem.fill, 10, GAS_FILL_COST*2), canIdx:aimIdx };
+                if (aimItem && aimItem.type==='jerryCan' && aimItem.contentType!=='oil' && aimItem.fill<JERRY_CAN_CAP)
+                    return { type:'gasNozzleFill', label:L.promptGasNozzleFill(aimItem.fill, JERRY_CAN_CAP, GAS_FILL_COST), canIdx:aimIdx };
+                if (aimItem && aimItem.type==='drum' && aimItem.contentType!=='oil' && aimItem.fill<DRUM_CAP)
+                    return { type:'gasNozzleFill', label:L.promptGasNozzleFill(aimItem.fill, DRUM_CAP, GAS_FILL_COST), canIdx:aimIdx };
             }
         }
         return { type:'releaseGasNozzle', label:L.promptReleaseGasNozzle };
@@ -1524,10 +1533,9 @@ function computeCurrentAction() {
         if (raycastPumpIdx>=0) {
             const po = pumpObjs[raycastPumpIdx];
             if (po.attachedCan) {
-                if (po.attachedCan.fill >= 5)
+                if (po.attachedCan.fill >= JERRY_CAN_CAP)
                     return { type:'detachCan', label:L.promptDetachCan, pumpIdx:raycastPumpIdx };
-                const n = Math.round(po.attachedCan.fill*2);
-                return { type:'pumpOnce', label:L.promptPump(n), pumpIdx:raycastPumpIdx };
+                return { type:'pumpOnce', label:L.promptPump(po.attachedCan.fill), pumpIdx:raycastPumpIdx };
             }
             return { type:'removePump', label:L.promptRemovePump, pumpIdx:raycastPumpIdx };
         }
@@ -1566,13 +1574,13 @@ function computeCurrentAction() {
 
 function canPrice(fill) {
     if (fill<=0) return 0;
-    if (fill>=5) return 175;
-    return fill*25;
+    if (fill>=JERRY_CAN_CAP) return 175;
+    return Math.round(fill*17.5);
 }
 function drumPrice(fill) {
     if (fill<=0) return 0;
-    if (fill>=10) return 400;
-    return fill*40;
+    if (fill>=DRUM_CAP) return 400;
+    return Math.round(fill*4);
 }
 
 // ===== アクション実行 =====
@@ -1715,7 +1723,7 @@ function doPumpOnce(pumpIdx) {
     const po = pumpObjs[pumpIdx];
     if (!po || !po.attachedCan) return;
 
-    po.attachedCan.fill = Math.min(5, po.attachedCan.fill + 0.5);
+    po.attachedCan.fill = Math.min(JERRY_CAN_CAP, po.attachedCan.fill + HAND_PUMP_AMOUNT);
 
     // 缶メッシュを更新（色変化のため再生成）
     if (po.canMesh) {
@@ -1730,11 +1738,10 @@ function doPumpOnce(pumpIdx) {
         po.canMesh.traverse(m => { if(m.isMesh) pumpMeshToIdx.set(m.uuid, pumpIdx); });
     }
 
-    const n = Math.round(po.attachedCan.fill * 2);
-    if (po.attachedCan.fill >= 5) {
+    if (po.attachedCan.fill >= JERRY_CAN_CAP) {
         showNotification(L.msgCanFull);
     } else {
-        showNotification(L.msgPumped(n));
+        showNotification(L.msgPumped(po.attachedCan.fill));
     }
 }
 
@@ -1743,12 +1750,12 @@ function doPourDrum(drumIdx) {
     if (drumIdx<0||drumIdx>=worldItems.length) return;
     const drum=worldItems[drumIdx];
     if (drum.contentType==='gas') return;
-    drum.fill++; drum.contentType='oil';
+    drum.fill=Math.min(DRUM_CAP, drum.fill+LADLE_AMOUNT); drum.contentType='oil';
     heldItem.hasOil=false;
     refreshWorldItemMesh(drumIdx);
     updateHeldMesh(); updateUI();
     const L=I18N[currentLang];
-    if (drum.fill>=10) showNotification(L.msgCanFull);
+    if (drum.fill>=DRUM_CAP) showNotification(L.msgCanFull);
     else showNotification(L.promptPourDrum(drum.fill));
 }
 
@@ -1817,13 +1824,12 @@ function doGasNozzleFill(canIdx) {
     if (canIdx<0||canIdx>=worldItems.length) return;
     const target=worldItems[canIdx];
     if (target.contentType==='oil') { showNotification(L.msgGasOnly); return; }
-    const isDrum = target.type==='drum';
-    const cap = isDrum ? 10 : 5;
+    const cap = target.type==='drum' ? DRUM_CAP : JERRY_CAN_CAP;
     if (target.fill>=cap) return;
-    const cost = isDrum ? GAS_FILL_COST*2 : GAS_FILL_COST;
+    const cost = GAS_FILL_COST;
     if (gameState.money<cost) { showNotification(L.msgNoMoney); return; }
     gameState.money-=cost;
-    target.fill++;
+    target.fill=Math.min(cap, target.fill+1);
     target.contentType='gas';
     refreshWorldItemMesh(canIdx);
     updateUI();
@@ -1885,10 +1891,10 @@ function doNozzleFill(canIdx) {
     if (canIdx<0||canIdx>=worldItems.length) return;
     const target=worldItems[canIdx];
     if (target.contentType==='gas') return;
-    const cap=target.type==='drum'?10:5;
+    const cap=target.type==='drum'?DRUM_CAP:JERRY_CAN_CAP;
     if (target.fill>=cap) return;
-    target.fill++; target.contentType='oil';
-    ep.gasFuel=Math.max(0, ep.gasFuel-1);
+    target.fill=Math.min(cap, target.fill+1); target.contentType='oil';
+    ep.gasFuel=Math.max(0, ep.gasFuel - ENGINE_PUMP_GAS_RATE/ENGINE_PUMP_OIL_RATE);
     refreshWorldItemMesh(canIdx);
     updateUI();
     if (ep.gasFuel<=0) {
@@ -1903,9 +1909,9 @@ function doFuelEnginePump(epIdx) {
     const ep=enginePumpObjs[epIdx];
     if (!ep) return;
     if (!heldItem||heldItem.contentType!=='gas') { showNotification(L.msgGasOnly); return; }
-    const transfer=Math.min(heldItem.fill, 10-ep.gasFuel);
-    ep.gasFuel+=transfer;
-    heldItem.fill-=transfer;
+    const transfer=Math.min(heldItem.fill, ENGINE_PUMP_FUEL_CAP-ep.gasFuel);
+    ep.gasFuel=Math.min(ENGINE_PUMP_FUEL_CAP, ep.gasFuel+transfer);
+    heldItem.fill=Math.max(0, heldItem.fill-transfer);
     if (heldItem.fill<=0) heldItem.contentType=null;
     updateHeldMesh(); updateUI();
     showNotification(L.msgFueledEnginePump(ep.gasFuel));
@@ -1934,12 +1940,12 @@ function doScoop() {
 function doPour(canIdx) {
     if (canIdx<0||canIdx>=worldItems.length) return;
     const can=worldItems[canIdx];
-    can.fill++;
+    can.fill=Math.min(JERRY_CAN_CAP, can.fill+LADLE_AMOUNT);
     heldItem.hasOil=false;
     refreshWorldItemMesh(canIdx);
     updateHeldMesh();
     updateUI();
-    if (can.fill>=5) showNotification(I18N[currentLang].msgCanFull);
+    if (can.fill>=JERRY_CAN_CAP) showNotification(I18N[currentLang].msgCanFull);
     else showNotification(I18N[currentLang].msgPoured(can.fill));
 }
 
@@ -2172,6 +2178,23 @@ function updateGame() {
         }
 
         currentAction=computeCurrentAction();
+
+        // エンジンノズル連続充填（SPACE押しっぱなし・5L/秒）
+        if (heldItem && heldItem.type==='engineNozzle' && keys.space) {
+            if (currentAction && currentAction.type==='nozzleFill') {
+                engineNozzleFillAccum += delta;
+                const tickInterval = 1/ENGINE_PUMP_OIL_RATE; // 0.2秒/L
+                while (engineNozzleFillAccum >= tickInterval) {
+                    engineNozzleFillAccum -= tickInterval;
+                    doNozzleFill(currentAction.canIdx);
+                }
+            } else {
+                engineNozzleFillAccum = 0;
+            }
+        } else {
+            engineNozzleFillAccum = 0;
+        }
+
         const prompt=document.getElementById('interaction-prompt');
         const crosshairEl=document.getElementById('crosshair');
         if (currentAction) { prompt.style.display='block'; prompt.innerText=currentAction.label; }
