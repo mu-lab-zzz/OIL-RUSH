@@ -862,6 +862,13 @@ function createShopDisplay(x, z) {
             m = createHandPumpMesh();
             m.scale.setScalar(0.35);
             m.position.set(lx, shelfY, 0.04);
+            // ターゲットしやすい不可視ヒットゾーン
+            const hz = new THREE.Mesh(
+                new THREE.BoxGeometry(1.1, 0.85, 1.1),
+                new THREE.MeshBasicMaterial({visible:false})
+            );
+            hz.position.set(0, 0.43, 0);
+            m.add(hz);
         } else {
             m = createJerryCanMesh(0);
             m.scale.setScalar(1.3);
