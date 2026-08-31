@@ -156,7 +156,8 @@ const I18N = {
         heldGasNozzle: "給油ノズル保持中",
         msgGasNozzleGrabbed: "給油ノズルを持った",
         msgGasNozzleReleased: "ノズルを戻した",
-        msgGasNozzleFilled: (f, cap) => `ガス給油 (${f}/${cap})`
+        msgGasNozzleFilled: (f, cap) => `ガス給油 (${f}/${cap})`,
+        msgDrumCartFull: "ドラム缶は2個まで"
     },
     en: {
         money: "Money: $",
@@ -241,7 +242,8 @@ const I18N = {
         heldGasNozzle: "Holding gas nozzle",
         msgGasNozzleGrabbed: "Grabbed gas nozzle",
         msgGasNozzleReleased: "Returned nozzle",
-        msgGasNozzleFilled: (f, cap) => `Gas filled (${f}/${cap})`
+        msgGasNozzleFilled: (f, cap) => `Gas filled (${f}/${cap})`,
+        msgDrumCartFull: "Max 2 drums on cart"
     }
 };
 let currentLang = 'ja';
@@ -1488,7 +1490,8 @@ function computeCurrentAction() {
             return { type:'sellDrum', label:L.promptSellDrum(drumPrice(heldItem.fill)) };
         if (heldItem.contentType==='gas' && raycastEnginePumpIdx>=0)
             return { type:'fuelEnginePump', label:L.promptFuelEnginePump(enginePumpObjs[raycastEnginePumpIdx].gasFuel), epIdx:raycastEnginePumpIdx };
-        if (nearCart && cartObj.slots.some(s=>s===null)) return { type:'loadCart', label:L.promptLoadCart };
+        const drumCount = cartObj ? cartObj.slots.filter(s=>s&&s.type==='drum').length : 0;
+        if (nearCart && cartObj.slots.some(s=>s===null) && drumCount<2) return { type:'loadCart', label:L.promptLoadCart };
         return { type:'putDown', label:L.promptPutDown };
     }
 
@@ -1969,6 +1972,9 @@ function doLoadCart() {
     if (!heldItem || !cartObj) return;
     const slotIdx = cartObj.slots.findIndex(s=>s===null);
     if (slotIdx<0) { showNotification(I18N[currentLang].msgCartFull); return; }
+    if (heldItem.type==='drum' && cartObj.slots.filter(s=>s&&s.type==='drum').length>=2) {
+        showNotification(I18N[currentLang].msgDrumCartFull); return;
+    }
 
     const [lx,lz] = CART_SLOTS[slotIdx];
     let m;
