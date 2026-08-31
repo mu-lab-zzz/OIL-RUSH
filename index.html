@@ -113,7 +113,19 @@ const I18N = {
         msgCartFull: "リヤカーが満載です",
         promptBuy: (name, price) => `[SPACE] ${name}を購入 ($${price})`,
         msgBought: (name, price) => `${name}を購入しました (-$${price})`,
-        msgNoMoney: "所持金が足りません"
+        msgNoMoney: "所持金が足りません",
+        nameHandPump: "手動汲み上げ機",
+        promptInstallPump: "[SPACE] 汲み上げ機を設置",
+        promptRemovePump:  "[SPACE] 汲み上げ機を撤去",
+        promptAttachCan:   "[SPACE] ジェリ缶を装着",
+        promptPump: (n) => `[SPACE] ポンプを押す (${n}/10)`,
+        promptDetachCan:   "[SPACE] ジェリ缶を取り外す",
+        msgPumpInstalled:  "汲み上げ機を設置した",
+        msgPumpRemoved:    "汲み上げ機を撤去した",
+        msgCanAttachedPump:"ジェリ缶を装着した",
+        msgCanDetachedPump:"ジェリ缶を取り外した",
+        msgPumped: (n) => `ポンプ完了 (${n}/10)`,
+        msgNotNearOil: "油田の近くに設置してください"
     },
     en: {
         money: "Money: $",
@@ -155,7 +167,19 @@ const I18N = {
         msgCartFull: "Cart is full",
         promptBuy: (name, price) => `[SPACE] Buy ${name} ($${price})`,
         msgBought: (name, price) => `Bought ${name} (-$${price})`,
-        msgNoMoney: "Not enough money"
+        msgNoMoney: "Not enough money",
+        nameHandPump: "hand pump",
+        promptInstallPump: "[SPACE] Install pump",
+        promptRemovePump:  "[SPACE] Remove pump",
+        promptAttachCan:   "[SPACE] Attach jerry can",
+        promptPump: (n) => `[SPACE] Pump (${n}/10)`,
+        promptDetachCan:   "[SPACE] Detach can",
+        msgPumpInstalled:  "Pump installed",
+        msgPumpRemoved:    "Pump removed",
+        msgCanAttachedPump:"Can attached to pump",
+        msgCanDetachedPump:"Can detached from pump",
+        msgPumped: (n) => `Pumped (${n}/10)`,
+        msgNotNearOil: "Place near an oil spring"
     }
 };
 let currentLang = 'ja';
@@ -192,6 +216,12 @@ const shopDisplayItems = []; // {type, price, mesh, dropX, dropZ}
 const shopMeshToIdx = new Map(); // mesh.uuid → idx
 let raycastShopItemIdx = -1;
 let highlightedShopItemIdx = -1;
+
+// ===== 手動汲み上げ機（設置済み） =====
+const pumpObjs = []; // { group, x, z, attachedCan:{fill}, canMesh }
+const pumpMeshToIdx = new Map();
+let raycastPumpIdx = -1;
+let highlightedPumpIdx = -1;
 
 // ===== リヤカー =====
 let cartObj = null; // { group, x, z, isHeld, slots[10], cartItemMeshMap }
@@ -316,15 +346,57 @@ function createJerryCanMesh(fill=0) {
     return g;
 }
 
+// ===== 手動汲み上げ機メッシュ =====
+function createHandPumpMesh() {
+    const g = new THREE.Group();
+    const metalMat = new THREE.MeshStandardMaterial({color:0x607d8b,roughness:0.35,metalness:0.75});
+    const bodyMat  = new THREE.MeshStandardMaterial({color:0x37474f,roughness:0.5,metalness:0.6});
+    const handleMat= new THREE.MeshStandardMaterial({color:0xc62828,roughness:0.55});
+
+    // ベースプレート
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.42,0.07,0.42), metalMat);
+    base.position.y=0.035; base.castShadow=true; g.add(base);
+
+    // ポンプ胴体（シリンダー）
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.09,0.6,8), bodyMat);
+    body.position.y=0.375; body.castShadow=true; g.add(body);
+
+    // 上部カラー
+    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.095,0.09,0.04,8), metalMat);
+    collar.position.y=0.695; g.add(collar);
+
+    // ポンプロッド（縦）
+    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.14,6), metalMat);
+    rod.position.y=0.79; g.add(rod);
+
+    // レバー（横棒）
+    const lever = new THREE.Mesh(new THREE.BoxGeometry(0.56,0.052,0.065), handleMat);
+    lever.position.y=0.865; lever.castShadow=true; g.add(lever);
+
+    // グリップ（両端）
+    [-0.25,0.25].forEach(ox=>{
+        const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.1,6), bodyMat);
+        grip.rotation.x=Math.PI/2; grip.position.set(ox,0.865,0); g.add(grip);
+    });
+
+    // 注ぎ口（斜めパイプ）
+    const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.025,0.26,6), metalMat);
+    spout.rotation.z=Math.PI/2.5; spout.position.set(0.15,0.18,0); spout.castShadow=true; g.add(spout);
+
+    return g;
+}
+
 // ===== ワールドアイテム スポーン/削除/更新 =====
 function spawnWorldItem(type, x, z, hasOil=false, fill=0, yPos=0) {
     const g = new THREE.Group();
     let mesh;
     if (type === 'ladle') {
         mesh = createLadleMesh(hasOil);
-        // 地面/テーブルに置いた状態: 柄を水平に寝かせる
         mesh.rotation.set(0, Math.PI*0.15 + x*0.01, 0);
         mesh.scale.setScalar(1.5);
+    } else if (type === 'handPump') {
+        mesh = createHandPumpMesh();
+        mesh.scale.setScalar(1.0);
     } else {
         mesh = createJerryCanMesh(fill);
         mesh.scale.setScalar(1.3);
@@ -375,6 +447,11 @@ function updateHeldMesh() {
         heldMesh.position.set(0.28, -0.26, -0.52);
         heldMesh.rotation.set(0.05, Math.PI/2+0.1+Math.PI, 0.12);
         heldMesh.scale.setScalar(1.0);
+    } else if (heldItem.type === 'handPump') {
+        heldMesh = createHandPumpMesh();
+        heldMesh.position.set(0.3, -0.38, -0.55);
+        heldMesh.rotation.set(0.1, 0.4, 0.05);
+        heldMesh.scale.setScalar(0.55);
     } else {
         heldMesh = createJerryCanMesh(heldItem.fill);
         heldMesh.position.set(0.22, -0.32, -0.50);
@@ -668,31 +745,37 @@ function createShopDisplay(x, z) {
     scene.add(g);
     collisionBoxes.push({x, z, hw:1.6, hd:0.5});
 
-    // 商品配置 (ひしゃく×1, ジェリ缶×2 on upper shelf)
+    // 商品配置 (上段: ひしゃく×1, ジェリ缶×2 / 下段: 汲み上げ機×1)
     const SHOP_CATALOG = [
-        {type:'ladle',    price:50,  lx:-0.92, lz:0.08},
-        {type:'jerryCan', price:30,  lx: 0.02, lz:0.08},
-        {type:'jerryCan', price:30,  lx: 0.94, lz:0.08},
+        {type:'ladle',    price:50,  lx:-0.92, shelf:'upper'},
+        {type:'jerryCan', price:30,  lx: 0.02, shelf:'upper'},
+        {type:'jerryCan', price:30,  lx: 0.94, shelf:'upper'},
+        {type:'handPump', price:80,  lx: 0.00, shelf:'lower'},
     ];
 
-    SHOP_CATALOG.forEach(({type, price, lx, lz}) => {
+    SHOP_CATALOG.forEach(({type, price, lx, shelf}) => {
+        const onLower = shelf === 'lower';
+        const shelfY  = onLower ? 0.62 : 1.04;
         let m;
         if (type === 'ladle') {
             m = createLadleMesh(false);
             m.scale.setScalar(1.5);
-            m.position.set(lx, 1.15, lz);
+            m.position.set(lx, shelfY+0.11, 0.08);
             m.rotation.y = 0.5;
+        } else if (type === 'handPump') {
+            m = createHandPumpMesh();
+            m.scale.setScalar(0.35);
+            m.position.set(lx, shelfY, 0.04);
         } else {
             m = createJerryCanMesh(0);
             m.scale.setScalar(1.3);
-            m.position.set(lx, 1.07, lz);
+            m.position.set(lx, shelfY+0.03, 0.08);
         }
         g.add(m);
 
         const idx = shopDisplayItems.length;
         m.traverse(child => { if (child.isMesh) shopMeshToIdx.set(child.uuid, idx); });
-        // 購入後の落とし位置: 棚の手前
-        shopDisplayItems.push({ type, price, mesh:m, dropX: x+lx*0.5, dropZ: z+1.1 });
+        shopDisplayItems.push({ type, price, mesh:m, dropX: x+lx*0.4, dropZ: z+1.1 });
     });
 }
 
@@ -978,12 +1061,32 @@ function computeCurrentAction() {
     // --- ジェリ缶持ち ---
     if (heldItem && heldItem.type==='jerryCan') {
         if (heldItem.fill>0 && nearDepot) return { type:'sell', label:L.promptSell(canPrice(heldItem.fill)) };
+        if (raycastPumpIdx>=0 && !pumpObjs[raycastPumpIdx].attachedCan)
+            return { type:'attachCan', label:L.promptAttachCan, pumpIdx:raycastPumpIdx };
+        if (nearCart && cartObj.slots.some(s=>s===null)) return { type:'loadCart', label:L.promptLoadCart };
+        return { type:'putDown', label:L.promptPutDown };
+    }
+
+    // --- 汲み上げ機持ち ---
+    if (heldItem && heldItem.type==='handPump') {
+        if (nearOil) return { type:'installPump', label:L.promptInstallPump };
         if (nearCart && cartObj.slots.some(s=>s===null)) return { type:'loadCart', label:L.promptLoadCart };
         return { type:'putDown', label:L.promptPutDown };
     }
 
     // --- 手が空の場合 ---
     if (!heldItem) {
+        // 設置済みポンプに照準
+        if (raycastPumpIdx>=0) {
+            const po = pumpObjs[raycastPumpIdx];
+            if (po.attachedCan) {
+                if (po.attachedCan.fill >= 5)
+                    return { type:'detachCan', label:L.promptDetachCan, pumpIdx:raycastPumpIdx };
+                const n = Math.round(po.attachedCan.fill*2);
+                return { type:'pumpOnce', label:L.promptPump(n), pumpIdx:raycastPumpIdx };
+            }
+            return { type:'removePump', label:L.promptRemovePump, pumpIdx:raycastPumpIdx };
+        }
         // ショップ展示品に照準 → 購入
         if (raycastShopItemIdx>=0) {
             const si = shopDisplayItems[raycastShopItemIdx];
@@ -1030,6 +1133,11 @@ function triggerAction() {
         case 'loadCart':    doLoadCart(); break;
         case 'unloadCart':  doUnloadCart(currentAction.slotIdx); break;
         case 'buyItem':     doBuyItem(currentAction.shopItemIdx); break;
+        case 'installPump': doInstallPump(); break;
+        case 'removePump':  doRemovePump(currentAction.pumpIdx); break;
+        case 'attachCan':   doAttachCan(currentAction.pumpIdx); break;
+        case 'detachCan':   doDetachCan(currentAction.pumpIdx); break;
+        case 'pumpOnce':    doPumpOnce(currentAction.pumpIdx); break;
     }
 }
 
@@ -1041,8 +1149,107 @@ function doBuyItem(idx) {
     gameState.money -= si.price;
     spawnWorldItem(si.type, si.dropX, si.dropZ, false, 0, 0.04);
     updateUI();
-    const name = si.type==='ladle' ? L.nameLadle : L.nameCan;
+    const name = si.type==='ladle' ? L.nameLadle : si.type==='handPump' ? L.nameHandPump : L.nameCan;
     showNotification(L.msgBought(name, si.price));
+}
+
+// ===== ポンプアクション =====
+function doInstallPump() {
+    const L = I18N[currentLang];
+    const dp = getDropPos();
+    const g = new THREE.Group();
+    const pm = createHandPumpMesh();
+    g.add(pm);
+    g.position.set(dp.x, 0, dp.z);
+    scene.add(g);
+
+    const idx = pumpObjs.length;
+    g.traverse(m => { if(m.isMesh) pumpMeshToIdx.set(m.uuid, idx); });
+    pumpObjs.push({ group:g, x:dp.x, z:dp.z, attachedCan:null, canMesh:null });
+
+    heldItem = null;
+    raycastPumpIdx = -1; highlightedPumpIdx = -1;
+    updateHeldMesh(); updateUI();
+    showNotification(L.msgPumpInstalled);
+}
+
+function doRemovePump(pumpIdx) {
+    const L = I18N[currentLang];
+    const po = pumpObjs[pumpIdx];
+    if (!po || po.attachedCan) return;
+
+    po.group.traverse(m => { if(m.isMesh) pumpMeshToIdx.delete(m.uuid); });
+    scene.remove(po.group);
+    pumpObjs.splice(pumpIdx, 1);
+    // インデックスを詰め直す
+    pumpMeshToIdx.forEach((v,k) => { if(v > pumpIdx) pumpMeshToIdx.set(k, v-1); });
+
+    heldItem = { type:'handPump', fill:0, hasOil:false };
+    raycastPumpIdx = -1; highlightedPumpIdx = -1;
+    updateHeldMesh(); updateUI();
+    showNotification(L.msgPumpRemoved);
+}
+
+function doAttachCan(pumpIdx) {
+    const L = I18N[currentLang];
+    const po = pumpObjs[pumpIdx];
+    if (!po || po.attachedCan) return;
+
+    po.attachedCan = { fill: heldItem.fill };
+    const cm = createJerryCanMesh(heldItem.fill);
+    cm.scale.setScalar(1.0);
+    cm.position.set(0.42, 0, 0.08);
+    po.group.add(cm);
+    po.canMesh = cm;
+    cm.traverse(m => { if(m.isMesh) pumpMeshToIdx.set(m.uuid, pumpIdx); });
+
+    heldItem = null;
+    updateHeldMesh(); updateUI();
+    showNotification(L.msgCanAttachedPump);
+}
+
+function doDetachCan(pumpIdx) {
+    const L = I18N[currentLang];
+    const po = pumpObjs[pumpIdx];
+    if (!po || !po.attachedCan) return;
+
+    heldItem = { type:'jerryCan', fill: po.attachedCan.fill, hasOil:false };
+    if (po.canMesh) {
+        po.canMesh.traverse(m => { if(m.isMesh) pumpMeshToIdx.delete(m.uuid); });
+        po.group.remove(po.canMesh); po.canMesh = null;
+    }
+    po.attachedCan = null;
+
+    updateHeldMesh(); updateUI();
+    showNotification(L.msgCanDetachedPump);
+}
+
+function doPumpOnce(pumpIdx) {
+    const L = I18N[currentLang];
+    const po = pumpObjs[pumpIdx];
+    if (!po || !po.attachedCan) return;
+
+    po.attachedCan.fill = Math.min(5, po.attachedCan.fill + 0.5);
+
+    // 缶メッシュを更新（色変化のため再生成）
+    if (po.canMesh) {
+        const pos = po.canMesh.position.clone();
+        const scl = po.canMesh.scale.x;
+        po.canMesh.traverse(m => { if(m.isMesh) pumpMeshToIdx.delete(m.uuid); });
+        po.group.remove(po.canMesh);
+        po.canMesh = createJerryCanMesh(po.attachedCan.fill);
+        po.canMesh.scale.setScalar(scl);
+        po.canMesh.position.copy(pos);
+        po.group.add(po.canMesh);
+        po.canMesh.traverse(m => { if(m.isMesh) pumpMeshToIdx.set(m.uuid, pumpIdx); });
+    }
+
+    const n = Math.round(po.attachedCan.fill * 2);
+    if (po.attachedCan.fill >= 5) {
+        showNotification(L.msgCanFull);
+    } else {
+        showNotification(L.msgPumped(n));
+    }
 }
 
 function doPickup(idx) {
@@ -1229,6 +1436,18 @@ function updateGame() {
             }
         }
 
+        // 設置済みポンプレイキャスト
+        raycastPumpIdx = -1;
+        if (pumpObjs.length > 0) {
+            const pumpMeshes = [];
+            pumpObjs.forEach(po => { po.group.traverse(m=>{ if(m.isMesh) pumpMeshes.push(m); }); });
+            const pumpHits = raycaster.intersectObjects(pumpMeshes, false);
+            if (pumpHits.length > 0) {
+                const idx = pumpMeshToIdx.get(pumpHits[0].object.uuid);
+                if (idx !== undefined) raycastPumpIdx = idx;
+            }
+        }
+
         currentAction=computeCurrentAction();
         const prompt=document.getElementById('interaction-prompt');
         const crosshairEl=document.getElementById('crosshair');
@@ -1297,6 +1516,24 @@ function updateGame() {
             });
         }
 
+        // 設置済みポンプハイライト（シアン点滅）
+        const newPumpHighlight = raycastPumpIdx;
+        if (newPumpHighlight !== highlightedPumpIdx) {
+            if (highlightedPumpIdx>=0 && pumpObjs[highlightedPumpIdx]) {
+                pumpObjs[highlightedPumpIdx].group.traverse(m=>{
+                    if(m.isMesh&&m.material&&m.material.emissive) m.material.emissive.set(0x000000);
+                });
+            }
+            highlightedPumpIdx = newPumpHighlight;
+        }
+        if (highlightedPumpIdx>=0 && pumpObjs[highlightedPumpIdx]) {
+            const blink4 = 0.4+0.4*Math.abs(Math.sin(now*0.005));
+            pumpObjs[highlightedPumpIdx].group.traverse(m=>{
+                if(m.isMesh&&m.material&&m.material.emissive)
+                    m.material.emissive.set(new THREE.Color(0.0, 0.7*blink4, 0.9*blink4));
+            });
+        }
+
         autoSaveTimer+=delta;
         if (autoSaveTimer>=10) { autoSaveTimer=0; saveGame(true); }
 
@@ -1312,6 +1549,7 @@ function updateUI() {
     let heldText=L.heldNone;
     if (heldItem) {
         if (heldItem.type==='ladle') heldText=L.heldLadle(heldItem.hasOil);
+        else if (heldItem.type==='handPump') heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.nameHandPump;
         else heldText=L.heldCan(heldItem.fill);
     }
     if (cartObj && cartObj.isHeld) {
@@ -1341,6 +1579,7 @@ function saveGame(isAuto=false) {
     gameState.playerPos.z=playerGroup.position.z;
     gameState.savedWorldItems=worldItems.map(i=>({type:i.type,x:i.x,z:i.z,fill:i.fill,hasOil:i.hasOil}));
     gameState.savedHeldItem=heldItem?{...heldItem}:null;
+    gameState.savedPumps=pumpObjs.map(po=>({x:po.x,z:po.z,attachedCan:po.attachedCan?{...po.attachedCan}:null}));
     localStorage.setItem('oil_rush_save',JSON.stringify(gameState));
     showNotification(isAuto?I18N[currentLang].msgAutoSaved:I18N[currentLang].msgDataSaved);
 }
@@ -1375,6 +1614,10 @@ function loadGame() {
         const items=gameState.savedWorldItems||getDefaultWorldItems();
         items.forEach(i=>spawnWorldItem(i.type,i.x,i.z,i.hasOil||false,i.fill||0,0.04));
 
+        // ポンプ再構築
+        clearPumpObjs();
+        (gameState.savedPumps||[]).forEach(p=>restorePump(p.x,p.z,p.attachedCan));
+
         // 手持ち復元
         heldItem=gameState.savedHeldItem?{...gameState.savedHeldItem}:null;
         updateHeldMesh();
@@ -1385,6 +1628,29 @@ function loadGame() {
 
 function clearWorldItems() {
     while (worldItems.length>0) { scene.remove(worldItems[0].group); worldItems.splice(0,1); }
+}
+
+function clearPumpObjs() {
+    while (pumpObjs.length>0) { scene.remove(pumpObjs[0].group); pumpObjs.splice(0,1); }
+    pumpMeshToIdx.clear();
+    raycastPumpIdx=-1; highlightedPumpIdx=-1;
+}
+
+function restorePump(x, z, attachedCan) {
+    const g = new THREE.Group();
+    g.add(createHandPumpMesh());
+    g.position.set(x, 0, z);
+    scene.add(g);
+    const idx = pumpObjs.length;
+    g.traverse(m => { if(m.isMesh) pumpMeshToIdx.set(m.uuid, idx); });
+    const po = { group:g, x, z, attachedCan:attachedCan?{...attachedCan}:null, canMesh:null };
+    if (po.attachedCan) {
+        const cm = createJerryCanMesh(po.attachedCan.fill);
+        cm.scale.setScalar(1.0); cm.position.set(0.42,0,0.08);
+        g.add(cm); po.canMesh = cm;
+        cm.traverse(m => { if(m.isMesh) pumpMeshToIdx.set(m.uuid, idx); });
+    }
+    pumpObjs.push(po);
 }
 
 function getDefaultWorldItems() {
@@ -1426,6 +1692,8 @@ function importData() {
         clearWorldItems();
         const items=gameState.savedWorldItems||getDefaultWorldItems();
         items.forEach(i=>spawnWorldItem(i.type,i.x,i.z,i.hasOil||false,i.fill||0,0.04));
+        clearPumpObjs();
+        (gameState.savedPumps||[]).forEach(p=>restorePump(p.x,p.z,p.attachedCan));
         heldItem=gameState.savedHeldItem?{...gameState.savedHeldItem}:null;
         updateHeldMesh(); updateUI(); saveGame(); closeDataModal();
         showNotification(I18N[currentLang].msgImportOk);
