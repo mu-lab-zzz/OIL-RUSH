@@ -340,11 +340,32 @@ function updateHeldMesh() {
     camera.add(heldMesh);
 }
 
-// ===== ドロップ位置 =====
+// ===== ドロップ位置（コリジョン回避） =====
+function isItemPosBlocked(x, z) {
+    const hw=0.3; // アイテム占有半径
+    for (const b of collisionBoxes) {
+        if (x+hw>b.x-b.hw && x-hw<b.x+b.hw && z+hw>b.z-b.hd && z-hw<b.z+b.hd) return true;
+    }
+    if (x<-195||x>195||z<-195||z>195) return true;
+    return false;
+}
+
 function getDropPos() {
-    const dist=1.2;
     const fx=-Math.sin(gameState.cameraYaw), fz=-Math.cos(gameState.cameraYaw);
-    return { x: playerGroup.position.x+fx*dist, z: playerGroup.position.z+fz*dist };
+    const px=playerGroup.position.x, pz=playerGroup.position.z;
+    // 前方1.2mから少しずつ近づいて最初に有効な位置を返す
+    for (let dist=1.2; dist>=0.3; dist-=0.15) {
+        const cx=px+fx*dist, cz=pz+fz*dist;
+        if (!isItemPosBlocked(cx, cz)) return {x:cx, z:cz};
+    }
+    // 全てブロックされていたらプレイヤー位置の横にずらす
+    const sx=-fz, sz=fx; // 右方向ベクトル
+    for (let s=0.5; s<=1.5; s+=0.5) {
+        const cx=px+sx*s, cz=pz+sz*s;
+        if (!isItemPosBlocked(cx, cz)) return {x:cx, z:cz};
+        if (!isItemPosBlocked(px-sx*s, pz-sz*s)) return {x:px-sx*s, z:pz-sz*s};
+    }
+    return {x:px, z:pz}; // 最終フォールバック
 }
 
 // ===== Three.js 初期化 =====
