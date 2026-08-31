@@ -149,7 +149,14 @@ const I18N = {
         msgFueledEnginePump: (n) => `燃料補給完了 (${n}/10)`,
         msgGotGas: (cost) => `ガソリン給油完了 (-$${cost})`,
         msgOutOfGas: "燃料切れ",
-        msgGasOnly: "ガソリン缶のみ給油できます"
+        msgGasOnly: "ガソリン缶のみ給油できます",
+        promptGrabGasNozzle: "[SPACE] 給油ノズルを持つ",
+        promptReleaseGasNozzle: "[SPACE] ノズルを戻す",
+        promptGasNozzleFill: (f, cap, cost) => `[SPACE] ガスを給油 (${f}/${cap}) -$${cost}`,
+        heldGasNozzle: "給油ノズル保持中",
+        msgGasNozzleGrabbed: "給油ノズルを持った",
+        msgGasNozzleReleased: "ノズルを戻した",
+        msgGasNozzleFilled: (f, cap) => `ガス給油 (${f}/${cap})`
     },
     en: {
         money: "Money: $",
@@ -227,7 +234,14 @@ const I18N = {
         msgFueledEnginePump: (n) => `Engine pump fueled (${n}/10)`,
         msgGotGas: (cost) => `Filled with gas (-$${cost})`,
         msgOutOfGas: "Out of fuel",
-        msgGasOnly: "Only gas cans can fuel the pump"
+        msgGasOnly: "Only gas cans can fuel the pump",
+        promptGrabGasNozzle: "[SPACE] Grab gas nozzle",
+        promptReleaseGasNozzle: "[SPACE] Return nozzle",
+        promptGasNozzleFill: (f, cap, cost) => `[SPACE] Fill gas (${f}/${cap}) -$${cost}`,
+        heldGasNozzle: "Holding gas nozzle",
+        msgGasNozzleGrabbed: "Grabbed gas nozzle",
+        msgGasNozzleReleased: "Returned nozzle",
+        msgGasNozzleFilled: (f, cap) => `Gas filled (${f}/${cap})`
     }
 };
 let currentLang = 'ja';
@@ -283,6 +297,13 @@ let raycastEnginePumpIdx = -1;
 let highlightedEnginePumpIdx = -1;
 const ENGINE_HOSE_LENGTH = 4.5;
 const GAS_FILL_COST = 20; // ガソリン1単位あたりのコスト (ジェリ缶1本=20、ドラム=40)
+
+// ===== ガソリンスタンド ノズル =====
+const gasStationObjs = []; // { group, x, z, nozzleMesh }
+const gasNozzleMeshToIdx = new Map();
+let raycastGasNozzleIdx = -1;
+let highlightedGasNozzleIdx = -1;
+const GAS_HOSE_LENGTH = 5.5;
 
 // ===== 空 =====
 let skyDome = null;
@@ -614,7 +635,7 @@ function updateHeldMesh() {
         heldMesh.position.set(0.2, -0.42, -0.52);
         heldMesh.rotation.set(0.05, -0.2, 0.06);
         heldMesh.scale.setScalar(0.55);
-    } else if (heldItem.type === 'engineNozzle') {
+    } else if (heldItem.type === 'engineNozzle' || heldItem.type === 'gasNozzle') {
         heldMesh = createNozzleMesh();
         heldMesh.position.set(0.24, -0.28, -0.48);
         heldMesh.rotation.set(0.05, Math.PI/2+0.1, 0.08);
@@ -1193,7 +1214,18 @@ function createGasStation(x,z) {
         const hose=bx(0.06,0.5,0.06,0x212121); hose.position.set(px+0.3,1.4,pz); g.add(hose);
     });
     const gsign=bx(3,1.2,0.2,0xb71c1c); gsign.position.set(-3.5,4.3,2.1); g.add(gsign);
+
+    // 給油ノズル（第1ポンプに装着）
+    const nozzleG = createNozzleMesh();
+    nozzleG.scale.setScalar(1.2);
+    nozzleG.position.set(1.3, 1.0, -0.28);
+    nozzleG.rotation.y = Math.PI / 2;
+    g.add(nozzleG);
+
     scene.add(g);
+    const stIdx = gasStationObjs.length;
+    nozzleG.traverse(m=>{ if(m.isMesh) gasNozzleMeshToIdx.set(m.uuid, stIdx); });
+    gasStationObjs.push({ group:g, x, z, nozzleMesh:nozzleG });
     interactables.push({type:'gasStation', group:g, radius:6.0});
     collisionBoxes.push({x:x-3.5,z,hw:2.5,hd:2});
     collisionBoxes.push({x:x+2,z,hw:5,hd:4.2});
@@ -1406,7 +1438,7 @@ function computeCurrentAction() {
         return { type:'putDown', label:L.promptPutDown };
     }
 
-    // --- ノズル持ち ---
+    // --- エンジンノズル持ち ---
     if (heldItem && heldItem.type==='engineNozzle') {
         const ep = enginePumpObjs[heldItem.pumpIdx];
         if (ep) {
@@ -1423,12 +1455,25 @@ function computeCurrentAction() {
         return { type:'releaseNozzle', label:L.promptReleaseNozzle };
     }
 
+    // --- ガスノズル持ち ---
+    if (heldItem && heldItem.type==='gasNozzle') {
+        const gs = gasStationObjs[heldItem.stationIdx];
+        if (gs) {
+            const distToStation = Math.hypot(px-gs.x, pz-gs.z);
+            if (distToStation <= GAS_HOSE_LENGTH) {
+                if (aimItem && aimItem.type==='jerryCan' && aimItem.contentType!=='oil' && aimItem.fill<5)
+                    return { type:'gasNozzleFill', label:L.promptGasNozzleFill(aimItem.fill, 5, GAS_FILL_COST), canIdx:aimIdx };
+                if (aimItem && aimItem.type==='drum' && aimItem.contentType!=='oil' && aimItem.fill<10)
+                    return { type:'gasNozzleFill', label:L.promptGasNozzleFill(aimItem.fill, 10, GAS_FILL_COST*2), canIdx:aimIdx };
+            }
+        }
+        return { type:'releaseGasNozzle', label:L.promptReleaseGasNozzle };
+    }
+
     // --- ジェリ缶持ち ---
     if (heldItem && heldItem.type==='jerryCan') {
         if (heldItem.fill>0 && heldItem.contentType!=='gas' && nearDepot)
             return { type:'sell', label:L.promptSell(canPrice(heldItem.fill)) };
-        if (nearGasStation && heldItem.fill<5)
-            return { type:'fillGas', label:L.promptFillGas(GAS_FILL_COST*(5-heldItem.fill)) };
         if (raycastPumpIdx>=0 && !pumpObjs[raycastPumpIdx].attachedCan)
             return { type:'attachCan', label:L.promptAttachCan, pumpIdx:raycastPumpIdx };
         if (heldItem.contentType==='gas' && raycastEnginePumpIdx>=0)
@@ -1441,8 +1486,6 @@ function computeCurrentAction() {
     if (heldItem && heldItem.type==='drum') {
         if (heldItem.fill>0 && heldItem.contentType!=='gas' && nearDepot)
             return { type:'sellDrum', label:L.promptSellDrum(drumPrice(heldItem.fill)) };
-        if (nearGasStation && heldItem.fill<10 && heldItem.contentType!=='oil')
-            return { type:'fillGasDrum', label:L.promptFillGas(GAS_FILL_COST*2*(10-heldItem.fill)) };
         if (heldItem.contentType==='gas' && raycastEnginePumpIdx>=0)
             return { type:'fuelEnginePump', label:L.promptFuelEnginePump(enginePumpObjs[raycastEnginePumpIdx].gasFuel), epIdx:raycastEnginePumpIdx };
         if (nearCart && cartObj.slots.some(s=>s===null)) return { type:'loadCart', label:L.promptLoadCart };
@@ -1465,6 +1508,9 @@ function computeCurrentAction() {
 
     // --- 手が空の場合 ---
     if (!heldItem) {
+        // ガスノズルに照準
+        if (raycastGasNozzleIdx>=0)
+            return { type:'grabGasNozzle', label:L.promptGrabGasNozzle, stIdx:raycastGasNozzleIdx };
         // エンジンポンプに照準
         if (raycastEnginePumpIdx>=0) {
             const ep = enginePumpObjs[raycastEnginePumpIdx];
@@ -1557,6 +1603,9 @@ function triggerAction() {
         case 'fuelEnginePump':     doFuelEnginePump(currentAction.epIdx); break;
         case 'fillGas':            doFillGas(); break;
         case 'fillGasDrum':        doFillGasDrum(); break;
+        case 'grabGasNozzle':      doGrabGasNozzle(currentAction.stIdx); break;
+        case 'releaseGasNozzle':   doReleaseGasNozzle(); break;
+        case 'gasNozzleFill':      doGasNozzleFill(currentAction.canIdx); break;
     }
 }
 
@@ -1736,6 +1785,47 @@ function doFillGasDrum() {
     heldItem.fill=10; heldItem.contentType='gas';
     updateHeldMesh(); updateUI();
     showNotification(L.msgGotGas(cost));
+}
+
+// ===== ガソリンスタンドノズルアクション =====
+function doGrabGasNozzle(stIdx) {
+    const L=I18N[currentLang];
+    const gs=gasStationObjs[stIdx];
+    if (!gs) return;
+    heldItem={type:'gasNozzle', stationIdx:stIdx, fill:0, hasOil:false, contentType:null};
+    if (gs.nozzleMesh) gs.nozzleMesh.visible=false;
+    updateHeldMesh(); updateUI();
+    showNotification(L.msgGasNozzleGrabbed);
+}
+
+function doReleaseGasNozzle() {
+    const L=I18N[currentLang];
+    if (!heldItem||heldItem.type!=='gasNozzle') return;
+    const gs=gasStationObjs[heldItem.stationIdx];
+    if (gs && gs.nozzleMesh) gs.nozzleMesh.visible=true;
+    if (heldMesh) { camera.remove(heldMesh); heldMesh=null; }
+    heldItem=null;
+    updateUI();
+    showNotification(L.msgGasNozzleReleased);
+}
+
+function doGasNozzleFill(canIdx) {
+    const L=I18N[currentLang];
+    if (!heldItem||heldItem.type!=='gasNozzle') return;
+    if (canIdx<0||canIdx>=worldItems.length) return;
+    const target=worldItems[canIdx];
+    if (target.contentType==='oil') { showNotification(L.msgGasOnly); return; }
+    const isDrum = target.type==='drum';
+    const cap = isDrum ? 10 : 5;
+    if (target.fill>=cap) return;
+    const cost = isDrum ? GAS_FILL_COST*2 : GAS_FILL_COST;
+    if (gameState.money<cost) { showNotification(L.msgNoMoney); return; }
+    gameState.money-=cost;
+    target.fill++;
+    target.contentType='gas';
+    refreshWorldItemMesh(canIdx);
+    updateUI();
+    showNotification(L.msgGasNozzleFilled(target.fill, cap));
 }
 
 // ===== エンジンポンプアクション =====
@@ -1969,6 +2059,19 @@ function updateGame() {
             }
         }
 
+        // ホース距離制限（ガスノズル保持中）
+        if (heldItem && heldItem.type==='gasNozzle') {
+            const gs=gasStationObjs[heldItem.stationIdx];
+            if (gs) {
+                const hx=playerGroup.position.x-gs.x, hz=playerGroup.position.z-gs.z;
+                const hd=Math.hypot(hx,hz);
+                if (hd>GAS_HOSE_LENGTH) {
+                    playerGroup.position.x=gs.x+hx/hd*GAS_HOSE_LENGTH;
+                    playerGroup.position.z=gs.z+hz/hd*GAS_HOSE_LENGTH;
+                }
+            }
+        }
+
         playerGroup.rotation.y=gameState.cameraYaw;
         camera.position.set(playerGroup.position.x,1.45,playerGroup.position.z);
         camera.rotation.y=gameState.cameraYaw;
@@ -2042,6 +2145,20 @@ function updateGame() {
             if (epHits.length > 0) {
                 const idx = enginePumpMeshToIdx.get(epHits[0].object.uuid);
                 if (idx !== undefined) raycastEnginePumpIdx = idx;
+            }
+        }
+
+        // ガソリンスタンドノズルレイキャスト（ガスノズル非保持時のみ）
+        raycastGasNozzleIdx = -1;
+        if (gasStationObjs.length > 0 && !(heldItem && heldItem.type==='gasNozzle')) {
+            const gnMeshes = [];
+            gasStationObjs.forEach(gs => { if(gs.nozzleMesh && gs.nozzleMesh.visible) gs.nozzleMesh.traverse(m=>{ if(m.isMesh) gnMeshes.push(m); }); });
+            if (gnMeshes.length > 0) {
+                const gnHits = raycaster.intersectObjects(gnMeshes, false);
+                if (gnHits.length > 0) {
+                    const idx = gasNozzleMeshToIdx.get(gnHits[0].object.uuid);
+                    if (idx !== undefined) raycastGasNozzleIdx = idx;
+                }
             }
         }
 
@@ -2149,6 +2266,24 @@ function updateGame() {
             });
         }
 
+        // ガスノズルハイライト（黄色点滅）
+        const newGnHighlight = raycastGasNozzleIdx;
+        if (newGnHighlight !== highlightedGasNozzleIdx) {
+            if (highlightedGasNozzleIdx>=0 && gasStationObjs[highlightedGasNozzleIdx]?.nozzleMesh) {
+                gasStationObjs[highlightedGasNozzleIdx].nozzleMesh.traverse(m=>{
+                    if(m.isMesh&&m.material&&m.material.emissive) m.material.emissive.set(0x000000);
+                });
+            }
+            highlightedGasNozzleIdx = newGnHighlight;
+        }
+        if (highlightedGasNozzleIdx>=0 && gasStationObjs[highlightedGasNozzleIdx]?.nozzleMesh) {
+            const blinkG = 0.4+0.4*Math.abs(Math.sin(now*0.005));
+            gasStationObjs[highlightedGasNozzleIdx].nozzleMesh.traverse(m=>{
+                if(m.isMesh&&m.material&&m.material.emissive)
+                    m.material.emissive.set(new THREE.Color(0.9*blinkG, 0.8*blinkG, 0.0));
+            });
+        }
+
         autoSaveTimer+=delta;
         if (autoSaveTimer>=10) { autoSaveTimer=0; saveGame(true); }
 
@@ -2179,6 +2314,7 @@ function updateUI() {
             const ep=enginePumpObjs[heldItem.pumpIdx];
             heldText=L.heldNozzle(ep?ep.gasFuel:0);
         }
+        else if (heldItem.type==='gasNozzle') heldText=L.heldGasNozzle;
         else heldText=L.heldCan(heldItem.fill, heldItem.contentType);
     }
     if (cartObj && cartObj.isHeld) {
