@@ -914,8 +914,8 @@ function createShopDisplay(x, z) {
 
         const idx = shopDisplayItems.length;
         m.traverse(child => { if (child.isMesh) shopMeshToIdx.set(child.uuid, idx); });
-        // ドロップ位置: 台座の前面 (プレイヤーが立っている側)
-        shopDisplayItems.push({ type, price, mesh:m, dropX: x+lx, dropZ: z+lz+1.8 });
+        // ドロップ位置: 出入り口の外 (倉庫床の下に埋まらないよう)
+        shopDisplayItems.push({ type, price, mesh:m, dropX: x+lx, dropZ: z+hd+2 });
     });
 
     // --- リヤカー (col:1 row:1) ---
