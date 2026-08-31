@@ -20,6 +20,8 @@
         .btn:hover { background: #34495e; } .btn:active { transform: scale(0.95); }
         #notification { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.88); color: #fff; padding: 10px 22px; border-radius: 20px; border: 1px solid #FFC107; font-weight: bold; pointer-events: none; opacity: 0; transition: opacity 0.3s; white-space: nowrap; z-index: 20; }
         #interaction-prompt { position: absolute; bottom: 160px; left: 50%; transform: translateX(-50%); background: rgba(46,204,113,0.93); color: #fff; padding: 9px 20px; border-radius: 12px; font-weight: bold; font-size: 14px; display: none; box-shadow: 0 0 12px rgba(46,204,113,0.5); white-space: nowrap; }
+        #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.85); box-shadow: 0 0 3px rgba(0,0,0,0.7); pointer-events: none; transition: background 0.1s, box-shadow 0.1s; }
+        #crosshair.active { background: #2ecc71; box-shadow: 0 0 6px rgba(46,204,113,0.9); }
         #touch-controls { display: none; position: absolute; bottom: 20px; left: 0; width: 100%; justify-content: space-between; align-items: flex-end; padding: 0 24px; pointer-events: none; }
         #joystick-zone { width: 110px; height: 110px; background: rgba(255,255,255,0.12); border: 2px solid rgba(255,255,255,0.3); border-radius: 55px; position: relative; touch-action: none; pointer-events: auto; }
         #joystick-knob { width: 46px; height: 46px; background: rgba(255,255,255,0.55); border-radius: 23px; position: absolute; top: 32px; left: 32px; pointer-events: none; }
@@ -50,6 +52,7 @@
         </div>
     </div>
     <div id="notification"></div>
+    <div id="crosshair"></div>
     <div id="interaction-prompt"></div>
     <div id="touch-controls">
         <div id="joystick-zone"><div id="joystick-knob"></div></div>
@@ -152,7 +155,9 @@ let heldItem = null;   // {type, fill, hasOil}
 let heldMesh = null;   // camera-child mesh
 
 let currentAction = null;
-let highlightedCanIdx = -1; // 現在ハイライト中のジェリ缶インデックス
+let highlightedItemIdx = -1; // 現在ハイライト中のワールドアイテムインデックス
+let raycastTargetIdx = -1;   // レイキャストで照準中のアイテムインデックス
+let raycaster;               // initScene内で初期化
 
 // ===== テクスチャ =====
 function makeDesertTex() {
@@ -289,14 +294,14 @@ function spawnWorldItem(type, x, z, hasOil=false, fill=0, yPos=0) {
 }
 
 function removeWorldItem(idx) {
-    if (highlightedCanIdx === idx) highlightedCanIdx = -1;
-    else if (highlightedCanIdx > idx) highlightedCanIdx--;
+    if (highlightedItemIdx === idx) highlightedItemIdx = -1;
+    else if (highlightedItemIdx > idx) highlightedItemIdx--;
     scene.remove(worldItems[idx].group);
     worldItems.splice(idx, 1);
 }
 
 function refreshWorldItemMesh(idx) {
-    if (highlightedCanIdx === idx) highlightedCanIdx = -1; // グループ差し替え前にリセット
+    if (highlightedItemIdx === idx) highlightedItemIdx = -1; // グループ差し替え前にリセット
     const item = worldItems[idx];
     const oldG = item.group;
     const pos = oldG.position.clone();
@@ -345,6 +350,8 @@ function getDropPos() {
 // ===== Three.js 初期化 =====
 function initThree() {
     const container = document.getElementById('canvas-container');
+    raycaster = new THREE.Raycaster();
+    raycaster.far = 4.0;
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x3a2e2b);
     scene.fog = new THREE.FogExp2(0x3a2e2b, 0.006);
@@ -777,14 +784,11 @@ function computeCurrentAction() {
     const px=playerGroup.position.x, pz=playerGroup.position.z;
     const L=I18N[currentLang];
 
-    // 最近傍ワールドアイテム (拾える範囲 2.0m)
-    let nearItem=null, nearItemIdx=-1, nearItemDist=2.0;
-    for (let i=0;i<worldItems.length;i++) {
-        const d=Math.hypot(px-worldItems[i].x, pz-worldItems[i].z);
-        if (d<nearItemDist) { nearItemDist=d; nearItem=worldItems[i]; nearItemIdx=i; }
-    }
+    // レイキャストで照準中のワールドアイテム
+    const aimIdx = raycastTargetIdx;
+    const aimItem = (aimIdx>=0 && aimIdx<worldItems.length) ? worldItems[aimIdx] : null;
 
-    // 最近傍油溜まり
+    // 最近傍油溜まり（範囲判定）
     let nearOil=null;
     for (const it of interactables) {
         if (it.type!=='oil') continue;
@@ -792,7 +796,7 @@ function computeCurrentAction() {
         if (d<it.radius) { nearOil=it; break; }
     }
 
-    // 最近傍出荷場
+    // 最近傍出荷場（範囲判定）
     let nearDepot=null;
     for (const it of interactables) {
         if (it.type!=='depot') continue;
@@ -802,11 +806,11 @@ function computeCurrentAction() {
 
     // --- 手が空の場合 ---
     if (!heldItem) {
-        if (nearItem) {
-            const label = nearItem.type==='ladle'
+        if (aimItem) {
+            const label = aimItem.type==='ladle'
                 ? L.promptPickupLadle
-                : L.promptPickupCan(nearItem.fill);
-            return { type:'pickup', label, itemIdx:nearItemIdx };
+                : L.promptPickupCan(aimItem.fill);
+            return { type:'pickup', label, itemIdx:aimIdx };
         }
         return null;
     }
@@ -817,19 +821,10 @@ function computeCurrentAction() {
         if (!heldItem.hasOil && nearOil)
             return { type:'scoop', label:L.promptScoop };
 
-        // 油あり + ワールドジェリ缶近く (満タンでない) → 注ぐ
-        if (heldItem.hasOil) {
-            let nearCan=null, nearCanIdx=-1, nearCanDist=2.5;
-            for (let i=0;i<worldItems.length;i++) {
-                if (worldItems[i].type!=='jerryCan') continue;
-                const d=Math.hypot(px-worldItems[i].x, pz-worldItems[i].z);
-                if (d<nearCanDist&&worldItems[i].fill<5) {
-                    nearCanDist=d; nearCan=worldItems[i]; nearCanIdx=i;
-                }
-            }
-            if (nearCan)
-                return { type:'pour', label:L.promptPour(nearCan.fill), canIdx:nearCanIdx };
-        }
+        // 油あり + 照準中ジェリ缶 (満タンでない) → 注ぐ
+        if (heldItem.hasOil && aimItem && aimItem.type==='jerryCan' && aimItem.fill<5)
+            return { type:'pour', label:L.promptPour(aimItem.fill), canIdx:aimIdx };
+
         return { type:'putDown', label:L.promptPutDown };
     }
 
@@ -950,27 +945,45 @@ function updateGame() {
         dirLight.target.position.copy(playerGroup.position);
         dirLight.target.updateMatrixWorld();
 
+        // レイキャスト：カメラ中心から照準アイテムを決定
+        raycaster.setFromCamera({x:0,y:0}, camera);
+        const itemMeshes = [];
+        const meshToIdx = new Map();
+        worldItems.forEach((item,idx)=>{
+            item.group.traverse(m=>{ if(m.isMesh){itemMeshes.push(m);meshToIdx.set(m.uuid,idx);} });
+        });
+        const hits = raycaster.intersectObjects(itemMeshes, false);
+        raycastTargetIdx = (hits.length>0) ? (meshToIdx.get(hits[0].object.uuid)??-1) : -1;
+
         currentAction=computeCurrentAction();
         const prompt=document.getElementById('interaction-prompt');
+        const crosshairEl=document.getElementById('crosshair');
         if (currentAction) { prompt.style.display='block'; prompt.innerText=currentAction.label; }
         else { prompt.style.display='none'; }
 
-        // ジェリ缶ハイライト（pour対象）
-        const newHighlightIdx = (currentAction&&currentAction.type==='pour') ? currentAction.canIdx : -1;
-        if (newHighlightIdx !== highlightedCanIdx) {
-            // 旧ハイライト解除
-            if (highlightedCanIdx>=0 && highlightedCanIdx<worldItems.length) {
-                worldItems[highlightedCanIdx].group.traverse(m=>{
-                    if (m.isMesh&&m.material) m.material.emissive&&m.material.emissive.set(0x000000);
+        // クロスヘア色：アクションあり→緑、なし→白
+        const hasAction = !!(currentAction && currentAction.type!=='putDown');
+        crosshairEl.classList.toggle('active', hasAction);
+
+        // ワールドアイテムハイライト
+        const newHighlightIdx = raycastTargetIdx;
+        if (newHighlightIdx !== highlightedItemIdx) {
+            if (highlightedItemIdx>=0 && highlightedItemIdx<worldItems.length) {
+                worldItems[highlightedItemIdx].group.traverse(m=>{
+                    if (m.isMesh&&m.material&&m.material.emissive) m.material.emissive.set(0x000000);
                 });
             }
-            highlightedCanIdx = newHighlightIdx;
+            highlightedItemIdx = newHighlightIdx;
         }
-        // 明滅アニメーション
-        if (highlightedCanIdx>=0 && highlightedCanIdx<worldItems.length) {
-            const blink = 0.45 + 0.45*Math.abs(Math.sin(now*0.004));
-            worldItems[highlightedCanIdx].group.traverse(m=>{
-                if (m.isMesh&&m.material&&m.material.emissive) m.material.emissive.set(new THREE.Color(0.1*blink, 0.8*blink, 0.2*blink));
+        if (highlightedItemIdx>=0 && highlightedItemIdx<worldItems.length) {
+            const blink = 0.4 + 0.4*Math.abs(Math.sin(now*0.005));
+            // アクション有効なら緑、照準のみなら薄い白
+            const actionable = currentAction && (currentAction.type==='pickup'||currentAction.type==='pour');
+            const r = actionable ? 0.05*blink : 0.3*blink;
+            const g = actionable ? 0.9*blink  : 0.3*blink;
+            const b = actionable ? 0.1*blink  : 0.3*blink;
+            worldItems[highlightedItemIdx].group.traverse(m=>{
+                if (m.isMesh&&m.material&&m.material.emissive) m.material.emissive.set(new THREE.Color(r,g,b));
             });
         }
 
