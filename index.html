@@ -110,7 +110,10 @@ const I18N = {
         msgReleasedCart: "リヤカーを離した",
         msgLoadedCart: "リヤカーに乗せた",
         msgUnloadedCart: "リヤカーから降ろした",
-        msgCartFull: "リヤカーが満載です"
+        msgCartFull: "リヤカーが満載です",
+        promptBuy: (name, price) => `[SPACE] ${name}を購入 ($${price})`,
+        msgBought: (name, price) => `${name}を購入しました (-$${price})`,
+        msgNoMoney: "所持金が足りません"
     },
     en: {
         money: "Money: $",
@@ -149,7 +152,10 @@ const I18N = {
         msgReleasedCart: "Released handcart",
         msgLoadedCart: "Loaded onto cart",
         msgUnloadedCart: "Unloaded from cart",
-        msgCartFull: "Cart is full"
+        msgCartFull: "Cart is full",
+        promptBuy: (name, price) => `[SPACE] Buy ${name} ($${price})`,
+        msgBought: (name, price) => `Bought ${name} (-$${price})`,
+        msgNoMoney: "Not enough money"
     }
 };
 let currentLang = 'ja';
@@ -180,6 +186,12 @@ let raycastTargetIdx = -1;       // 照準中ワールドアイテム
 let raycastCartSlotIdx = -1;     // 照準中カートスロット
 let highlightedCartSlotIdx = -1; // ハイライト中カートスロット
 let raycaster;                   // initScene内で初期化
+
+// ===== 商品陳列 =====
+const shopDisplayItems = []; // {type, price, mesh, dropX, dropZ}
+const shopMeshToIdx = new Map(); // mesh.uuid → idx
+let raycastShopItemIdx = -1;
+let highlightedShopItemIdx = -1;
 
 // ===== リヤカー =====
 let cartObj = null; // { group, x, z, isHeld, slots[10], cartItemMeshMap }
@@ -627,8 +639,61 @@ function createToolShop(x,z) {
     scene.add(g);
     collisionBoxes.push({x,z,hw:4,hd:3});
 
-    // 道具屋の前にリヤカーを配置
+    // 道具屋の前にリヤカー・商品置き場を配置
     createHandcart(x+1, z+8);
+    createShopDisplay(x-5, z+5);
+}
+
+// ===== 商品陳列棚 =====
+function createShopDisplay(x, z) {
+    const g = new THREE.Group(); g.position.set(x,0,z);
+    const shelfMat = new THREE.MeshStandardMaterial({color:0x8d6e63,roughness:0.88});
+    const frameMat = new THREE.MeshStandardMaterial({color:0x5d4037,roughness:0.9});
+    const signMat  = new THREE.MeshStandardMaterial({color:0x1b5e20,roughness:0.8});
+
+    // 棚板 (上・下)
+    const tTop = bx(3.0,0.08,0.72,0x8d6e63,0.88); tTop.position.set(0,1.0,0);  g.add(tTop);
+    const tMid = bx(3.0,0.08,0.72,0x8d6e63,0.88); tMid.position.set(0,0.58,0); g.add(tMid);
+
+    // フレーム脚×4
+    [[-1.43,-0.33],[1.43,-0.33],[-1.43,0.33],[1.43,0.33]].forEach(([lx,lz])=>{
+        const leg = bx(0.07,1.05,0.07,0x5d4037,0.9); leg.position.set(lx,0.525,lz); g.add(leg);
+    });
+    // 背板
+    const back = bx(3.0,1.05,0.06,0x6d4c41,0.9); back.position.set(0,0.525,-0.34); g.add(back);
+    // 看板
+    const sign = bx(2.4,0.42,0.08,0x1b5e20,0.8); sign.position.set(0,1.33,-0.3); g.add(sign);
+    const signF= bx(2.1,0.28,0.04,0xa5d6a7,0.7); signF.position.set(0,1.33,-0.26); g.add(signF);
+
+    scene.add(g);
+    collisionBoxes.push({x, z, hw:1.6, hd:0.5});
+
+    // 商品配置 (ひしゃく×1, ジェリ缶×2 on upper shelf)
+    const SHOP_CATALOG = [
+        {type:'ladle',    price:50,  lx:-0.92, lz:0.08},
+        {type:'jerryCan', price:30,  lx: 0.02, lz:0.08},
+        {type:'jerryCan', price:30,  lx: 0.94, lz:0.08},
+    ];
+
+    SHOP_CATALOG.forEach(({type, price, lx, lz}) => {
+        let m;
+        if (type === 'ladle') {
+            m = createLadleMesh(false);
+            m.scale.setScalar(1.5);
+            m.position.set(lx, 1.15, lz);
+            m.rotation.y = 0.5;
+        } else {
+            m = createJerryCanMesh(0);
+            m.scale.setScalar(1.3);
+            m.position.set(lx, 1.07, lz);
+        }
+        g.add(m);
+
+        const idx = shopDisplayItems.length;
+        m.traverse(child => { if (child.isMesh) shopMeshToIdx.set(child.uuid, idx); });
+        // 購入後の落とし位置: 棚の手前
+        shopDisplayItems.push({ type, price, mesh:m, dropX: x+lx*0.5, dropZ: z+1.1 });
+    });
 }
 
 function createHandcart(x, z) {
@@ -919,6 +984,12 @@ function computeCurrentAction() {
 
     // --- 手が空の場合 ---
     if (!heldItem) {
+        // ショップ展示品に照準 → 購入
+        if (raycastShopItemIdx>=0) {
+            const si = shopDisplayItems[raycastShopItemIdx];
+            const name = si.type==='ladle' ? L.nameLadle : L.nameCan;
+            return { type:'buyItem', label:L.promptBuy(name, si.price), shopItemIdx:raycastShopItemIdx };
+        }
         // カートアイテムに照準 → 降ろす
         if (raycastCartSlotIdx>=0) return { type:'unloadCart', label:L.promptUnloadCart, slotIdx:raycastCartSlotIdx };
         // ワールドアイテムに照準 → 拾う
@@ -958,7 +1029,20 @@ function triggerAction() {
         case 'releaseCart': doReleaseCart(); break;
         case 'loadCart':    doLoadCart(); break;
         case 'unloadCart':  doUnloadCart(currentAction.slotIdx); break;
+        case 'buyItem':     doBuyItem(currentAction.shopItemIdx); break;
     }
+}
+
+function doBuyItem(idx) {
+    const si = shopDisplayItems[idx];
+    if (!si) return;
+    const L = I18N[currentLang];
+    if (gameState.money < si.price) { showNotification(L.msgNoMoney); return; }
+    gameState.money -= si.price;
+    spawnWorldItem(si.type, si.dropX, si.dropZ, false, 0, 0.04);
+    updateUI();
+    const name = si.type==='ladle' ? L.nameLadle : L.nameCan;
+    showNotification(L.msgBought(name, si.price));
 }
 
 function doPickup(idx) {
@@ -1133,6 +1217,18 @@ function updateGame() {
             }
         }
 
+        // ショップ展示品レイキャスト
+        raycastShopItemIdx = -1;
+        if (shopDisplayItems.length > 0) {
+            const shopMeshes = [];
+            shopDisplayItems.forEach(si => { si.mesh.traverse(m=>{ if(m.isMesh) shopMeshes.push(m); }); });
+            const shopHits = raycaster.intersectObjects(shopMeshes, false);
+            if (shopHits.length > 0) {
+                const idx = shopMeshToIdx.get(shopHits[0].object.uuid);
+                if (idx !== undefined) raycastShopItemIdx = idx;
+            }
+        }
+
         currentAction=computeCurrentAction();
         const prompt=document.getElementById('interaction-prompt');
         const crosshairEl=document.getElementById('crosshair');
@@ -1180,6 +1276,24 @@ function updateGame() {
             cartObj.slots[highlightedCartSlotIdx].mesh.traverse(m=>{
                 if(m.isMesh&&m.material&&m.material.emissive)
                     m.material.emissive.set(new THREE.Color(0.05*blink2,0.9*blink2,0.1*blink2));
+            });
+        }
+
+        // ショップ展示品ハイライト（金色点滅）
+        const newShopHighlight = raycastShopItemIdx;
+        if (newShopHighlight !== highlightedShopItemIdx) {
+            if (highlightedShopItemIdx>=0 && shopDisplayItems[highlightedShopItemIdx]) {
+                shopDisplayItems[highlightedShopItemIdx].mesh.traverse(m=>{
+                    if(m.isMesh&&m.material&&m.material.emissive) m.material.emissive.set(0x000000);
+                });
+            }
+            highlightedShopItemIdx = newShopHighlight;
+        }
+        if (highlightedShopItemIdx>=0 && shopDisplayItems[highlightedShopItemIdx]) {
+            const blink3 = 0.45+0.45*Math.abs(Math.sin(now*0.005));
+            shopDisplayItems[highlightedShopItemIdx].mesh.traverse(m=>{
+                if(m.isMesh&&m.material&&m.material.emissive)
+                    m.material.emissive.set(new THREE.Color(0.9*blink3, 0.6*blink3, 0.0));
             });
         }
 
