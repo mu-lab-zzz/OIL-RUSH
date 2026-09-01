@@ -337,7 +337,7 @@ const LADLE_AMOUNT = 2;            // ひしゃく1杯
 const HAND_PUMP_AMOUNT = 1;        // 手動ポンプ1回
 const ENGINE_PUMP_FUEL_CAP = 20;   // エンジンポンプ燃料タンク容量
 const ENGINE_PUMP_OIL_RATE = 5;    // 吐出量 L/秒
-const ENGINE_PUMP_GAS_RATE = 1;    // 燃料消費 L/秒 (1:5比率)
+const ENGINE_PUMP_GAS_RATE = 0.1;  // 燃料消費 L/秒 (満タン20Lで1000L汲み上げ)
 const GAS_FILL_COST = 3;           // ガソリンスタンド価格 ($3/L)
 let engineNozzleFillAccum = 0;     // 連続充填タイムアキュムレータ
 
