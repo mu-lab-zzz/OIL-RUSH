@@ -306,7 +306,7 @@ const HAND_PUMP_AMOUNT = 1;        // 手動ポンプ1回
 const ENGINE_PUMP_FUEL_CAP = 20;   // エンジンポンプ燃料タンク容量
 const ENGINE_PUMP_OIL_RATE = 5;    // 吐出量 L/秒
 const ENGINE_PUMP_GAS_RATE = 1;    // 燃料消費 L/秒 (1:5比率)
-const GAS_FILL_COST = 10;          // ガソリンスタンド価格 (円/L)
+const GAS_FILL_COST = 3;           // ガソリンスタンド価格 ($3/L)
 let engineNozzleFillAccum = 0;     // 連続充填タイムアキュムレータ
 
 // ===== ガソリンスタンド ノズル =====
@@ -1087,11 +1087,11 @@ function createShopDisplay(x, z, rotY=0) {
     const ROWS = [+5, -3];
 
     const CATALOG = [
-        {type:'ladle',       price:50,  col:0, row:0},
-        {type:'jerryCan',    price:30,  col:1, row:0},
-        {type:'drum',        price:80,  col:2, row:0},
-        {type:'handPump',    price:80,  col:0, row:1},
-        {type:'enginePump',  price:200, col:1, row:1},
+        {type:'ladle',       price:5,   col:0, row:0},
+        {type:'jerryCan',    price:15,  col:1, row:0},
+        {type:'drum',        price:120, col:2, row:0},
+        {type:'handPump',    price:20,  col:0, row:1},
+        {type:'enginePump',  price:300, col:1, row:1},
     ];
 
     CATALOG.forEach(({type, price, col, row}) => {
@@ -1207,7 +1207,7 @@ function createHandcart(x, z) {
     } else {
         const idx = shopDisplayItems.length;
         g.traverse(m => { if(m.isMesh) shopMeshToIdx.set(m.uuid, idx); });
-        shopDisplayItems.push({ type:'handcart', price:100, mesh:g, dropX:x, dropZ:z });
+        shopDisplayItems.push({ type:'handcart', price:80, mesh:g, dropX:x, dropZ:z });
     }
 }
 
@@ -1574,13 +1574,11 @@ function computeCurrentAction() {
 
 function canPrice(fill) {
     if (fill<=0) return 0;
-    if (fill>=JERRY_CAN_CAP) return 175;
-    return Math.round(fill*17.5);
+    return Math.min(JERRY_CAN_CAP, fill); // $1/L
 }
 function drumPrice(fill) {
     if (fill<=0) return 0;
-    if (fill>=DRUM_CAP) return 400;
-    return Math.round(fill*4);
+    return Math.min(DRUM_CAP, fill); // $1/L
 }
 
 // ===== アクション実行 =====
