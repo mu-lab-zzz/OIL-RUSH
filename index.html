@@ -1083,6 +1083,7 @@ function createTown() {
     createToolShop(56,22);
     createGasStation(30,-30);
     createVehicleLot(10, -52);
+    createGiantDepot(185, 0);
 }
 
 function createVehicleLot(x, z) {
@@ -1199,6 +1200,69 @@ function createDepotTank(depotX, depotZ, parentGroup) {
     const pipeMat = new THREE.MeshStandardMaterial({color:0x78909c,roughness:0.4,metalness:0.7});
     const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,2,8),pipeMat);
     pipe.rotation.z=Math.PI/2; pipe.position.set(-9,1,0); parentGroup.add(pipe);
+}
+
+function createGiantDepot(x,z) {
+    const g = new THREE.Group(); g.position.set(x,0,z);
+    const concMat = new THREE.MeshStandardMaterial({color:0x78909c,roughness:0.9});
+    const pad = new THREE.Mesh(new THREE.PlaneGeometry(60,40),concMat);
+    pad.rotation.x=-Math.PI/2; pad.position.y=0.01; g.add(pad);
+
+    // メインウェアハウス
+    const wall = bx(30,10,20,0x9e9e9e); wall.position.set(0,5,-5); g.add(wall);
+    const roof = bx(30.6,0.5,20.6,0x757575); roof.position.set(0,10.25,-5); g.add(roof);
+    const eave = bx(30.6,0.4,4,0x616161); eave.position.set(0,7.5,5.7); g.add(eave);
+    // 大型ドア×3
+    [-10,0,10].forEach(dx=>{
+        const door=bx(5.5,6.5,0.2,0x212121); door.position.set(dx,3.25,5.1); g.add(door);
+    });
+    // 看板
+    const sign=bx(24,2.5,0.3,0x1565c0); sign.position.set(0,9,5.3); g.add(sign);
+    const signT=bx(23,2.1,0.08,0xffffff); signT.position.set(0,9,5.48); g.add(signT);
+    // 煙突
+    const chMat=new THREE.MeshStandardMaterial({color:0x616161,roughness:0.8});
+    [-8,8].forEach(dx=>{
+        const ch=new THREE.Mesh(new THREE.CylinderGeometry(0.45,0.45,5,10),chMat);
+        ch.position.set(dx,13.5,-5); ch.castShadow=true; g.add(ch);
+    });
+
+    // 大型貯蔵タンク×3
+    const tankMat=new THREE.MeshStandardMaterial({color:0x37474f,roughness:0.4,metalness:0.7});
+    const bandMat=new THREE.MeshStandardMaterial({color:0x546e7a,roughness:0.3,metalness:0.8});
+    [-22,-10,2].forEach((tx,i)=>{
+        const body=new THREE.Mesh(new THREE.CylinderGeometry(3.5,3.5,7,18),tankMat);
+        body.position.set(tx,3.5,-10); body.castShadow=true; g.add(body);
+        const cap=new THREE.Mesh(new THREE.CylinderGeometry(3.6,3.6,0.3,18),tankMat);
+        cap.position.set(tx,7.15,-10); g.add(cap);
+        [1.5,3.5,5.5].forEach(y=>{
+            const band=new THREE.Mesh(new THREE.TorusGeometry(3.52,0.1,8,28),bandMat);
+            band.rotation.x=Math.PI/2; band.position.set(tx,y,-10); g.add(band);
+        });
+    });
+
+    // フェンス (北・南・東)
+    const fenceMat=new THREE.MeshStandardMaterial({color:0xb0bec5,roughness:0.7,metalness:0.4});
+    const fencePost=(px,pz)=>{
+        const p=new THREE.Mesh(new THREE.BoxGeometry(0.2,2,0.2),fenceMat);
+        p.position.set(px,1,pz); g.add(p);
+    };
+    const fenceRail=(px,pz,w,d)=>{
+        const r=new THREE.Mesh(new THREE.BoxGeometry(w,0.1,d),fenceMat);
+        r.position.set(px,1.5,pz); g.add(r);
+        const r2=new THREE.Mesh(new THREE.BoxGeometry(w,0.1,d),fenceMat);
+        r2.position.set(px,0.8,pz); g.add(r2);
+    };
+    for(let fx=-28;fx<=28;fx+=4){ fencePost(fx,18); fencePost(fx,-18); }
+    for(let fz=-14;fz<=18;fz+=4){ fencePost(-28,fz); fencePost(28,fz); }
+    fenceRail(0,18,56,0.1); fenceRail(0,-18,56,0.1);
+    fenceRail(-28,2,0.1,36); fenceRail(28,2,0.1,36);
+
+    // ローディングドック
+    const dock=bx(14,1.2,4,0x757575); dock.position.set(0,0.6,7.8); g.add(dock);
+
+    scene.add(g);
+    interactables.push({type:'giantDepot', group:g, radius:22.0});
+    collisionBoxes.push({x,z:z-5,hw:15,hd:10});
 }
 
 function createToolShop(x,z) {
@@ -1491,19 +1555,19 @@ function createHouse(x,z,wallColor,roofColor,rotation) {
 // ===== 道路 =====
 function createRoads() {
     const asphaltMat=new THREE.MeshStandardMaterial({map:makeAsphaltTex(),roughness:0.95});
-    const mainRoad=new THREE.Mesh(new THREE.PlaneGeometry(250,10),asphaltMat);
-    mainRoad.rotation.x=-Math.PI/2; mainRoad.position.set(-10,0.02,0); mainRoad.receiveShadow=true; scene.add(mainRoad);
+    const mainRoad=new THREE.Mesh(new THREE.PlaneGeometry(330,10),asphaltMat);
+    mainRoad.rotation.x=-Math.PI/2; mainRoad.position.set(27.5,0.02,0); mainRoad.receiveShadow=true; scene.add(mainRoad);
     const branchRoad=new THREE.Mesh(new THREE.PlaneGeometry(8,55),asphaltMat);
     branchRoad.rotation.x=-Math.PI/2; branchRoad.position.set(45,0.02,30); branchRoad.receiveShadow=true; scene.add(branchRoad);
     const lineMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.8});
-    for (let x=-125; x<115; x+=8) {
+    for (let x=-125; x<190; x+=8) {
         const dash=new THREE.Mesh(new THREE.PlaneGeometry(4,0.25),lineMat);
         dash.rotation.x=-Math.PI/2; dash.position.set(x,0.04,0); scene.add(dash);
     }
     const yellowMat=new THREE.MeshStandardMaterial({color:0xffee58,roughness:0.8});
     [-4.6,4.6].forEach(zOff=>{
-        const edge=new THREE.Mesh(new THREE.PlaneGeometry(250,0.2),yellowMat);
-        edge.rotation.x=-Math.PI/2; edge.position.set(-10,0.04,zOff); scene.add(edge);
+        const edge=new THREE.Mesh(new THREE.PlaneGeometry(330,0.2),yellowMat);
+        edge.rotation.x=-Math.PI/2; edge.position.set(27.5,0.04,zOff); scene.add(edge);
     });
     createRoadSign(-5,-7); createRoadSign(20,-7);
 }
@@ -1653,6 +1717,11 @@ function computeCurrentAction() {
         if (it.type!=='depot') continue;
         if (Math.hypot(px-it.group.position.x, pz-it.group.position.z)<it.radius) { nearDepot=it; break; }
     }
+    let nearGiantDepot=null;
+    for (const it of interactables) {
+        if (it.type!=='giantDepot') continue;
+        if (Math.hypot(px-it.group.position.x, pz-it.group.position.z)<it.radius) { nearGiantDepot=it; break; }
+    }
     let nearGasStation=null;
     for (const it of interactables) {
         if (it.type!=='gasStation') continue;
@@ -1667,7 +1736,7 @@ function computeCurrentAction() {
         if (towVehicle.hitchedTankIdx >= 0) {
             const tank = towTanks[towVehicle.hitchedTankIdx];
             if (tank) {
-                if (tank.fill>0 && tank.contentType!=='gas' && nearDepot)
+                if (tank.fill>0 && tank.contentType!=='gas' && nearGiantDepot)
                     return { type:'sellTowTank', label:L.promptSellTowTank(tank.fill) };
                 return { type:'detachTowTank', label:L.promptDetachTank };
             }
