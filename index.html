@@ -397,7 +397,7 @@ function makeDesertTex() {
         ctx.stroke();
     }
     const t = new THREE.CanvasTexture(c);
-    t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(20,20); return t;
+    t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(60,60); return t;
 }
 function makeAsphaltTex() {
     const c = document.createElement('canvas'); c.width=c.height=256;
@@ -834,7 +834,7 @@ function isItemPosBlocked(x, z) {
     for (const b of collisionBoxes) {
         if (x+hw>b.x-b.hw && x-hw<b.x+b.hw && z+hw>b.z-b.hd && z-hw<b.z+b.hd) return true;
     }
-    if (x<-195||x>195||z<-195||z>195) return true;
+    if (x<-585||x>585||z<-585||z>585) return true;
     return false;
 }
 
@@ -908,7 +908,7 @@ function createSky() {
     scene.add(skyDome);
 
     // フォグをホライズン色に合わせる
-    scene.fog = new THREE.FogExp2(0xc8956b, 0.0032);
+    scene.fog = new THREE.FogExp2(0xc8956b, 0.0018);
 
     // 雲
     const cloudBase = new THREE.MeshStandardMaterial({
@@ -974,7 +974,7 @@ function initThree() {
     scene.add(dirLight); scene.add(dirLight.target);
 
     const ground = new THREE.Mesh(
-        new THREE.PlaneGeometry(400,400),
+        new THREE.PlaneGeometry(1200,1200),
         new THREE.MeshStandardMaterial({map:makeDesertTex(),roughness:0.9,metalness:0.05})
     );
     ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene.add(ground);
@@ -1006,7 +1006,7 @@ function createPlayer() {
 // ===== 衝突判定 =====
 function checkCollision(x, z) {
     const pr=0.45;
-    if (x<-195||x>195||z<-195||z>195) return true;
+    if (x<-585||x>585||z<-585||z>585) return true;
     for (const b of collisionBoxes) {
         if (x+pr>b.x-b.hw && x-pr<b.x+b.hw && z+pr>b.z-b.hd && z-pr<b.z+b.hd) return true;
     }
@@ -1083,7 +1083,7 @@ function createTown() {
     createToolShop(56,22);
     createGasStation(30,-30);
     createVehicleLot(10, -52);
-    createGiantDepot(185, 0);
+    createGiantDepot(308, 0);
 }
 
 function createVehicleLot(x, z) {
@@ -1555,19 +1555,19 @@ function createHouse(x,z,wallColor,roofColor,rotation) {
 // ===== 道路 =====
 function createRoads() {
     const asphaltMat=new THREE.MeshStandardMaterial({map:makeAsphaltTex(),roughness:0.95});
-    const mainRoad=new THREE.Mesh(new THREE.PlaneGeometry(330,10),asphaltMat);
-    mainRoad.rotation.x=-Math.PI/2; mainRoad.position.set(27.5,0.02,0); mainRoad.receiveShadow=true; scene.add(mainRoad);
+    const mainRoad=new THREE.Mesh(new THREE.PlaneGeometry(454,10),asphaltMat);
+    mainRoad.rotation.x=-Math.PI/2; mainRoad.position.set(89,0.02,0); mainRoad.receiveShadow=true; scene.add(mainRoad);
     const branchRoad=new THREE.Mesh(new THREE.PlaneGeometry(8,55),asphaltMat);
     branchRoad.rotation.x=-Math.PI/2; branchRoad.position.set(45,0.02,30); branchRoad.receiveShadow=true; scene.add(branchRoad);
     const lineMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.8});
-    for (let x=-125; x<190; x+=8) {
+    for (let x=-125; x<316; x+=8) {
         const dash=new THREE.Mesh(new THREE.PlaneGeometry(4,0.25),lineMat);
         dash.rotation.x=-Math.PI/2; dash.position.set(x,0.04,0); scene.add(dash);
     }
     const yellowMat=new THREE.MeshStandardMaterial({color:0xffee58,roughness:0.8});
     [-4.6,4.6].forEach(zOff=>{
-        const edge=new THREE.Mesh(new THREE.PlaneGeometry(330,0.2),yellowMat);
-        edge.rotation.x=-Math.PI/2; edge.position.set(27.5,0.04,zOff); scene.add(edge);
+        const edge=new THREE.Mesh(new THREE.PlaneGeometry(454,0.2),yellowMat);
+        edge.rotation.x=-Math.PI/2; edge.position.set(89,0.04,zOff); scene.add(edge);
     });
     createRoadSign(-5,-7); createRoadSign(20,-7);
 }
@@ -1582,11 +1582,17 @@ function createRoadSign(x,z) {
 // ===== 装飾 =====
 function populateDecorations() {
     [[-90,5,0.9],[-70,25,0.7],[-88,-8,1.1],[-45,-20,0.6],[-95,-15,1.3],
-     [-58,8,0.5],[-75,-18,0.8],[-40,30,0.7]].forEach(([x,z,s])=>createRock(x,z,s));
+     [-58,8,0.5],[-75,-18,0.8],[-40,30,0.7],
+     // 東部エリア
+     [120,-30,0.8],[145,22,1.1],[168,-18,0.7],[195,35,0.9],
+     [218,-22,1.2],[244,18,0.8],[272,-12,0.6],[295,28,1.0]].forEach(([x,z,s])=>createRock(x,z,s));
     [[55,5],[60,-8],[68,-5],[80,0],[85,-10],[62,15],[50,-10],
-     [78,-22],[90,5]].forEach(([x,z])=>createTree(x,z));
+     [78,-22],[90,5],
+     // 東部エリア
+     [125,-12],[152,18],[178,-22],[205,14],[232,-18],[258,22],[285,-12],[305,20]].forEach(([x,z])=>createTree(x,z));
     // メイン道路南側 (z=-7): アームを道路側(+z北)に向ける → rotY=π
-    [[25,-7],[35,-7],[45,-7],[55,-7],[65,-7]].forEach(([x,z])=>createStreetLight(x,z,Math.PI));
+    [[25,-7],[35,-7],[45,-7],[55,-7],[65,-7],
+     [80,-7],[110,-7],[140,-7],[170,-7],[200,-7],[230,-7],[260,-7],[290,-7]].forEach(([x,z])=>createStreetLight(x,z,Math.PI));
     // 分岐道路東側 (x=50): アームを道路側(-x西)に向ける → rotY=π/2
     [[50,10],[50,25],[50,42]].forEach(([x,z])=>createStreetLight(x,z,Math.PI/2));
     [[-45,-5],[-68,-20],[-85,0]].forEach(([x,z])=>createJunkPile(x,z));
