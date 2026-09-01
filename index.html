@@ -541,25 +541,25 @@ function createDrumMesh(fill=0, contentType=null) {
     const ringMat = new THREE.MeshStandardMaterial({color:0x607d8b,metalness:0.8,roughness:0.3});
     const capMat  = new THREE.MeshStandardMaterial({color:0x546e7a,roughness:0.35,metalness:0.7});
 
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.5,1.0,14),drumMat);
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.5,2.0,14),drumMat);
     body.castShadow=true; g.add(body);
     const capT = new THREE.Mesh(new THREE.CylinderGeometry(0.51,0.51,0.06,14),capMat);
-    capT.position.y=0.53; g.add(capT);
+    capT.position.y=1.03; g.add(capT);
     const capB = new THREE.Mesh(new THREE.CylinderGeometry(0.51,0.51,0.06,14),capMat);
-    capB.position.y=-0.53; g.add(capB);
-    [-0.28,0.28].forEach(y=>{
+    capB.position.y=-1.03; g.add(capB);
+    [-0.56,0.56].forEach(y=>{
         const ring=new THREE.Mesh(new THREE.TorusGeometry(0.51,0.025,6,20),ringMat);
         ring.rotation.x=Math.PI/2; ring.position.y=y; g.add(ring);
     });
     const bung=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.07,8),
         new THREE.MeshStandardMaterial({color:0x424242,roughness:0.7}));
-    bung.position.set(0.22,0.57,0); g.add(bung);
+    bung.position.set(0.22,1.07,0); g.add(bung);
     if (fill>0) {
-        const fh=(fill/10)*0.88;
+        const fh=(fill/10)*1.76;
         const fillColor=contentType==='gas'?0xff6f00:0x060606;
         const oilMesh=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.42,fh,12),
             new THREE.MeshStandardMaterial({color:fillColor,roughness:0.05,metalness:0.9}));
-        oilMesh.position.y=fh/2-0.44; g.add(oilMesh);
+        oilMesh.position.y=fh/2-0.88; g.add(oilMesh);
     }
     return g;
 }
