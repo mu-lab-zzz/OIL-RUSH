@@ -3116,8 +3116,12 @@ function updateGame() {
         // ===== 移動 (運転中/徒歩) =====
         if (towVehicle && towVehicle.inVehicle) {
             // 車両操作
-            if (keys.a||(joystickActive&&joystickVector.x<-0.2)) towVehicle.rot+=VEHICLE_TURN_SPEED*delta;
-            if (keys.d||(joystickActive&&joystickVector.x>0.2))  towVehicle.rot-=VEHICLE_TURN_SPEED*delta;
+            if (joystickActive) {
+                towVehicle.rot -= joystickVector.x * VEHICLE_TURN_SPEED * 0.45 * delta;
+            } else {
+                if (keys.a) towVehicle.rot+=VEHICLE_TURN_SPEED*delta;
+                if (keys.d) towVehicle.rot-=VEHICLE_TURN_SPEED*delta;
+            }
             let vspd=0;
             if (keys.w) vspd=VEHICLE_SPEED;
             if (keys.s) vspd=-VEHICLE_SPEED*0.5;
