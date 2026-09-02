@@ -1170,7 +1170,7 @@ function createOilSpring(cx, cz, scale) {
         const rs = (0.28 + 0.13*(ri%3)) * scale;
         const rGeo = rockGeo || new THREE.DodecahedronGeometry(rs, 1);
         const rock = new THREE.Mesh(rGeo, rockMat);
-        const rsc = rockGeo ? rs * 0.18 : 1;
+        const rsc = rockGeo ? rs * 0.54 : 1;
         rock.scale.set(rsc, rsc, rsc);
         const ry = rockGeo ? 0.31*rsc : rs*0.5;
         rock.position.set(Math.cos(ra)*rr, ry, Math.sin(ra)*rr);
@@ -1735,7 +1735,7 @@ function createRock(x,z,s) {
     const geo = rockGeo || new THREE.DodecahedronGeometry(s*0.55,1);
     const mat = new THREE.MeshStandardMaterial({color:0x7a5c48, roughness:0.9, map: rockTex||null});
     const m = new THREE.Mesh(geo, mat);
-    const sc = rockGeo ? s*0.1 : 1;
+    const sc = rockGeo ? s*0.3 : 1;
     m.scale.set(sc,sc,sc);
     m.position.set(x, rockGeo ? 0.31*sc : s*0.27, z);
     m.rotation.set(Math.random()*2, Math.random()*2, Math.random()*2);
