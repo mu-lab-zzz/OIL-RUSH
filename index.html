@@ -1095,60 +1095,99 @@ function createOilSpring(cx, cz, scale) {
     const gcx = Math.round(cx), gcz = Math.round(cz);
     const g = new THREE.Group(); g.position.set(gcx, 0, gcz);
 
-    // グリッド半径 (scale 1.2→4, 1.0→3, 0.85→3)
-    const r = Math.round(scale * 3.2);
+    // 決定論的シード (位置から生成)
+    const seed = ((gcx * 127 + gcz * 311) & 0x7fff);
+    const baseR = scale * 3.8;
 
-    // 内側セル (原油) と縁セル (泥・岩盤) を分類
-    const innerCells = [], edgeCells = [];
-    for (let dx = -(r+1); dx <= r+1; dx++) {
-        for (let dz = -(r+1); dz <= r+1; dz++) {
-            const d2 = dx*dx + dz*dz;
-            if (d2 <= r*r)               innerCells.push({dx,dz});
-            else if (d2 <= (r+0.8)*(r+0.8)) edgeCells.push({dx,dz});
+    // 有機的半径関数 — ビジュアルとグリッド登録の両方で共用
+    function oR(a, r, s) {
+        return r * (0.76 + 0.19*Math.sin(s*0.031 + a*3.1)
+                       + 0.11*Math.sin(s*0.017 + a*5.2)
+                       + 0.05*Math.sin(s*0.053 + a*8.4));
+    }
+
+    // 有機的シェイプを生成 (ShapeGeometry用 XZ平面)
+    function makeOrgShape(r, nPts, s) {
+        const pts = [];
+        for (let i = 0; i < nPts; i++) {
+            const a = (i/nPts)*Math.PI*2;
+            const rad = oR(a, r, s);
+            pts.push(new THREE.Vector2(Math.cos(a)*rad, Math.sin(a)*rad));
         }
+        const sh = new THREE.Shape(pts);
+        const geo = new THREE.ShapeGeometry(sh, 3);
+        geo.rotateX(-Math.PI/2);
+        return geo;
     }
 
-    // 1mセルタイル群を1つのメッシュにマージして生成
-    function buildCellMesh(cells, mat, py, gap) {
-        const h = (1 - gap) / 2;
-        const pos=[], nrm=[], uv=[], idx=[];
-        cells.forEach(({dx,dz},i)=>{
-            const x0=dx-h,x1=dx+h,z0=dz-h,z1=dz+h,b=i*4;
-            pos.push(x0,py,z1, x1,py,z1, x1,py,z0, x0,py,z0);
-            nrm.push(0,1,0, 0,1,0, 0,1,0, 0,1,0);
-            uv.push(0,0, 1,0, 1,1, 0,1);
-            idx.push(b,b+1,b+2, b,b+2,b+3);
-        });
-        const geo = new THREE.BufferGeometry();
-        geo.setAttribute('position', new THREE.Float32BufferAttribute(pos,3));
-        geo.setAttribute('normal',   new THREE.Float32BufferAttribute(nrm,3));
-        geo.setAttribute('uv',       new THREE.Float32BufferAttribute(uv,2));
-        geo.setIndex(idx);
-        const m = new THREE.Mesh(geo, mat); m.receiveShadow=true; return m;
-    }
-
-    const oilMat = new THREE.MeshStandardMaterial({color:0x030303,roughness:0.05,metalness:0.95});
-    const rimMat = new THREE.MeshStandardMaterial({color:0x2a1a0e,roughness:0.92});
-    g.add(buildCellMesh(edgeCells,  rimMat, 0.02, 0.08));
-    g.add(buildCellMesh(innerCells, oilMat, 0.04, 0.04));
-
-    // 岩をエッジセルのグリッド位置に配置 (3セルおきに最大6個)
-    const rockMat = new THREE.MeshStandardMaterial({color:0x5a4838,roughness:0.9});
-    edgeCells.filter((_,i)=>i%3===1).slice(0,6).forEach(({dx,dz})=>{
-        const rs = (0.35 + (Math.abs(dx*dz)%3)*0.12) * scale;
-        const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(rs,1), rockMat);
-        rock.position.set(dx, rs*0.4, dz);
-        rock.rotation.set(dx*0.9, dz*1.3, dx+dz);
-        rock.castShadow=true; g.add(rock);
+    const oilMat = new THREE.MeshStandardMaterial({
+        color:0x07050a, roughness:0.04, metalness:0.96
     });
+    const rimMat = new THREE.MeshStandardMaterial({
+        color:0x1a0f07, roughness:0.95, metalness:0.02
+    });
+    const mudMat = new THREE.MeshStandardMaterial({
+        color:0x2c1a09, roughness:0.98, metalness:0.0
+    });
+    const rockMat = new THREE.MeshStandardMaterial({color:0x4a3424, roughness:0.91});
+
+    // ① 外縁 (泥・岩盤帯)
+    const rimM = new THREE.Mesh(makeOrgShape(baseR*1.42, 26, seed), rimMat);
+    rimM.position.y=0.012; rimM.receiveShadow=true; g.add(rimM);
+
+    // ② 泥スプラッターブロブ (縁に自然なランダム感)
+    for (let mi=0; mi<5; mi++) {
+        const ma = seed*0.041 + mi*1.26;
+        const mr = oR(ma, baseR, seed) * (0.92 + 0.12*Math.sin(mi*4.3));
+        const ms = baseR*(0.13 + 0.07*Math.sin(mi*7.1+seed*0.023));
+        const mGeo = makeOrgShape(ms, 8, seed+mi*137);
+        const mMesh = new THREE.Mesh(mGeo, mudMat);
+        mMesh.position.set(Math.cos(ma)*mr, 0.020, Math.sin(ma)*mr);
+        g.add(mMesh);
+    }
+
+    // ③ メイン原油面
+    const oilM = new THREE.Mesh(makeOrgShape(baseR, 30, seed+50), oilMat);
+    oilM.position.y=0.032; oilM.receiveShadow=true; g.add(oilM);
+
+    // ④ サテライト小池 (メイン池の周囲に2〜3か所)
+    [[seed*0.047+0.7, 0.58, 0.52],[seed*0.029+3.4, 0.65, 0.38]].forEach(([sa,sf,szf],si)=>{
+        const sr = oR(sa, baseR, seed) * sf;
+        const sx = Math.cos(sa)*sr, sz = Math.sin(sa)*sr;
+        const satR = baseR * szf;
+        const satRimM = new THREE.Mesh(makeOrgShape(satR*1.5, 14, seed+si*200), rimMat);
+        satRimM.position.set(sx, 0.010, sz); g.add(satRimM);
+        const satM = new THREE.Mesh(makeOrgShape(satR, 14, seed+si*200+60), oilMat);
+        satM.position.set(sx, 0.032, sz); g.add(satM);
+    });
+
+    // ⑤ 岩 (縁に沿って決定論的に配置)
+    for (let ri=0; ri<6; ri++) {
+        const ra = seed*0.019 + ri*(Math.PI*2/6) + Math.sin(ri*2.1)*0.35;
+        const rr = oR(ra, baseR, seed) * (1.06 + 0.08*Math.sin(ri*3.7));
+        const rs = (0.28 + 0.13*(ri%3)) * scale;
+        const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(rs, 1), rockMat);
+        rock.position.set(Math.cos(ra)*rr, rs*0.5, Math.sin(ra)*rr);
+        rock.rotation.set(ri*1.4, ra*2.3, ri*0.8);
+        rock.castShadow=true; g.add(rock);
+    }
 
     scene.add(g);
 
-    // グリッドマップに登録
-    innerCells.forEach(({dx,dz}) => gridSet(gcx+dx, gcz+dz, 'oilPool'));
-    edgeCells.forEach( ({dx,dz}) => gridSet(gcx+dx, gcz+dz, 'oilRim'));
+    // グリッド登録 (oR関数と完全一致)
+    const gR = Math.ceil(baseR * 1.5);
+    for (let dx=-gR; dx<=gR; dx++) {
+        for (let dz=-gR; dz<=gR; dz++) {
+            const dist = Math.sqrt(dx*dx+dz*dz);
+            const a = dist<0.01 ? 0 : Math.atan2(dz,dx);
+            const oilEdge = oR(a, baseR, seed+50);
+            const rimEdge = oR(a, baseR*1.42, seed);
+            if (dist<=oilEdge)      gridSet(gcx+dx, gcz+dz, 'oilPool');
+            else if (dist<=rimEdge) gridSet(gcx+dx, gcz+dz, 'oilRim');
+        }
+    }
 
-    interactables.push({type:'oil', group:g, radius: r + 1.5});
+    interactables.push({type:'oil', group:g, radius: baseR * 1.5});
 }
 
 function createDerrick(x,z) {
