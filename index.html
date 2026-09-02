@@ -297,6 +297,73 @@ let playerGroup;
 const interactables = [];
 const collisionBoxes = [];
 
+// ===== グリッドシステム (1m/セル) =====
+// 将来の精製設備・パイプライン設置の基盤。ワールド座標 = グリッド座標 (1ユニット=1m)
+const GRID_CELL = 1;
+const _gridMap = new Map(); // "gx,gz" → {type, ref}
+
+function worldToGrid(x, z) {
+    return { gx: Math.round(x / GRID_CELL), gz: Math.round(z / GRID_CELL) };
+}
+function gridToWorld(gx, gz) {
+    return { x: gx * GRID_CELL, z: gz * GRID_CELL };
+}
+function snapToGrid(x, z) {
+    const { gx, gz } = worldToGrid(x, z);
+    return gridToWorld(gx, gz);
+}
+function gridKey(gx, gz)  { return `${gx},${gz}`; }
+function gridGet(gx, gz)  { return _gridMap.get(gridKey(gx, gz)) || null; }
+function gridFree(gx, gz) { return !_gridMap.has(gridKey(gx, gz)); }
+function gridSet(gx, gz, type, ref = null) { _gridMap.set(gridKey(gx, gz), { type, ref }); }
+function gridDel(gx, gz)  { _gridMap.delete(gridKey(gx, gz)); }
+
+function gridCellsInRect(cx, cz, halfW, halfD) {
+    const a = worldToGrid(cx - halfW + 0.5, cz - halfD + 0.5);
+    const b = worldToGrid(cx + halfW - 0.5, cz + halfD - 0.5);
+    const out = [];
+    for (let gx = a.gx; gx <= b.gx; gx++)
+        for (let gz = a.gz; gz <= b.gz; gz++)
+            out.push({ gx, gz });
+    return out;
+}
+function gridFreeRect(cx, cz, halfW, halfD) {
+    return gridCellsInRect(cx, cz, halfW, halfD).every(c => gridFree(c.gx, c.gz));
+}
+function gridSetRect(cx, cz, halfW, halfD, type, ref = null) {
+    gridCellsInRect(cx, cz, halfW, halfD).forEach(c => gridSet(c.gx, c.gz, type, ref));
+}
+function gridDelRect(cx, cz, halfW, halfD) {
+    gridCellsInRect(cx, cz, halfW, halfD).forEach(c => gridDel(c.gx, c.gz));
+}
+
+function registerStaticBuildings() {
+    gridSetRect( 58, -18,  9,  7, 'depot');
+    gridSetRect( 56,  22,  4,  3, 'toolShop');
+    gridSetRect( 30, -30,  6,  5, 'gasStation');
+    gridSetRect( 10, -52,  8, 10, 'vehicleLot');
+    gridSetRect(308,   0, 17, 22, 'giantDepot');
+    [[-65,-22,4],[-82,14,4],[-54,20,4]].forEach(([x,z,r]) => gridSetRect(x, z, r, r, 'oilSpring'));
+}
+
+let _gridHelper = null;
+let gridOverlayVisible = false;
+function toggleGridOverlay() {
+    gridOverlayVisible = !gridOverlayVisible;
+    if (gridOverlayVisible) {
+        if (!_gridHelper) {
+            _gridHelper = new THREE.GridHelper(60, 60, 0x00e5ff, 0x004d60);
+            _gridHelper.material.opacity = 0.4;
+            _gridHelper.material.transparent = true;
+            _gridHelper.material.depthWrite = false;
+        }
+        scene.add(_gridHelper);
+    } else if (_gridHelper) {
+        scene.remove(_gridHelper);
+    }
+    showNotification(gridOverlayVisible ? 'Grid ON' : 'Grid OFF');
+}
+
 // ===== ワールドアイテム & 手持ち =====
 const worldItems = []; // {type, group, x, z, fill, hasOil}
 let heldItem = null;   // {type, fill, hasOil}
@@ -984,6 +1051,7 @@ function initThree() {
     createTown();
     createRoads();
     populateDecorations();
+    registerStaticBuildings();
 
     window.addEventListener('resize', ()=>{
         camera.aspect=innerWidth/innerHeight;
@@ -1627,6 +1695,7 @@ window.addEventListener('keydown',e=>{
     if (e.code==='KeyS'||e.code==='ArrowDown')  keys.s=true;
     if (e.code==='KeyD'||e.code==='ArrowRight') keys.d=true;
     if (e.code==='Space') { e.preventDefault(); if(!keys.space) triggerAction(); keys.space=true; }
+    if (e.code==='KeyG') toggleGridOverlay();
 });
 window.addEventListener('keyup',e=>{
     if (e.code==='KeyW'||e.code==='ArrowUp')    keys.w=false;
@@ -2597,6 +2666,14 @@ function updateGame() {
         dirLight.position.set(playerGroup.position.x+30,40,playerGroup.position.z+20);
         dirLight.target.position.copy(playerGroup.position);
         dirLight.target.updateMatrixWorld();
+
+        if (_gridHelper && gridOverlayVisible) {
+            _gridHelper.position.set(
+                Math.round(playerGroup.position.x),
+                0.03,
+                Math.round(playerGroup.position.z)
+            );
+        }
 
         // カート追従
         if (cartObj && cartObj.isHeld) {
