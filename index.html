@@ -3115,32 +3115,27 @@ function updateGame() {
 
         // ===== 移動 (運転中/徒歩) =====
         if (towVehicle && towVehicle.inVehicle) {
-            // 車両操作 — 歩行と同じ視点相対移動
-            let ix=0, iz=0;
-            if (keys.w) iz-=1; if (keys.s) iz+=1;
-            if (keys.a) ix-=1; if (keys.d) ix+=1;
-            if (joystickActive) { ix=joystickVector.x; iz=joystickVector.y; }
-
-            const ml=Math.hypot(ix,iz);
-            if (ml>0.1) {
-                const spd=VEHICLE_SPEED*delta;
-                const nx=ix/Math.max(1,ml), nz=iz/Math.max(1,ml);
-                const sy=Math.sin(gameState.cameraYaw), cy=Math.cos(gameState.cameraYaw);
-                const vx=(nx*cy+nz*sy)*spd, vz=(-nx*sy+nz*cy)*spd;
-                const nx2=towVehicle.x+vx, nz2=towVehicle.z+vz;
+            // 車両操作
+            if (keys.a||(joystickActive&&joystickVector.x<-0.2)) towVehicle.rot+=VEHICLE_TURN_SPEED*delta;
+            if (keys.d||(joystickActive&&joystickVector.x>0.2))  towVehicle.rot-=VEHICLE_TURN_SPEED*delta;
+            let vspd=0;
+            if (keys.w) vspd=VEHICLE_SPEED;
+            if (keys.s) vspd=-VEHICLE_SPEED*0.5;
+            if (joystickActive) vspd=-joystickVector.y*VEHICLE_SPEED;
+            if (vspd!==0) {
+                const nx2=towVehicle.x-Math.sin(towVehicle.rot)*vspd*delta;
+                const nz2=towVehicle.z-Math.cos(towVehicle.rot)*vspd*delta;
                 if (!checkCollision(nx2,nz2)) { towVehicle.x=nx2; towVehicle.z=nz2; }
-                // 移動方向にメッシュをスムーズ回転
-                const targetRot=Math.atan2(-vx,-vz);
-                let diff=targetRot-towVehicle.rot;
-                while(diff>Math.PI) diff-=Math.PI*2;
-                while(diff<-Math.PI) diff+=Math.PI*2;
-                towVehicle.rot+=diff*Math.min(1,10*delta);
             }
             towVehicle.group.position.set(towVehicle.x,0,towVehicle.z);
             towVehicle.group.rotation.y=towVehicle.rot;
-            // カメラ: 車両位置に追従（回転は通常FPSと同じ）
+            // カメラ: キャビン内FPS
             playerGroup.position.set(towVehicle.x,0,towVehicle.z);
-            camera.position.set(towVehicle.x, 2.2, towVehicle.z);
+            camera.position.set(
+                towVehicle.x-Math.sin(towVehicle.rot)*0.6,
+                2.2,
+                towVehicle.z-Math.cos(towVehicle.rot)*0.6
+            );
             // 牽引タンク追従
             if (towVehicle.hitchedTankIdx>=0) {
                 const tt=towTanks[towVehicle.hitchedTankIdx];
