@@ -31,6 +31,18 @@
         .modal-header { font-size: 18px; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #444; padding-bottom: 8px; }
         textarea { width: 100%; height: 120px; background: #111; color: #0f0; border: 1px solid #333; padding: 8px; font-family: monospace; resize: none; margin-bottom: 15px; border-radius: 4px; }
         .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; }
+        #btn-settings { width: 40px; height: 40px; background: rgba(44,62,80,0.9); border: 1px solid rgba(255,255,255,0.25); border-radius: 8px; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s, transform 0.1s; backdrop-filter: blur(4px); }
+        #btn-settings:hover { background: rgba(52,73,94,0.95); } #btn-settings:active { transform: scale(0.93); }
+        #settings-modal .modal-content { max-width: 360px; }
+        .settings-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+        .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .settings-label { font-size: 14px; color: #ccc; }
+        .toggle-btn { position: relative; width: 48px; height: 26px; background: #444; border: none; border-radius: 13px; cursor: pointer; transition: background 0.2s; flex-shrink: 0; }
+        .toggle-btn::after { content:''; position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; background: #fff; border-radius: 50%; transition: transform 0.2s; }
+        .toggle-btn.on { background: #e74c3c; }
+        .toggle-btn.on::after { transform: translateX(22px); }
+        #debug-badge { display: none; position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: rgba(231,76,60,0.92); color: #fff; font-size: 11px; font-weight: bold; padding: 2px 10px; border-radius: 10px; pointer-events: none; z-index: 15; letter-spacing: 1px; }
+        body.debug-mode #debug-badge { display: block; }
         @media (pointer: coarse) { #touch-controls { display: flex; } #interaction-prompt { bottom: 155px; } }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -45,19 +57,50 @@
             <div class="held-text" id="ui-held">手持ち: なし</div>
             <div class="hint-text" id="ui-hint">← 西: 油田　東: 町 →</div>
         </div>
-        <div class="menu-buttons interactive">
-            <button class="btn" id="btn-lang" onclick="toggleLanguage()">English</button>
-            <button class="btn" onclick="saveGame()">セーブ</button>
-            <button class="btn" onclick="loadGame()">ロード</button>
-            <button class="btn" onclick="openDataModal()">データ管理</button>
-        </div>
+        <button id="btn-settings" class="interactive" onclick="openSettingsModal()">⚙</button>
     </div>
+    <div id="debug-badge">DEBUG MODE</div>
     <div id="notification"></div>
     <div id="crosshair"></div>
     <div id="interaction-prompt"></div>
     <div id="touch-controls">
         <div id="joystick-zone"><div id="joystick-knob"></div></div>
         <div id="action-button" onclick="triggerAction()">ACT</div>
+    </div>
+</div>
+<div id="settings-modal" class="modal" onclick="if(event.target===this)closeSettingsModal()">
+    <div class="modal-content">
+        <div class="modal-header" id="settings-title">⚙ 設定</div>
+        <div class="settings-group">
+            <div class="settings-row">
+                <span class="settings-label" id="lbl-lang">言語 / Language</span>
+                <button class="btn" id="btn-lang" onclick="toggleLanguage()">English</button>
+            </div>
+            <div class="settings-row">
+                <span class="settings-label" id="lbl-save">セーブ</span>
+                <button class="btn" onclick="saveGame();closeSettingsModal()" id="btn-save-s">保存する</button>
+            </div>
+            <div class="settings-row">
+                <span class="settings-label" id="lbl-load">ロード</span>
+                <button class="btn" onclick="loadGame();closeSettingsModal()" id="btn-load-s">読み込む</button>
+            </div>
+            <div class="settings-row">
+                <span class="settings-label" id="lbl-data">データ管理</span>
+                <button class="btn" onclick="closeSettingsModal();openDataModal()" id="btn-data-s">開く</button>
+            </div>
+        </div>
+        <div style="border-top:1px solid #444;padding-top:14px;margin-top:4px;">
+            <div class="settings-row">
+                <div>
+                    <div class="settings-label" id="lbl-debug" style="color:#e74c3c;font-weight:bold;">🐛 デバッグモード</div>
+                    <div style="font-size:11px;color:#888;margin-top:2px;" id="lbl-debug-sub">全商品を無料で購入できます</div>
+                </div>
+                <button class="toggle-btn" id="btn-debug" onclick="toggleDebugMode()"></button>
+            </div>
+        </div>
+        <div class="modal-buttons" style="margin-top:18px;">
+            <button class="btn" onclick="closeSettingsModal()" id="btn-close-s">閉じる</button>
+        </div>
     </div>
 </div>
 <div id="data-modal" class="modal">
@@ -320,6 +363,7 @@ const I18N = {
     }
 };
 let currentLang = 'ja';
+let debugMode = false;
 
 // ===== ゲーム状態 =====
 let gameState = {
@@ -2386,8 +2430,8 @@ function doBuyItem(idx) {
     const si = shopDisplayItems[idx];
     if (!si) return;
     const L = I18N[currentLang];
-    if (gameState.money < si.price) { showNotification(L.msgNoMoney); return; }
-    gameState.money -= si.price;
+    if (!debugMode && gameState.money < si.price) { showNotification(L.msgNoMoney); return; }
+    if (!debugMode) gameState.money -= si.price;
 
     if (si.type === 'handcart') {
         // カートはすでにシーンにある — 商品登録を解除して有効化
@@ -2675,8 +2719,8 @@ function doFillGas() {
     if (heldItem.contentType==='oil') { showNotification(L.msgGasOnly); return; }
     const needed=5-heldItem.fill;
     const cost=GAS_FILL_COST*needed;
-    if (gameState.money<cost) { showNotification(L.msgNoMoney); return; }
-    gameState.money-=cost;
+    if (!debugMode && gameState.money<cost) { showNotification(L.msgNoMoney); return; }
+    if (!debugMode) gameState.money-=cost;
     heldItem.fill=5; heldItem.contentType='gas';
     updateHeldMesh(); updateUI();
     showNotification(L.msgGotGas(cost));
@@ -2688,8 +2732,8 @@ function doFillGasDrum() {
     if (heldItem.contentType==='oil') { showNotification(L.msgGasOnly); return; }
     const needed=10-heldItem.fill;
     const cost=GAS_FILL_COST*2*needed;
-    if (gameState.money<cost) { showNotification(L.msgNoMoney); return; }
-    gameState.money-=cost;
+    if (!debugMode && gameState.money<cost) { showNotification(L.msgNoMoney); return; }
+    if (!debugMode) gameState.money-=cost;
     heldItem.fill=10; heldItem.contentType='gas';
     updateHeldMesh(); updateUI();
     showNotification(L.msgGotGas(cost));
@@ -2726,8 +2770,8 @@ function doGasNozzleFill(canIdx) {
     const cap = target.type==='drum' ? DRUM_CAP : JERRY_CAN_CAP;
     if (target.fill>=cap) return;
     const cost = GAS_FILL_COST;
-    if (gameState.money<cost) { showNotification(L.msgNoMoney); return; }
-    gameState.money-=cost;
+    if (!debugMode && gameState.money<cost) { showNotification(L.msgNoMoney); return; }
+    if (!debugMode) gameState.money-=cost;
     target.fill=Math.min(cap, target.fill+1);
     target.contentType='gas';
     refreshWorldItemMesh(canIdx);
@@ -2739,8 +2783,8 @@ function doGasNozzleFill(canIdx) {
 function doBuyVehicleLotItem(idx) {
     const vi=vehicleLotItems[idx]; if(!vi) return;
     const L=I18N[currentLang];
-    if (gameState.money<vi.price) { showNotification(L.msgNoMoney); return; }
-    gameState.money-=vi.price;
+    if (!debugMode && gameState.money<vi.price) { showNotification(L.msgNoMoney); return; }
+    if (!debugMode) gameState.money-=vi.price;
 
     if (vi.type==='towVehicle') {
         if (towVehiclePurchased) return; // 既に所有
@@ -3550,8 +3594,39 @@ function updateUI() {
 
 function toggleLanguage() {
     currentLang=currentLang==='ja'?'en':'ja';
-    document.getElementById('btn-lang').innerText=currentLang==='ja'?'English':'日本語';
+    updateSettingsModalLabels();
     updateUI();
+}
+
+function openSettingsModal() {
+    updateSettingsModalLabels();
+    document.getElementById('settings-modal').style.display='flex';
+}
+function closeSettingsModal() {
+    document.getElementById('settings-modal').style.display='none';
+}
+
+function updateSettingsModalLabels() {
+    const ja = currentLang==='ja';
+    document.getElementById('btn-lang').innerText = ja ? 'English' : '日本語';
+    document.getElementById('settings-title').innerText = ja ? '⚙ 設定' : '⚙ Settings';
+    document.getElementById('lbl-lang').innerText = ja ? '言語 / Language' : 'Language';
+    document.getElementById('lbl-save').innerText = ja ? 'セーブ' : 'Save';
+    document.getElementById('btn-save-s').innerText = ja ? '保存する' : 'Save';
+    document.getElementById('lbl-load').innerText = ja ? 'ロード' : 'Load';
+    document.getElementById('btn-load-s').innerText = ja ? '読み込む' : 'Load';
+    document.getElementById('lbl-data').innerText = ja ? 'データ管理' : 'Data Mgmt';
+    document.getElementById('btn-data-s').innerText = ja ? '開く' : 'Open';
+    document.getElementById('lbl-debug').innerText = ja ? '🐛 デバッグモード' : '🐛 Debug Mode';
+    document.getElementById('lbl-debug-sub').innerText = ja ? '全商品を無料で購入できます' : 'Buy all items for free';
+    document.getElementById('btn-close-s').innerText = ja ? '閉じる' : 'Close';
+    document.getElementById('debug-badge').innerText = ja ? 'デバッグ中' : 'DEBUG';
+}
+
+function toggleDebugMode() {
+    debugMode = !debugMode;
+    document.getElementById('btn-debug').classList.toggle('on', debugMode);
+    document.body.classList.toggle('debug-mode', debugMode);
 }
 
 function showNotification(msg) {
