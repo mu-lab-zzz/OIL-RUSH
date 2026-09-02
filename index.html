@@ -343,7 +343,7 @@ function registerStaticBuildings() {
     gridSetRect( 30, -30,  6,  5, 'gasStation');
     gridSetRect( 10, -52,  8, 10, 'vehicleLot');
     gridSetRect(308,   0, 17, 22, 'giantDepot');
-    [[-65,-22,4],[-82,14,4],[-54,20,4]].forEach(([x,z,r]) => gridSetRect(x, z, r, r, 'oilSpring'));
+    // oilSpring/oilPool/oilRim は createOilSpring 内で自己登録
 }
 
 let _gridHelper = null;
@@ -1091,39 +1091,64 @@ function createOilField() {
     createDerrick(-60,-16);
 }
 
-function createOilSpring(x, z, scale) {
-    const g = new THREE.Group(); g.position.set(x,0,z);
+function createOilSpring(cx, cz, scale) {
+    const gcx = Math.round(cx), gcz = Math.round(cz);
+    const g = new THREE.Group(); g.position.set(gcx, 0, gcz);
 
-    const rim = new THREE.Mesh(
-        new THREE.CylinderGeometry(3.6*scale,3.8*scale,0.15,16),
-        new THREE.MeshStandardMaterial({color:0x3d2d1d,roughness:0.95})
-    );
-    rim.position.y=0.07; rim.receiveShadow=true; g.add(rim);
+    // グリッド半径 (scale 1.2→4, 1.0→3, 0.85→3)
+    const r = Math.round(scale * 3.2);
 
-    const pool = new THREE.Mesh(
-        new THREE.CylinderGeometry(3.3*scale,3.3*scale,0.16,24),
-        new THREE.MeshStandardMaterial({color:0x030303,roughness:0.05,metalness:0.95})
-    );
-    pool.position.y=0.08; pool.receiveShadow=true; g.add(pool);
+    // 内側セル (原油) と縁セル (泥・岩盤) を分類
+    const innerCells = [], edgeCells = [];
+    for (let dx = -(r+1); dx <= r+1; dx++) {
+        for (let dz = -(r+1); dz <= r+1; dz++) {
+            const d2 = dx*dx + dz*dz;
+            if (d2 <= r*r)               innerCells.push({dx,dz});
+            else if (d2 <= (r+0.8)*(r+0.8)) edgeCells.push({dx,dz});
+        }
+    }
 
-    [[2.2,1.8,1.1],[-2.0,-1.9,1.3],[1.5,-2.2,0.9]].forEach(([ox,oz,r])=>{
-        const sp = new THREE.Mesh(
-            new THREE.CylinderGeometry(r*scale,r*scale,0.17,10),
-            new THREE.MeshStandardMaterial({color:0x080808,roughness:0.1,metalness:0.9})
-        );
-        sp.position.set(ox*scale,0.085,oz*scale); sp.receiveShadow=true; g.add(sp);
-    });
+    // 1mセルタイル群を1つのメッシュにマージして生成
+    function buildCellMesh(cells, mat, py, gap) {
+        const h = (1 - gap) / 2;
+        const pos=[], nrm=[], uv=[], idx=[];
+        cells.forEach(({dx,dz},i)=>{
+            const x0=dx-h,x1=dx+h,z0=dz-h,z1=dz+h,b=i*4;
+            pos.push(x0,py,z1, x1,py,z1, x1,py,z0, x0,py,z0);
+            nrm.push(0,1,0, 0,1,0, 0,1,0, 0,1,0);
+            uv.push(0,0, 1,0, 1,1, 0,1);
+            idx.push(b,b+1,b+2, b,b+2,b+3);
+        });
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(pos,3));
+        geo.setAttribute('normal',   new THREE.Float32BufferAttribute(nrm,3));
+        geo.setAttribute('uv',       new THREE.Float32BufferAttribute(uv,2));
+        geo.setIndex(idx);
+        const m = new THREE.Mesh(geo, mat); m.receiveShadow=true; return m;
+    }
 
+    const oilMat = new THREE.MeshStandardMaterial({color:0x030303,roughness:0.05,metalness:0.95});
+    const rimMat = new THREE.MeshStandardMaterial({color:0x2a1a0e,roughness:0.92});
+    g.add(buildCellMesh(edgeCells,  rimMat, 0.02, 0.08));
+    g.add(buildCellMesh(innerCells, oilMat, 0.04, 0.04));
+
+    // 岩をエッジセルのグリッド位置に配置 (3セルおきに最大6個)
     const rockMat = new THREE.MeshStandardMaterial({color:0x5a4838,roughness:0.9});
-    [[3.2,0.5,0.6],[-3.1,1.8,0.8],[2.8,-2.5,0.7]].forEach(([rx,rz,rs])=>{
-        const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(rs*scale,1),rockMat);
-        rock.position.set(rx*scale,rs*scale*0.4,rz*scale);
-        rock.rotation.set(Math.random(),Math.random(),Math.random());
+    edgeCells.filter((_,i)=>i%3===1).slice(0,6).forEach(({dx,dz})=>{
+        const rs = (0.35 + (Math.abs(dx*dz)%3)*0.12) * scale;
+        const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(rs,1), rockMat);
+        rock.position.set(dx, rs*0.4, dz);
+        rock.rotation.set(dx*0.9, dz*1.3, dx+dz);
         rock.castShadow=true; g.add(rock);
     });
 
     scene.add(g);
-    interactables.push({type:'oil', group:g, radius:4.5*scale});
+
+    // グリッドマップに登録
+    innerCells.forEach(({dx,dz}) => gridSet(gcx+dx, gcz+dz, 'oilPool'));
+    edgeCells.forEach( ({dx,dz}) => gridSet(gcx+dx, gcz+dz, 'oilRim'));
+
+    interactables.push({type:'oil', group:g, radius: r + 1.5});
 }
 
 function createDerrick(x,z) {
