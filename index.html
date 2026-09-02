@@ -34,6 +34,7 @@
         @media (pointer: coarse) { #touch-controls { display: flex; } #interaction-prompt { bottom: 155px; } }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
 </head>
 <body>
 <div id="canvas-container"></div>
@@ -294,6 +295,7 @@ let gameState = {
 // ===== Three.js グローバル =====
 let scene, camera, renderer, dirLight;
 let playerGroup;
+let rockGeo = null, rockTex = null;
 const interactables = [];
 const collisionBoxes = [];
 
@@ -1129,7 +1131,7 @@ function createOilSpring(cx, cz, scale) {
     const mudMat = new THREE.MeshStandardMaterial({
         color:0x2c1a09, roughness:0.98, metalness:0.0
     });
-    const rockMat = new THREE.MeshStandardMaterial({color:0x4a3424, roughness:0.91});
+    const rockMat = new THREE.MeshStandardMaterial({color:0x6b4c38, roughness:0.91, map: rockTex||null});
 
     // ① 外縁 (泥・岩盤帯)
     const rimM = new THREE.Mesh(makeOrgShape(baseR*1.42, 26, seed), rimMat);
@@ -1166,8 +1168,12 @@ function createOilSpring(cx, cz, scale) {
         const ra = seed*0.019 + ri*(Math.PI*2/6) + Math.sin(ri*2.1)*0.35;
         const rr = oR(ra, baseR, seed) * (1.06 + 0.08*Math.sin(ri*3.7));
         const rs = (0.28 + 0.13*(ri%3)) * scale;
-        const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(rs, 1), rockMat);
-        rock.position.set(Math.cos(ra)*rr, rs*0.5, Math.sin(ra)*rr);
+        const rGeo = rockGeo || new THREE.DodecahedronGeometry(rs, 1);
+        const rock = new THREE.Mesh(rGeo, rockMat);
+        const rsc = rockGeo ? rs * 0.18 : 1;
+        rock.scale.set(rsc, rsc, rsc);
+        const ry = rockGeo ? 0.31*rsc : rs*0.5;
+        rock.position.set(Math.cos(ra)*rr, ry, Math.sin(ra)*rr);
         rock.rotation.set(ri*1.4, ra*2.3, ri*0.8);
         rock.castShadow=true; g.add(rock);
     }
@@ -1726,8 +1732,13 @@ function populateDecorations() {
     [[-45,-5],[-68,-20],[-85,0]].forEach(([x,z])=>createJunkPile(x,z));
 }
 function createRock(x,z,s) {
-    const m=new THREE.Mesh(new THREE.DodecahedronGeometry(s*0.55,1),new THREE.MeshStandardMaterial({color:0x78909c,roughness:0.9}));
-    m.position.set(x,s*0.27,z); m.rotation.set(Math.random()*2,Math.random()*2,Math.random()*2);
+    const geo = rockGeo || new THREE.DodecahedronGeometry(s*0.55,1);
+    const mat = new THREE.MeshStandardMaterial({color:0x7a5c48, roughness:0.9, map: rockTex||null});
+    const m = new THREE.Mesh(geo, mat);
+    const sc = rockGeo ? s*0.1 : 1;
+    m.scale.set(sc,sc,sc);
+    m.position.set(x, rockGeo ? 0.31*sc : s*0.27, z);
+    m.rotation.set(Math.random()*2, Math.random()*2, Math.random()*2);
     m.castShadow=true; m.receiveShadow=true; scene.add(m);
 }
 function createStreetLight(x,z,rotY=0) {
@@ -3291,17 +3302,39 @@ function importData() {
     } catch(e) { alert(I18N[currentLang].msgImportFail); }
 }
 
+// ===== 岩アセットのプリロード =====
+function preloadRock(callback) {
+    const loader = new THREE.OBJLoader();
+    loader.load('Rock1.obj', function(obj) {
+        obj.traverse(function(child) {
+            if (child.isMesh && child.name !== 'Plane') {
+                if (!rockGeo) rockGeo = child.geometry;
+            }
+        });
+        if (!rockGeo) {
+            obj.traverse(function(child) { if (child.isMesh) rockGeo = child.geometry; });
+        }
+        const texLoader = new THREE.TextureLoader();
+        texLoader.load('rock_texture.jpg', function(tex) {
+            rockTex = tex;
+            callback();
+        }, undefined, function() { callback(); });
+    }, undefined, function() { callback(); });
+}
+
 // ===== 初期化 =====
 window.addEventListener('DOMContentLoaded',()=>{
-    initThree();
-    const hasSave=!!localStorage.getItem('oil_rush_save');
-    if (hasSave) {
-        loadGame();
-    } else {
-        initWorldItemsDefault();
-        updateUI();
-    }
-    requestAnimationFrame(updateGame);
+    preloadRock(function() {
+        initThree();
+        const hasSave=!!localStorage.getItem('oil_rush_save');
+        if (hasSave) {
+            loadGame();
+        } else {
+            initWorldItemsDefault();
+            updateUI();
+        }
+        requestAnimationFrame(updateGame);
+    });
 });
 </script>
 </body>
