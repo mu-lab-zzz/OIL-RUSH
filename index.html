@@ -3118,7 +3118,10 @@ function updateGame() {
             // 車両操作
             let dRot = 0;
             if (joystickActive) {
-                dRot = -joystickVector.x * VEHICLE_TURN_SPEED * 0.45 * delta;
+                const _jdz = 0.174; // sin(10°)
+                const _jx = Math.abs(joystickVector.x) < _jdz ? 0
+                    : (joystickVector.x - Math.sign(joystickVector.x)*_jdz) / (1 - _jdz);
+                dRot = -_jx * VEHICLE_TURN_SPEED * 0.45 * delta;
             } else {
                 if (keys.a) dRot =  VEHICLE_TURN_SPEED * delta;
                 if (keys.d) dRot = -VEHICLE_TURN_SPEED * delta;
