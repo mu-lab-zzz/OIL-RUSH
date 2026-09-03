@@ -1523,6 +1523,37 @@ function simulatePipeFlow(delta) {
         });
         pj.oilBuffer=Math.max(0, pj.oilBuffer-moved);
     });
+    // タンク → タンク 移送
+    const TANK_TRANSFER_RATE = 5.0; // L/秒
+    storageTankObjs.forEach((srcTank, srcIdx)=>{
+        if (srcTank.level<=0) return;
+        const {gx,gz}=worldToGrid(srcTank.x, srcTank.z);
+        const d=rotateGridDir(1,0, srcTank.rot||0);
+        const outNK=nodeKey(gx+d.dx, gz+d.dz);
+        const conns=pipeNodeConns.get(outNK);
+        const ports=portRegistry.get(outNK)||[];
+        const directSinks=ports.filter(p=>p.portType==='in'&&p.liquidType==='oil');
+        const sinks=[...directSinks, ...(conns&&conns.size>0 ? findConnectedSinks(outNK,'oil') : [])];
+        const seen=new Set();
+        const uniq=sinks.filter(s=>{
+            if (s.facilityType==='storageTank'&&s.idx===srcIdx) return false; // 自己ループ除外
+            const k=`${s.facilityType}:${s.idx}`;
+            if (seen.has(k)) return false; seen.add(k); return true;
+        });
+        if (uniq.length===0) return;
+        const totalAvail=Math.min(srcTank.level, TANK_TRANSFER_RATE*delta);
+        const perSink=totalAvail/uniq.length;
+        let moved=0;
+        uniq.forEach(s=>{
+            if (s.facilityType==='storageTank') {
+                const dst=storageTankObjs[s.idx];
+                if (!dst) return;
+                const add=Math.min(perSink, STORAGE_TANK_CAP-dst.level);
+                if (add>0) { dst.level+=add; moved+=add; }
+            }
+        });
+        srcTank.level=Math.max(0, srcTank.level-moved);
+    });
 }
 // パイプゴーストメッシュ更新
 function updatePipeGhostMesh() {
