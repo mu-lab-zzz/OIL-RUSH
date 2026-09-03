@@ -4342,6 +4342,11 @@ function updateUI() {
             heldText=L.heldNozzle(ep?ep.gasFuel:0);
         }
         else if (heldItem.type==='gasNozzle') heldText=L.heldGasNozzle;
+        else if (heldItem.type==='pumpJack')      heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.namePumpJack;
+        else if (heldItem.type==='storageTank')   heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.nameStorageTank;
+        else if (heldItem.type==='pipe')          heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.namePipe;
+        else if (heldItem.type==='junctionT')     heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.nameJunctionT;
+        else if (heldItem.type==='junctionCross') heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.nameJunctionCross;
         else heldText=L.heldCan(heldItem.fill, heldItem.contentType);
     }
     if (towVehicle && towVehicle.inVehicle) {
