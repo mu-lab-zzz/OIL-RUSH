@@ -3113,7 +3113,7 @@ function doInstallPumpJack() {
     const pjIdx = pumpJackObjs.length;
     g.traverse(m=>{ if(m.isMesh) pumpJackMeshToIdx.set(m.uuid, pjIdx); });
     pumpJackObjs.push({ group:g, crankGrp:pjMesh.crankGrp, beamGrp:pjMesh.beamGrp, rod:pjMesh.rod,
-        x:gp.x, z:gp.z, fuelLevel:0, oilBuffer:0, crankAngle:0, nearSpringIdx });
+        x:gp.x, z:gp.z, fuelLevel:0, oilBuffer:0, crankAngle:0, nearSpringIdx, rot:placementRot });
     spring.pumpJackIdx = pjIdx;
     registerFacilityPorts('pumpJack', pjIdx, pjGx, pjGz, placementRot);
     if (ghostMesh) { scene.remove(ghostMesh); ghostMesh = null; }
@@ -3191,7 +3191,7 @@ function doInstallStorageTank() {
     const idx = storageTankObjs.length;
     g.traverse(m=>{ if(m.isMesh) storageTankMeshToIdx.set(m.uuid, idx); });
     const stIdx = storageTankObjs.length;
-    storageTankObjs.push({ group:g, x:gp.x, z:gp.z, level:0 });
+    storageTankObjs.push({ group:g, x:gp.x, z:gp.z, level:0, rot:placementRot });
     const {gx:stGx,gz:stGz}=worldToGrid(gp.x,gp.z);
     registerFacilityPorts('storageTank', stIdx, stGx, stGz, placementRot);
     if (ghostMesh) { scene.remove(ghostMesh); ghostMesh = null; }
@@ -4439,8 +4439,18 @@ function saveGame(isAuto=false) {
     gameState.savedCartPos=cartObj?{x:cartObj.x,z:cartObj.z}:null;
     gameState.savedTowVehicle=towVehiclePurchased&&towVehicle?{x:towVehicle.x,z:towVehicle.z,rot:towVehicle.rot,hitchedTankIdx:towVehicle.hitchedTankIdx}:null;
     gameState.savedTowTanks=towTanks.map(tt=>({x:tt.x,z:tt.z,capacity:tt.capacity,fill:tt.fill,contentType:tt.contentType}));
-    gameState.savedPumpJacks=pumpJackObjs.map(pj=>({x:pj.x,z:pj.z,fuelLevel:pj.fuelLevel,oilBuffer:pj.oilBuffer,nearSpringIdx:pj.nearSpringIdx}));
-    gameState.savedStorageTanks=storageTankObjs.map(st=>({x:st.x,z:st.z,level:st.level}));
+    gameState.savedPumpJacks=pumpJackObjs.map(pj=>({x:pj.x,z:pj.z,fuelLevel:pj.fuelLevel,oilBuffer:pj.oilBuffer,nearSpringIdx:pj.nearSpringIdx,rot:pj.rot||0}));
+    gameState.savedStorageTanks=storageTankObjs.map(st=>({x:st.x,z:st.z,level:st.level,rot:st.rot||0}));
+    gameState.savedPipes=[...pipeEdges.entries()].map(([ek,v])=>{
+        const parts=ek.split(':');
+        const [gx1,gz1]=parts[0].split(',').map(Number);
+        const [gx2,gz2]=parts[1].split(',').map(Number);
+        return {gx1,gz1,gx2,gz2,liquidType:v.liquidType};
+    });
+    gameState.savedJunctions=[...junctionNodes.entries()].map(([nk,v])=>{
+        const {gx,gz}=parseNodeKey(nk);
+        return {gx,gz,type:v.type,rot:v.rot};
+    });
     localStorage.setItem('oil_rush_save',JSON.stringify(gameState));
     showNotification(isAuto?I18N[currentLang].msgAutoSaved:I18N[currentLang].msgDataSaved);
 }
@@ -4532,11 +4542,18 @@ function loadGame() {
 
         // 採掘機復元
         clearPumpJackObjs();
-        (gameState.savedPumpJacks||[]).forEach(pj=>restorePumpJack(pj.x,pj.z,pj.fuelLevel||0,pj.oilBuffer||0,pj.nearSpringIdx||0));
+        (gameState.savedPumpJacks||[]).forEach(pj=>restorePumpJack(pj.x,pj.z,pj.fuelLevel||0,pj.oilBuffer||0,pj.nearSpringIdx||0,pj.rot||0));
 
         // 貯蔵タンク復元
         clearStorageTankObjs();
-        (gameState.savedStorageTanks||[]).forEach(st=>restoreStorageTank(st.x,st.z,st.level||0));
+        (gameState.savedStorageTanks||[]).forEach(st=>restoreStorageTank(st.x,st.z,st.level||0,st.rot||0));
+
+        // パイプ・ジャンクション復元
+        clearPipeObjs();
+        (gameState.savedPipes||[]).forEach(p=>restorePipe(p.gx1,p.gz1,p.gx2,p.gz2,p.liquidType||null));
+        (gameState.savedJunctions||[]).forEach(j=>restoreJunction(j.gx,j.gz,j.type,j.rot||0));
+        // ノードジョイントを全更新（パイプ・ジャンクション復元後）
+        pipeNodeConns.forEach((_,nk)=>{ const {gx,gz}=parseNodeKey(nk); updateNodeJoint(gx,gz); });
 
         // 手持ち復元
         heldItem=gameState.savedHeldItem?{...gameState.savedHeldItem}:null;
@@ -4600,19 +4617,20 @@ function clearPumpJackObjs() {
     raycastPumpJackIdx=-1; highlightedPumpJackIdx=-1;
 }
 
-function restorePumpJack(x, z, fuelLevel, oilBuffer, nearSpringIdx) {
+function restorePumpJack(x, z, fuelLevel, oilBuffer, nearSpringIdx, rot=0) {
     const pjMesh = createPumpJackMesh();
     const g = pjMesh.group;
     g.position.set(x, 0, z);
+    g.rotation.y = rot;
     scene.add(g);
     const idx = pumpJackObjs.length;
     g.traverse(m=>{ if(m.isMesh) pumpJackMeshToIdx.set(m.uuid, idx); });
     pumpJackObjs.push({ group:g, crankGrp:pjMesh.crankGrp, beamGrp:pjMesh.beamGrp, rod:pjMesh.rod,
-        x, z, fuelLevel, oilBuffer, crankAngle:0, nearSpringIdx });
-    // 油田スロットを復元 (位置でマッチング)
+        x, z, fuelLevel, oilBuffer, crankAngle:0, nearSpringIdx, rot });
     const {gx,gz}=worldToGrid(x,z);
     const spring=findOilSpringAtGrid(gx,gz);
     if (spring) spring.pumpJackIdx=idx;
+    registerFacilityPorts('pumpJack', idx, gx, gz, rot);
 }
 
 function clearStorageTankObjs() {
@@ -4621,13 +4639,50 @@ function clearStorageTankObjs() {
     raycastStorageTankIdx=-1; highlightedStorageTankIdx=-1;
 }
 
-function restoreStorageTank(x, z, level) {
+function restoreStorageTank(x, z, level, rot=0) {
     const g = createStorageTankMesh();
     g.position.set(x, 0, z);
+    g.rotation.y = rot;
     scene.add(g);
     const idx = storageTankObjs.length;
     g.traverse(m=>{ if(m.isMesh) storageTankMeshToIdx.set(m.uuid, idx); });
-    storageTankObjs.push({ group:g, x, z, level });
+    storageTankObjs.push({ group:g, x, z, level, rot });
+    const {gx,gz}=worldToGrid(x,z);
+    registerFacilityPorts('storageTank', idx, gx, gz, rot);
+}
+
+function clearPipeObjs() {
+    pipeEdges.forEach(e=>scene.remove(e.mesh));
+    pipeEdges.clear();
+    junctionNodes.forEach(e=>scene.remove(e.mesh));
+    junctionNodes.clear();
+    nodeJointMeshes.forEach(m=>scene.remove(m));
+    nodeJointMeshes.clear();
+    pipeNodeConns.clear();
+}
+
+function restorePipe(gx1, gz1, gx2, gz2, liquidType) {
+    const axis=gx1!==gx2?'x':'z';
+    const x=(gx1+gx2)/2*GRID_SNAP, z=(gz1+gz2)/2*GRID_SNAP;
+    const seg=createPipeSegmentMesh(axis);
+    seg.position.set(x,0.5,z);
+    scene.add(seg);
+    pipeEdges.set(edgeKey(gx1,gz1,gx2,gz2),{liquidType,mesh:seg});
+    const nk1=nodeKey(gx1,gz1),nk2=nodeKey(gx2,gz2);
+    if (!pipeNodeConns.has(nk1)) pipeNodeConns.set(nk1,new Set());
+    if (!pipeNodeConns.has(nk2)) pipeNodeConns.set(nk2,new Set());
+    pipeNodeConns.get(nk1).add(nk2);
+    pipeNodeConns.get(nk2).add(nk1);
+}
+
+function restoreJunction(gx, gz, type, rot) {
+    const wp=gridToWorld(gx,gz);
+    const m=type==='T'?createTJunctionMesh():createCrossJunctionMesh();
+    m.position.set(wp.x,0,wp.z); m.rotation.y=rot;
+    scene.add(m);
+    const nk=nodeKey(gx,gz);
+    junctionNodes.set(nk,{type,rot,mesh:m});
+    if (nodeJointMeshes.has(nk)) { scene.remove(nodeJointMeshes.get(nk)); nodeJointMeshes.delete(nk); }
 }
 
 function getDefaultWorldItems() {
