@@ -41,6 +41,8 @@
         .toggle-btn::after { content:''; position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; background: #fff; border-radius: 50%; transition: transform 0.2s; }
         .toggle-btn.on { background: #e74c3c; }
         .toggle-btn.on::after { transform: translateX(22px); }
+        .toggle-btn.on-green { background: #27ae60; }
+        .toggle-btn.on-green::after { transform: translateX(22px); }
         #debug-badge { display: none; position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: rgba(231,76,60,0.92); color: #fff; font-size: 11px; font-weight: bold; padding: 2px 10px; border-radius: 10px; pointer-events: none; z-index: 15; letter-spacing: 1px; }
         body.debug-mode #debug-badge { display: block; }
         @media (pointer: coarse) { #touch-controls { display: flex; } #interaction-prompt { bottom: 155px; } }
@@ -87,6 +89,15 @@
             <div class="settings-row">
                 <span class="settings-label" id="lbl-data">データ管理</span>
                 <button class="btn" onclick="closeSettingsModal();openDataModal()" id="btn-data-s">開く</button>
+            </div>
+        </div>
+        <div style="border-top:1px solid #444;padding-top:14px;margin-top:4px;">
+            <div class="settings-row">
+                <div>
+                    <div class="settings-label" id="lbl-touch">タッチ選択</div>
+                    <div style="font-size:11px;color:#888;margin-top:2px;" id="lbl-touch-sub">近くのオブジェクトを自動選択</div>
+                </div>
+                <button class="toggle-btn on-green" id="btn-touch" onclick="toggleTouchSelect()"></button>
             </div>
         </div>
         <div style="border-top:1px solid #444;padding-top:14px;margin-top:4px;">
@@ -394,6 +405,7 @@ const I18N = {
 };
 let currentLang = 'ja';
 let debugMode = false;
+let touchSelectEnabled = true; // 近接タッチ選択
 let placementRot = 0;  // グリッド設置時の回転角 (0,90,180,270°)
 let ghostMesh = null;  // 設置プレビューメッシュ
 
@@ -3723,6 +3735,16 @@ function updateGame() {
         });
         const hits = raycaster.intersectObjects(itemMeshes, false);
         raycastTargetIdx = (hits.length>0) ? (meshToIdx.get(hits[0].object.uuid)??-1) : -1;
+        // 近接フォールバック（ワールドアイテム）
+        if (touchSelectEnabled && raycastTargetIdx<0 && worldItems.length>0) {
+            const _px=playerGroup.position.x, _pz=playerGroup.position.z;
+            let bestD=1.5*1.5, bestI=-1;
+            worldItems.forEach((item,idx)=>{
+                const d2=(_px-item.x)**2+(_pz-item.z)**2;
+                if(d2<bestD){bestD=d2;bestI=idx;}
+            });
+            raycastTargetIdx=bestI;
+        }
 
         // カートアイテムレイキャスト
         raycastCartSlotIdx = -1;
@@ -3736,7 +3758,7 @@ function updateGame() {
             }
         }
 
-        // ショップ展示品レイキャスト
+        // ショップ展示品レイキャスト（近接なし: 列選択が必要）
         raycastShopItemIdx = -1;
         if (shopDisplayItems.length > 0) {
             const shopMeshes = [];
@@ -3758,6 +3780,16 @@ function updateGame() {
                 const idx = pumpMeshToIdx.get(pumpHits[0].object.uuid);
                 if (idx !== undefined) raycastPumpIdx = idx;
             }
+            // 近接フォールバック
+            if (touchSelectEnabled && raycastPumpIdx<0) {
+                const _px=playerGroup.position.x, _pz=playerGroup.position.z;
+                let bestD=1.8*1.8, bestI=-1;
+                pumpObjs.forEach((po,idx)=>{
+                    const d2=(_px-po.x)**2+(_pz-po.z)**2;
+                    if(d2<bestD){bestD=d2;bestI=idx;}
+                });
+                raycastPumpIdx=bestI;
+            }
         }
 
         // エンジンポンプレイキャスト（ノズル非保持時のみ）
@@ -3769,6 +3801,16 @@ function updateGame() {
             if (epHits.length > 0) {
                 const idx = enginePumpMeshToIdx.get(epHits[0].object.uuid);
                 if (idx !== undefined) raycastEnginePumpIdx = idx;
+            }
+            // 近接フォールバック
+            if (touchSelectEnabled && raycastEnginePumpIdx<0) {
+                const _px=playerGroup.position.x, _pz=playerGroup.position.z;
+                let bestD=2.0*2.0, bestI=-1;
+                enginePumpObjs.forEach((ep,idx)=>{
+                    const d2=(_px-ep.x)**2+(_pz-ep.z)**2;
+                    if(d2<bestD){bestD=d2;bestI=idx;}
+                });
+                raycastEnginePumpIdx=bestI;
             }
         }
 
@@ -3784,6 +3826,17 @@ function updateGame() {
                     if (idx !== undefined) raycastGasNozzleIdx = idx;
                 }
             }
+            // 近接フォールバック
+            if (touchSelectEnabled && raycastGasNozzleIdx<0) {
+                const _px=playerGroup.position.x, _pz=playerGroup.position.z;
+                let bestD=2.0*2.0, bestI=-1;
+                gasStationObjs.forEach((gs,idx)=>{
+                    if(!gs.nozzleMesh||!gs.nozzleMesh.visible) return;
+                    const d2=(_px-gs.x)**2+(_pz-gs.z)**2;
+                    if(d2<bestD){bestD=d2;bestI=idx;}
+                });
+                raycastGasNozzleIdx=bestI;
+            }
         }
 
         // 牽引タンクレイキャスト
@@ -3796,9 +3849,20 @@ function updateGame() {
                 const idx=towTankMeshToIdx.get(ttHits[0].object.uuid);
                 if (idx!==undefined) raycastTowTankIdx=idx;
             }
+            // 近接フォールバック
+            if (touchSelectEnabled && raycastTowTankIdx<0) {
+                const _px=playerGroup.position.x, _pz=playerGroup.position.z;
+                let bestD=2.5*2.5, bestI=-1;
+                towTanks.forEach((tt,idx)=>{
+                    const tp=tt.group.position;
+                    const d2=(_px-tp.x)**2+(_pz-tp.z)**2;
+                    if(d2<bestD){bestD=d2;bestI=idx;}
+                });
+                raycastTowTankIdx=bestI;
+            }
         }
 
-        // 車両ロットレイキャスト
+        // 車両ロットレイキャスト（近接なし: 個別選択が必要）
         raycastVehicleLotIdx = -1;
         if (vehicleLotItems.length > 0) {
             const vlMeshes=[];
@@ -3820,6 +3884,16 @@ function updateGame() {
                 const idx=pumpJackMeshToIdx.get(pjHits[0].object.uuid);
                 if (idx!==undefined) raycastPumpJackIdx=idx;
             }
+            // 近接フォールバック
+            if (touchSelectEnabled && raycastPumpJackIdx<0) {
+                const _px=playerGroup.position.x, _pz=playerGroup.position.z;
+                let bestD=2.5*2.5, bestI=-1;
+                pumpJackObjs.forEach((pj,idx)=>{
+                    const d2=(_px-pj.x)**2+(_pz-pj.z)**2;
+                    if(d2<bestD){bestD=d2;bestI=idx;}
+                });
+                raycastPumpJackIdx=bestI;
+            }
         }
 
         // 貯蔵タンクレイキャスト
@@ -3831,6 +3905,16 @@ function updateGame() {
             if (stHits.length>0) {
                 const idx=storageTankMeshToIdx.get(stHits[0].object.uuid);
                 if (idx!==undefined) raycastStorageTankIdx=idx;
+            }
+            // 近接フォールバック
+            if (touchSelectEnabled && raycastStorageTankIdx<0) {
+                const _px=playerGroup.position.x, _pz=playerGroup.position.z;
+                let bestD=3.0*3.0, bestI=-1;
+                storageTankObjs.forEach((st,idx)=>{
+                    const d2=(_px-st.x)**2+(_pz-st.z)**2;
+                    if(d2<bestD){bestD=d2;bestI=idx;}
+                });
+                raycastStorageTankIdx=bestI;
             }
         }
 
@@ -4120,6 +4204,8 @@ function updateSettingsModalLabels() {
     document.getElementById('btn-load-s').innerText = ja ? '読み込む' : 'Load';
     document.getElementById('lbl-data').innerText = ja ? 'データ管理' : 'Data Mgmt';
     document.getElementById('btn-data-s').innerText = ja ? '開く' : 'Open';
+    document.getElementById('lbl-touch').innerText = ja ? 'タッチ選択' : 'Touch Select';
+    document.getElementById('lbl-touch-sub').innerText = ja ? '近くのオブジェクトを自動選択' : 'Auto-select nearby objects';
     document.getElementById('lbl-debug').innerText = ja ? '🐛 デバッグモード' : '🐛 Debug Mode';
     document.getElementById('lbl-debug-sub').innerText = ja ? '全商品を無料で購入できます' : 'Buy all items for free';
     document.getElementById('btn-close-s').innerText = ja ? '閉じる' : 'Close';
@@ -4130,6 +4216,12 @@ function toggleDebugMode() {
     debugMode = !debugMode;
     document.getElementById('btn-debug').classList.toggle('on', debugMode);
     document.body.classList.toggle('debug-mode', debugMode);
+}
+
+function toggleTouchSelect() {
+    touchSelectEnabled = !touchSelectEnabled;
+    const btn = document.getElementById('btn-touch');
+    btn.classList.toggle('on-green', touchSelectEnabled);
 }
 
 function showNotification(msg) {
