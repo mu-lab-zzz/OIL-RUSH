@@ -237,7 +237,18 @@ const I18N = {
         msgStorageTankInstalled: "貯蔵タンクを設置した",
         msgStorageTankRemoved: "貯蔵タンクを撤去した",
         msgStorageTankFull: "タンクが満杯です",
-        msgStorageTankEmpty: "タンクが空です"
+        msgStorageTankEmpty: "タンクが空です",
+        namePipe: "パイプ",
+        nameJunctionT: "T字分岐",
+        nameJunctionCross: "十字分岐",
+        promptInstallPipe: "[SPACE] パイプを設置",
+        promptInstallJunctionT: "[SPACE] T字分岐を設置  [R] 回転",
+        promptInstallJunctionCross: "[SPACE] 十字分岐を設置  [R] 回転",
+        msgPipeInstalled: "パイプを設置した",
+        msgPipeOccupied: "既にパイプがあります",
+        msgPipeLiquidMismatch: "異なる液体のパイプには接続できません",
+        msgJunctionInstalled: "分岐パイプを設置した",
+        msgJunctionOccupied: "既に分岐パイプがあります"
     },
     en: {
         money: "Money: $",
@@ -359,7 +370,18 @@ const I18N = {
         msgStorageTankInstalled: "Storage tank installed",
         msgStorageTankRemoved: "Storage tank removed",
         msgStorageTankFull: "Tank is full",
-        msgStorageTankEmpty: "Tank is empty"
+        msgStorageTankEmpty: "Tank is empty",
+        namePipe: "Pipe",
+        nameJunctionT: "T-Junction",
+        nameJunctionCross: "Cross Junction",
+        promptInstallPipe: "[SPACE] Place pipe",
+        promptInstallJunctionT: "[SPACE] Place T-junction  [R] Rotate",
+        promptInstallJunctionCross: "[SPACE] Place cross junction  [R] Rotate",
+        msgPipeInstalled: "Pipe placed",
+        msgPipeOccupied: "Pipe already exists here",
+        msgPipeLiquidMismatch: "Cannot connect different liquid pipes",
+        msgJunctionInstalled: "Junction placed",
+        msgJunctionOccupied: "Junction already exists here"
     }
 };
 let currentLang = 'ja';
@@ -508,8 +530,18 @@ const PUMP_JACK_OIL_BUF   = 100;  // 内部バッファ L
 const PUMP_JACK_RANGE     = 12;   // 油田検知距離 m
 const PUMP_JACK_CRANK_SPD = 0.9;  // クランク角速度 rad/秒
 const PUMP_JACK_BEAM_AMP  = 0.26; // ビーム振れ角 rad (~15°)
-const GRID_SNAP      = 2;                            // グリッド間隔 m
-const GRID_SNAP_TYPES = ['pumpJack','storageTank']; // グリッド設置が必要な設備種別
+const GRID_SNAP      = 2;                                                   // グリッド間隔 m
+const GRID_SNAP_TYPES = ['pumpJack','storageTank','junctionT','junctionCross']; // グリッド設置が必要な設備種別
+
+// ===== パイプライン =====
+const pipeEdges       = new Map(); // edgeKey → { liquidType:null|'oil'|'gas', mesh }
+const pipeNodeConns   = new Map(); // nodeKey → Set<nodeKey>
+const junctionNodes   = new Map(); // nodeKey → { type:'T'|'cross', rot, mesh }
+const portRegistry    = new Map(); // nodeKey → [{facilityType,idx,portType:'out'|'in',liquidType}]
+const nodeJointMeshes = new Map(); // nodeKey → THREE.Mesh  (自動エルボジョイント)
+const portMarkers     = new Map(); // nodeKey → THREE.Mesh  (接続口マーカー)
+let pipeGhostMesh = null;
+let pipeGhostAxis = null; // 'x' | 'z'
 
 // ===== 貯蔵タンク =====
 const storageTankObjs = [];        // { group, x, z, liquidType, level }
@@ -923,6 +955,50 @@ function createStorageTankMesh() {
     return g;
 }
 
+// ===== パイプメッシュ =====
+function createPipeSegmentMesh(axis) {
+    const mat = new THREE.MeshStandardMaterial({color:0x607d8b,metalness:0.75,roughness:0.35});
+    const geo = new THREE.CylinderGeometry(0.1, 0.1, 2, 8);
+    const m = new THREE.Mesh(geo, mat);
+    m.castShadow = true;
+    m.position.y = 0.5;
+    if (axis === 'x') m.rotation.z = Math.PI/2;
+    else              m.rotation.x = Math.PI/2;
+    return m;
+}
+function createNodeJointMesh() {
+    const mat = new THREE.MeshStandardMaterial({color:0x455a64,metalness:0.8,roughness:0.3});
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 8), mat);
+    m.castShadow = true;
+    m.position.y = 0.5;
+    return m;
+}
+function createTJunctionMesh() {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({color:0x455a64,metalness:0.8,roughness:0.3});
+    // 横棒 (-x ← → +x)
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,2,8), mat);
+    bar.rotation.z = Math.PI/2; bar.position.y = 0.5; g.add(bar);
+    // 腕 (0 → -z : 分岐なし方向が +z になるようデフォルト定義)
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,1,8), mat);
+    arm.rotation.x = Math.PI/2; arm.position.set(0,0.5,-0.5); g.add(arm);
+    // 中心球
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.16,8,8), mat);
+    ball.position.y = 0.5; g.add(ball);
+    return g;
+}
+function createCrossJunctionMesh() {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({color:0x455a64,metalness:0.8,roughness:0.3});
+    const barX = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,2,8), mat);
+    barX.rotation.z = Math.PI/2; barX.position.y = 0.5; g.add(barX);
+    const barZ = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,2,8), mat);
+    barZ.rotation.x = Math.PI/2; barZ.position.y = 0.5; g.add(barZ);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.18,8,8), mat);
+    ball.position.y = 0.5; g.add(ball);
+    return g;
+}
+
 // ===== タンクトラックメッシュ =====
 function createTowVehicleMesh() {
     const g = new THREE.Group();
@@ -1061,6 +1137,15 @@ function spawnWorldItem(type, x, z, hasOil=false, fill=0, yPos=0, contentType=nu
     } else if (type === 'storageTank') {
         mesh = createStorageTankMesh();
         mesh.scale.setScalar(1.0);
+    } else if (type === 'pipe') {
+        mesh = createPipeSegmentMesh('x');
+        mesh.scale.setScalar(0.8);
+    } else if (type === 'junctionT') {
+        mesh = createTJunctionMesh();
+        mesh.scale.setScalar(0.8);
+    } else if (type === 'junctionCross') {
+        mesh = createCrossJunctionMesh();
+        mesh.scale.setScalar(0.8);
     } else {
         mesh = createJerryCanMesh(fill);
         mesh.scale.setScalar(1.3);
@@ -1139,6 +1224,21 @@ function updateHeldMesh() {
         heldMesh.position.set(0.28, -0.38, -0.6);
         heldMesh.rotation.set(0.05, 0.3, 0.05);
         heldMesh.scale.setScalar(0.2);
+    } else if (heldItem.type === 'pipe') {
+        heldMesh = createPipeSegmentMesh('x');
+        heldMesh.position.set(0.28, -0.35, -0.55);
+        heldMesh.rotation.set(0.1, 0.5, 0.05);
+        heldMesh.scale.setScalar(0.22);
+    } else if (heldItem.type === 'junctionT') {
+        heldMesh = createTJunctionMesh();
+        heldMesh.position.set(0.28, -0.38, -0.6);
+        heldMesh.rotation.set(0.05, 0.3, 0.05);
+        heldMesh.scale.setScalar(0.2);
+    } else if (heldItem.type === 'junctionCross') {
+        heldMesh = createCrossJunctionMesh();
+        heldMesh.position.set(0.28, -0.38, -0.6);
+        heldMesh.rotation.set(0.05, 0.3, 0.05);
+        heldMesh.scale.setScalar(0.2);
     } else if (heldItem.type === 'engineNozzle' || heldItem.type === 'gasNozzle') {
         heldMesh = createNozzleMesh();
         heldMesh.position.set(0.24, -0.28, -0.48);
@@ -1190,10 +1290,242 @@ function getGridSnapPos() {
     };
 }
 
+// ===== パイプラインヘルパー =====
+function nodeKey(gx, gz) { return `${gx},${gz}`; }
+function parseNodeKey(key) { const [a,b]=key.split(','); return {gx:+a,gz:+b}; }
+function edgeKey(gx1,gz1,gx2,gz2) {
+    return (gx1<gx2||(gx1===gx2&&gz1<gz2)) ? `${gx1},${gz1}:${gx2},${gz2}` : `${gx2},${gz2}:${gx1},${gz1}`;
+}
+function worldToGrid(wx,wz) { return {gx:Math.round(wx/GRID_SNAP),gz:Math.round(wz/GRID_SNAP)}; }
+function gridToWorld(gx,gz) { return {x:gx*GRID_SNAP, z:gz*GRID_SNAP}; }
+function rotateGridDir(dx,dz,rotY) {
+    const c=Math.round(Math.cos(rotY)), s=Math.round(Math.sin(rotY));
+    return {dx:c*dx-s*dz, dz:s*dx+c*dz};
+}
+// プレイヤーが向いている方向の最近グリッド辺を返す
+function getPipeSnapEdge() {
+    const px=playerGroup.position.x, pz=playerGroup.position.z;
+    const fx=-Math.sin(gameState.cameraYaw), fz=-Math.cos(gameState.cameraYaw);
+    const gx0=Math.round(px/GRID_SNAP), gz0=Math.round(pz/GRID_SNAP);
+    if (Math.abs(fx) >= Math.abs(fz)) {
+        const gx1 = fx>=0 ? gx0 : gx0-1;
+        return {gx1,gz1:gz0,gx2:gx1+1,gz2:gz0,axis:'x'};
+    } else {
+        const gz1 = fz>=0 ? gz0 : gz0-1;
+        return {gx1:gx0,gz1,gx2:gx0,gz2:gz1+1,axis:'z'};
+    }
+}
+// ネットワーク内の液体種別を調べる
+function getNetworkLiquidType(startKey) {
+    const visited=new Set([startKey]), queue=[startKey];
+    while (queue.length>0) {
+        const key=queue.shift();
+        const ports=portRegistry.get(key);
+        if (ports) for (const p of ports) { if (p.liquidType) return p.liquidType; }
+        const conns=pipeNodeConns.get(key)||new Set();
+        for (const nk of conns) {
+            if (!visited.has(nk)) { visited.add(nk); queue.push(nk); }
+        }
+    }
+    return null;
+}
+// ノードジョイント(エルボ球)の更新
+function updateNodeJoint(gx,gz) {
+    const nk=nodeKey(gx,gz);
+    if (nodeJointMeshes.has(nk)) { scene.remove(nodeJointMeshes.get(nk)); nodeJointMeshes.delete(nk); }
+    if (junctionNodes.has(nk)) return; // 分岐パイプが占有している
+    const conns=pipeNodeConns.get(nk)||new Set();
+    if (conns.size<1) return;
+    const jm=createNodeJointMesh();
+    const wp=gridToWorld(gx,gz);
+    jm.position.set(wp.x,0,wp.z);
+    scene.add(jm);
+    nodeJointMeshes.set(nk,jm);
+}
+// 施設接続口の登録
+function registerFacilityPorts(facilityType, idx, gx, gz, rotY) {
+    const addPort=(dx,dz,portType,liquidType)=>{
+        const d=rotateGridDir(dx,dz,rotY);
+        const pgx=gx+d.dx, pgz=gz+d.dz;
+        const key=nodeKey(pgx,pgz);
+        if (!portRegistry.has(key)) portRegistry.set(key,[]);
+        portRegistry.get(key).push({facilityType,idx,portType,liquidType});
+        // 地面マーカー（排出=橙, 吸入=緑）
+        if (!portMarkers.has(key)) {
+            const col = portType==='out' ? 0xff8c00 : 0x00c853;
+            const mat = new THREE.MeshStandardMaterial({color:col,roughness:0.8,emissive:col,emissiveIntensity:0.35});
+            const mark = new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.35,0.06,16), mat);
+            const wp=gridToWorld(pgx,pgz);
+            mark.position.set(wp.x,0.03,wp.z);
+            scene.add(mark);
+            portMarkers.set(key,mark);
+        }
+    };
+    if (facilityType==='pumpJack') {
+        addPort(1,0,'out','oil');   // 右側 (+x) → 原油排出口
+    } else if (facilityType==='storageTank') {
+        addPort(-1,0,'in','oil');   // 左側 (-x) → 液体入口
+        addPort(1,0,'out','oil');   // 右側 (+x) → 液体排出口
+    }
+}
+function unregisterFacilityPorts(facilityType, idx) {
+    for (const [key,ports] of portRegistry) {
+        const filtered=ports.filter(p=>!(p.facilityType===facilityType&&p.idx===idx));
+        if (filtered.length===0) {
+            portRegistry.delete(key);
+            if (portMarkers.has(key)) { scene.remove(portMarkers.get(key)); portMarkers.delete(key); }
+        } else portRegistry.set(key,filtered);
+    }
+    // 削除後に残ったポートのインデックスを更新
+    for (const [key,ports] of portRegistry) {
+        ports.forEach(p=>{ if(p.facilityType===facilityType&&p.idx>idx) p.idx--; });
+    }
+}
+// BFS: 指定ノードから接続されている吸入口を探す
+function findConnectedSinks(startKey, liquidType) {
+    const visited=new Set([startKey]), queue=[startKey], sinks=[];
+    while (queue.length>0) {
+        const key=queue.shift();
+        const ports=portRegistry.get(key);
+        if (ports) {
+            for (const p of ports) {
+                if (p.portType==='in' && p.liquidType===liquidType) sinks.push(p);
+            }
+        }
+        const conns=pipeNodeConns.get(key)||new Set();
+        const numConns=conns.size;
+        // 3本以上の場合は分岐パイプが必要
+        if (numConns>=3) {
+            const junc=junctionNodes.get(key);
+            if (numConns===3 && (!junc||junc.type!=='T')) continue;
+            if (numConns>=4 && (!junc||junc.type!=='cross')) continue;
+        }
+        for (const nk of conns) {
+            if (!visited.has(nk)) { visited.add(nk); queue.push(nk); }
+        }
+    }
+    return sinks;
+}
+// 流体シミュレーション (毎フレーム呼ぶ)
+function simulatePipeFlow(delta) {
+    pumpJackObjs.forEach((pj,pjIdx)=>{
+        if (pj.oilBuffer<=0) return;
+        const {gx,gz}=worldToGrid(pj.x,pj.z);
+        const d=rotateGridDir(1,0,pj.group.rotation.y);
+        const outNK=nodeKey(gx+d.dx, gz+d.dz);
+        const conns=pipeNodeConns.get(outNK);
+        // 直接接続(パイプなし隣接)も含めて確認
+        const ports=portRegistry.get(outNK)||[];
+        const directSinks=ports.filter(p=>p.portType==='in'&&p.liquidType==='oil');
+        const sinks=[...directSinks, ...(conns&&conns.size>0 ? findConnectedSinks(outNK,'oil') : [])];
+        // 重複除去
+        const seen=new Set();
+        const uniq=sinks.filter(s=>{ const k=`${s.facilityType}:${s.idx}`; if(seen.has(k))return false; seen.add(k);return true; });
+        if (uniq.length===0) return;
+        const totalAvail=Math.min(pj.oilBuffer, PUMP_JACK_OIL_RATE*delta);
+        const perSink=totalAvail/uniq.length;
+        let moved=0;
+        uniq.forEach(s=>{
+            if (s.facilityType==='storageTank') {
+                const tank=storageTankObjs[s.idx];
+                if (!tank) return;
+                const add=Math.min(perSink, STORAGE_TANK_CAP-tank.level);
+                if (add>0) { tank.level+=add; moved+=add; }
+            }
+        });
+        pj.oilBuffer=Math.max(0, pj.oilBuffer-moved);
+    });
+}
+// パイプゴーストメッシュ更新
+function updatePipeGhostMesh() {
+    if (!heldItem||heldItem.type!=='pipe') {
+        if (pipeGhostMesh) { scene.remove(pipeGhostMesh); pipeGhostMesh=null; pipeGhostAxis=null; }
+        return;
+    }
+    const edge=getPipeSnapEdge();
+    const ek=edgeKey(edge.gx1,edge.gz1,edge.gx2,edge.gz2);
+    const occupied=pipeEdges.has(ek);
+    if (!pipeGhostMesh||pipeGhostAxis!==edge.axis) {
+        if (pipeGhostMesh) scene.remove(pipeGhostMesh);
+        pipeGhostMesh=new THREE.Group();
+        const seg=createPipeSegmentMesh(edge.axis);
+        seg.traverse(ch=>{ if(ch.isMesh){ ch.material=ch.material.clone(); ch.material.transparent=true; ch.material.opacity=0.4; ch.material.depthWrite=false; } });
+        pipeGhostMesh.add(seg);
+        scene.add(pipeGhostMesh);
+        pipeGhostAxis=edge.axis;
+    }
+    const x=(edge.gx1+edge.gx2)/2*GRID_SNAP, z=(edge.gz1+edge.gz2)/2*GRID_SNAP;
+    pipeGhostMesh.position.set(x,0,z);
+    const col=occupied?0xff4444:0x44aaff;
+    pipeGhostMesh.traverse(ch=>{ if(ch.isMesh&&ch.material) ch.material.color.set(col); });
+}
+// パイプ設置
+function doInstallPipe() {
+    const L=I18N[currentLang];
+    const edge=getPipeSnapEdge();
+    const ek=edgeKey(edge.gx1,edge.gz1,edge.gx2,edge.gz2);
+    if (pipeEdges.has(ek)) { showNotification(L.msgPipeOccupied); return; }
+    const ltA=getNetworkLiquidType(nodeKey(edge.gx1,edge.gz1));
+    const ltB=getNetworkLiquidType(nodeKey(edge.gx2,edge.gz2));
+    if (ltA&&ltB&&ltA!==ltB) { showNotification(L.msgPipeLiquidMismatch); return; }
+    const x=(edge.gx1+edge.gx2)/2*GRID_SNAP, z=(edge.gz1+edge.gz2)/2*GRID_SNAP;
+    const seg=createPipeSegmentMesh(edge.axis);
+    seg.position.set(x,0,z);
+    scene.add(seg);
+    pipeEdges.set(ek,{liquidType:ltA||ltB||null, mesh:seg});
+    const nk1=nodeKey(edge.gx1,edge.gz1), nk2=nodeKey(edge.gx2,edge.gz2);
+    if (!pipeNodeConns.has(nk1)) pipeNodeConns.set(nk1,new Set());
+    if (!pipeNodeConns.has(nk2)) pipeNodeConns.set(nk2,new Set());
+    pipeNodeConns.get(nk1).add(nk2);
+    pipeNodeConns.get(nk2).add(nk1);
+    updateNodeJoint(edge.gx1,edge.gz1);
+    updateNodeJoint(edge.gx2,edge.gz2);
+    if (pipeGhostMesh) { scene.remove(pipeGhostMesh); pipeGhostMesh=null; pipeGhostAxis=null; }
+    heldItem=null; updateHeldMesh(); updateUI();
+    showNotification(L.msgPipeInstalled);
+}
+// T字分岐設置
+function doInstallJunctionT() {
+    const L=I18N[currentLang];
+    const gp=getGridSnapPos();
+    const gx=Math.round(gp.x/GRID_SNAP), gz=Math.round(gp.z/GRID_SNAP);
+    const nk=nodeKey(gx,gz);
+    if (junctionNodes.has(nk)) { showNotification(L.msgJunctionOccupied); return; }
+    const m=createTJunctionMesh();
+    m.position.set(gp.x,0,gp.z); m.rotation.y=placementRot;
+    scene.add(m);
+    junctionNodes.set(nk,{type:'T',rot:placementRot,mesh:m});
+    // ジョイント球を撤去（T字が視覚を担う）
+    if (nodeJointMeshes.has(nk)) { scene.remove(nodeJointMeshes.get(nk)); nodeJointMeshes.delete(nk); }
+    if (ghostMesh) { scene.remove(ghostMesh); ghostMesh=null; }
+    placementRot=0; heldItem=null; updateHeldMesh(); updateUI();
+    showNotification(L.msgJunctionInstalled);
+}
+// 十字分岐設置
+function doInstallJunctionCross() {
+    const L=I18N[currentLang];
+    const gp=getGridSnapPos();
+    const gx=Math.round(gp.x/GRID_SNAP), gz=Math.round(gp.z/GRID_SNAP);
+    const nk=nodeKey(gx,gz);
+    if (junctionNodes.has(nk)) { showNotification(L.msgJunctionOccupied); return; }
+    const m=createCrossJunctionMesh();
+    m.position.set(gp.x,0,gp.z); m.rotation.y=placementRot;
+    scene.add(m);
+    junctionNodes.set(nk,{type:'cross',rot:placementRot,mesh:m});
+    if (nodeJointMeshes.has(nk)) { scene.remove(nodeJointMeshes.get(nk)); nodeJointMeshes.delete(nk); }
+    if (ghostMesh) { scene.remove(ghostMesh); ghostMesh=null; }
+    placementRot=0; heldItem=null; updateHeldMesh(); updateUI();
+    showNotification(L.msgJunctionInstalled);
+}
+
 function createGhostMesh(type) {
     let g;
     if (type === 'pumpJack') {
         g = createPumpJackMesh().group;
+    } else if (type === 'junctionT') {
+        g = createTJunctionMesh();
+    } else if (type === 'junctionCross') {
+        g = createCrossJunctionMesh();
     } else {
         g = createStorageTankMesh();
     }
@@ -1749,7 +2081,7 @@ function createShopDisplay(x, z, rotY=0) {
     const cosR = Math.cos(rotY), sinR = Math.sin(rotY);
     function wld(lx, lz) { return [x + lx*cosR + lz*sinR, z - lx*sinR + lz*cosR]; }
 
-    const W=24, D=28, H=6;
+    const W=24, D=36, H=6;
     const hw=W/2, hd=D/2;
 
     // 床
@@ -1808,18 +2140,21 @@ function createShopDisplay(x, z, rotY=0) {
         collisionBoxes.push({x:rwx, z:rwz, hw:0.35,        hd:sideLen/2});
     }
 
-    // --- 商品台座 (3列 × 2行 = 6スロット) ---
+    // --- 商品台座 (3列 × 4行) ---
     const COLS = [-8, 0, 8];
-    const ROWS = [+5, -3, -11];
+    const ROWS = [+5, -3, -11, -19];
 
     const CATALOG = [
-        {type:'ladle',       price:5,    col:0, row:0},
-        {type:'jerryCan',    price:15,   col:1, row:0},
-        {type:'drum',        price:120,  col:2, row:0},
-        {type:'handPump',    price:20,   col:0, row:1},
-        {type:'enginePump',  price:300,  col:1, row:1},
-        {type:'pumpJack',    price:1800, col:2, row:1},
-        {type:'storageTank', price:800,  col:0, row:2},
+        {type:'ladle',         price:5,    col:0, row:0},
+        {type:'jerryCan',      price:15,   col:1, row:0},
+        {type:'drum',          price:120,  col:2, row:0},
+        {type:'handPump',      price:20,   col:0, row:1},
+        {type:'enginePump',    price:300,  col:1, row:1},
+        {type:'pumpJack',      price:1800, col:2, row:1},
+        {type:'storageTank',   price:800,  col:0, row:2},
+        {type:'pipe',          price:10,   col:1, row:2},
+        {type:'junctionT',     price:80,   col:2, row:2},
+        {type:'junctionCross', price:150,  col:0, row:3},
     ];
 
     CATALOG.forEach(({type, price, col, row}) => {
@@ -1851,6 +2186,15 @@ function createShopDisplay(x, z, rotY=0) {
             m.position.set(lx, baseY, lz);
         } else if (type === 'storageTank') {
             m = createStorageTankMesh(); m.scale.setScalar(0.38);
+            m.position.set(lx, baseY, lz);
+        } else if (type === 'pipe') {
+            m = createPipeSegmentMesh('x'); m.scale.setScalar(0.55);
+            m.position.set(lx, baseY+0.28, lz);
+        } else if (type === 'junctionT') {
+            m = createTJunctionMesh(); m.scale.setScalar(0.52);
+            m.position.set(lx, baseY, lz);
+        } else if (type === 'junctionCross') {
+            m = createCrossJunctionMesh(); m.scale.setScalar(0.52);
             m.position.set(lx, baseY, lz);
         } else {
             m = createJerryCanMesh(0); m.scale.setScalar(2.0);
@@ -2320,6 +2664,19 @@ function computeCurrentAction() {
         return { type:'installStorageTank', label:L.promptInstallStorageTank };
     }
 
+    // --- パイプ持ち ---
+    if (heldItem && heldItem.type==='pipe') {
+        return { type:'installPipe', label:L.promptInstallPipe };
+    }
+    // --- T字分岐持ち ---
+    if (heldItem && heldItem.type==='junctionT') {
+        return { type:'installJunctionT', label:L.promptInstallJunctionT };
+    }
+    // --- 十字分岐持ち ---
+    if (heldItem && heldItem.type==='junctionCross') {
+        return { type:'installJunctionCross', label:L.promptInstallJunctionCross };
+    }
+
     // --- ジェリ缶持ち（追加: 採掘機・貯蔵タンク） ---
     // (checked below inside jerryCan block)
 
@@ -2473,6 +2830,9 @@ function triggerAction() {
         case 'infoPumpJack':       break; // info only
         case 'installStorageTank': doInstallStorageTank(); break;
         case 'removeStorageTank':  doRemoveStorageTank(currentAction.stIdx); break;
+        case 'installPipe':        doInstallPipe(); break;
+        case 'installJunctionT':   doInstallJunctionT(); break;
+        case 'installJunctionCross': doInstallJunctionCross(); break;
         case 'fillStorageTank':    doFillStorageTank(currentAction.stIdx); break;
         case 'drawStorageTank':    doDrawStorageTank(currentAction.stIdx); break;
     }
@@ -2527,8 +2887,11 @@ function doInstallPumpJack() {
     scene.add(g);
     const idx = pumpJackObjs.length;
     g.traverse(m=>{ if(m.isMesh) pumpJackMeshToIdx.set(m.uuid, idx); });
+    const pjIdx = pumpJackObjs.length;
     pumpJackObjs.push({ group:g, crankGrp:pjMesh.crankGrp, beamGrp:pjMesh.beamGrp, rod:pjMesh.rod,
         x:gp.x, z:gp.z, fuelLevel:0, oilBuffer:0, crankAngle:0, nearSpringIdx });
+    const {gx:pjGx,gz:pjGz}=worldToGrid(gp.x,gp.z);
+    registerFacilityPorts('pumpJack', pjIdx, pjGx, pjGz, placementRot);
     if (ghostMesh) { scene.remove(ghostMesh); ghostMesh = null; }
     placementRot = 0;
     heldItem = null;
@@ -2540,6 +2903,7 @@ function doRemovePumpJack(idx) {
     const L = I18N[currentLang];
     const pj = pumpJackObjs[idx];
     if (!pj) return;
+    unregisterFacilityPorts('pumpJack', idx);
     pj.group.traverse(m=>{ if(m.isMesh) pumpJackMeshToIdx.delete(m.uuid); });
     scene.remove(pj.group);
     pumpJackObjs.splice(idx, 1);
@@ -2600,7 +2964,10 @@ function doInstallStorageTank() {
     scene.add(g);
     const idx = storageTankObjs.length;
     g.traverse(m=>{ if(m.isMesh) storageTankMeshToIdx.set(m.uuid, idx); });
+    const stIdx = storageTankObjs.length;
     storageTankObjs.push({ group:g, x:gp.x, z:gp.z, level:0 });
+    const {gx:stGx,gz:stGz}=worldToGrid(gp.x,gp.z);
+    registerFacilityPorts('storageTank', stIdx, stGx, stGz, placementRot);
     if (ghostMesh) { scene.remove(ghostMesh); ghostMesh = null; }
     placementRot = 0;
     heldItem = null;
@@ -2612,6 +2979,7 @@ function doRemoveStorageTank(idx) {
     const L = I18N[currentLang];
     const st = storageTankObjs[idx];
     if (!st) return;
+    unregisterFacilityPorts('storageTank', idx);
     st.group.traverse(m=>{ if(m.isMesh) storageTankMeshToIdx.delete(m.uuid); });
     scene.remove(st.group);
     storageTankObjs.splice(idx, 1);
@@ -3154,7 +3522,9 @@ function doPutDown() {
     const {x:dx, z:dz}=getDropPos();
     const name=heldItem.type==='ladle'?L.nameLadle:heldItem.type==='drum'?L.nameDrum
         :heldItem.type==='enginePump'?L.nameEnginePump:heldItem.type==='handPump'?L.nameHandPump
-        :heldItem.type==='pumpJack'?L.namePumpJack:heldItem.type==='storageTank'?L.nameStorageTank:L.nameCan;
+        :heldItem.type==='pumpJack'?L.namePumpJack:heldItem.type==='storageTank'?L.nameStorageTank
+        :heldItem.type==='pipe'?L.namePipe:heldItem.type==='junctionT'?L.nameJunctionT
+        :heldItem.type==='junctionCross'?L.nameJunctionCross:L.nameCan;
     spawnWorldItem(heldItem.type, dx, dz, heldItem.hasOil, heldItem.fill, 0.04, heldItem.contentType||null);
     if (heldMesh) { camera.remove(heldMesh); heldMesh=null; }
     if (ghostMesh) { scene.remove(ghostMesh); ghostMesh = null; }
@@ -3624,6 +3994,10 @@ function updateGame() {
 
         // グリッド設置プレビュー更新
         updateGhostMesh();
+        updatePipeGhostMesh();
+
+        // パイプライン流体転送
+        simulatePipeFlow(delta);
 
         // スカイドームをカメラ位置に追従（端が見えないよう）
         if (skyDome) skyDome.position.copy(camera.position);
