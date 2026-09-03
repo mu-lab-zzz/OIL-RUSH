@@ -577,7 +577,7 @@ const junctionNodes   = new Map(); // nodeKey → { type:'T'|'cross', rot, mesh 
 const portRegistry    = new Map(); // nodeKey → [{facilityType,idx,portType:'out'|'in',liquidType}]
 const nodeJointMeshes = new Map(); // nodeKey → THREE.Mesh  (自動エルボジョイント)
 const portMarkers     = new Map(); // nodeKey → THREE.Mesh  (接続口マーカー)
-const portLabels      = new Map(); // nodeKey → THREE.Sprite (接続口矢印ラベル)
+const portLabels      = new Map(); // nodeKey → THREE.Mesh  (接続口矢印コーン)
 let pipeGhostMesh = null;
 let pipeGhostAxis = null; // 'x' | 'z'
 
@@ -1402,30 +1402,21 @@ function updateNodeJoint(gx,gz) {
     scene.add(jm);
     nodeJointMeshes.set(nk,jm);
 }
-// ポート方向矢印スプライト生成
-function createPortLabelSprite(portType, dx, dz) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 128; canvas.height = 128;
-    const ctx = canvas.getContext('2d');
+// ポート方向矢印コーン生成（3Dメッシュ: カメラ方向に依存しない）
+function createPortArrowMesh(portType, dx, dz) {
     const isOut = portType === 'out';
-    const col = isOut ? '#ff8c00' : '#00c853';
+    const col = isOut ? 0xff8c00 : 0x00c853;
+    // 排出口: 施設から外向き / 吸入口: 施設へ向く
     const adx = isOut ? dx : -dx;
     const adz = isOut ? dz : -dz;
-    let arrow;
-    if      (adx > 0) arrow = '→';
-    else if (adx < 0) arrow = '←';
-    else if (adz > 0) arrow = '↓';
-    else              arrow = '↑';
-    ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 10;
-    ctx.fillStyle = col;
-    ctx.font = 'bold 90px sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(arrow, 64, 68);
-    const tex = new THREE.CanvasTexture(canvas);
-    const mat = new THREE.SpriteMaterial({map:tex, transparent:true, depthTest:false, sizeAttenuation:true});
-    const sprite = new THREE.Sprite(mat);
-    sprite.scale.set(0.9, 0.9, 1);
-    return sprite;
+    const mat = new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide });
+    // ConeGeometryはデフォルトY軸向き（先端が+Y）→ 水平方向へ回転
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.65, 8), mat);
+    if      (adx > 0) cone.rotation.z = -Math.PI / 2;
+    else if (adx < 0) cone.rotation.z =  Math.PI / 2;
+    else if (adz > 0) cone.rotation.x =  Math.PI / 2;
+    else              cone.rotation.x = -Math.PI / 2;
+    return cone;
 }
 // 施設接続口を全クリア（ロード前に呼ぶ）
 function clearFacilityPorts() {
@@ -1450,11 +1441,11 @@ function registerFacilityPorts(facilityType, idx, gx, gz, rotY) {
             mark.position.set(wp.x,0.03,wp.z);
             scene.add(mark);
             portMarkers.set(key,mark);
-            // 矢印スプライトを地面マーカーの上に配置
-            const sprite = createPortLabelSprite(portType, d.dx, d.dz);
-            sprite.position.set(wp.x, 1.4, wp.z);
-            scene.add(sprite);
-            portLabels.set(key, sprite);
+            // 矢印コーンを地面マーカーの上に配置
+            const arrow = createPortArrowMesh(portType, d.dx, d.dz);
+            arrow.position.set(wp.x, 1.4, wp.z);
+            scene.add(arrow);
+            portLabels.set(key, arrow);
         }
     };
     if (facilityType==='pumpJack') {
