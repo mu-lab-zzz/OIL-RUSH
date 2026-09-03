@@ -231,6 +231,14 @@ const I18N = {
         promptNozzleFillTowTank: (f,cap) => `[SPACE] タンクに注入 (${f}/${cap}L) 5L/秒`,
         promptGasNozzleFillTowTank: (f,cap,cost) => `[SPACE] タンクにガス給油 (${f}/${cap}L) -$${cost}`,
         promptSellTowTank: (earn) => `[SPACE] タンク原油を売却 (+$${earn})`,
+        promptGrabTowTankNozzle: (f,ct) => `[SPACE] 排出ノズルを取る (${ct==='gas'?'ガス':'原油'} ${f}L)`,
+        promptReleaseTowTankNozzle: "[SPACE] 排出ノズルを戻す",
+        promptTowTankDrainStorage: (f,cap) => `[SPACE] 貯蔵タンクへ排出 (${Math.floor(f)}/${cap}L)`,
+        promptTowTankDrainPumpJack: (f,cap) => `[SPACE] 採掘機に給油 (${f.toFixed(0)}/${cap}L)`,
+        promptTowTankDrainCan: (f,cap) => `[SPACE] 缶へ移す (${f}/${cap}L)`,
+        msgTowTankNozzleGrabbed: "排出ノズルを取った",
+        msgTowTankNozzleReleased: "排出ノズルを戻した",
+        msgTowTankNozzleEmpty: "タンクが空です",
         heldVehicle: (f,cap) => f>0 ? `運転中 | タンク ${f}/${cap}L` : "運転中",
         msgEnteredVehicle: "車に乗った",
         msgExitedVehicle: "車から降りた",
@@ -369,6 +377,14 @@ const I18N = {
         promptNozzleFillTowTank: (f,cap) => `[SPACE] Fill tank (${f}/${cap}L) 5L/s`,
         promptGasNozzleFillTowTank: (f,cap,cost) => `[SPACE] Gas fill tank (${f}/${cap}L) -$${cost}`,
         promptSellTowTank: (earn) => `[SPACE] Sell tank oil (+$${earn})`,
+        promptGrabTowTankNozzle: (f,ct) => `[SPACE] Grab drain nozzle (${ct==='gas'?'gas':'oil'} ${f}L)`,
+        promptReleaseTowTankNozzle: "[SPACE] Return drain nozzle",
+        promptTowTankDrainStorage: (f,cap) => `[SPACE] Drain to storage tank (${Math.floor(f)}/${cap}L)`,
+        promptTowTankDrainPumpJack: (f,cap) => `[SPACE] Fuel pump jack (${f.toFixed(0)}/${cap}L)`,
+        promptTowTankDrainCan: (f,cap) => `[SPACE] Transfer to can (${f}/${cap}L)`,
+        msgTowTankNozzleGrabbed: "Drain nozzle grabbed",
+        msgTowTankNozzleReleased: "Drain nozzle returned",
+        msgTowTankNozzleEmpty: "Tank is empty",
         heldVehicle: (f,cap) => f>0 ? `Driving | Tank ${f}/${cap}L` : "Driving",
         msgEnteredVehicle: "Entered vehicle",
         msgExitedVehicle: "Exited vehicle",
@@ -594,6 +610,9 @@ const gasNozzleMeshToIdx = new Map();
 let raycastGasNozzleIdx = -1;
 let highlightedGasNozzleIdx = -1;
 const GAS_HOSE_LENGTH = 5.5;
+const TOW_TANK_DRAIN_HOSE = 4.0;  // 牽引タンク排出ノズルホース長 (m)
+const TOW_TANK_DRAIN_RATE = 5.0;  // 排出速度 (L/秒)
+let towTankDrainAccum = 0;
 
 // ===== タンクトラック / 牽引タンク =====
 const TOW_VEHICLE_PRICE = 800;
@@ -1283,7 +1302,7 @@ function updateHeldMesh() {
         heldMesh.position.set(0.28, -0.38, -0.6);
         heldMesh.rotation.set(0.05, 0.3, 0.05);
         heldMesh.scale.setScalar(0.2);
-    } else if (heldItem.type === 'engineNozzle' || heldItem.type === 'gasNozzle') {
+    } else if (heldItem.type === 'engineNozzle' || heldItem.type === 'gasNozzle' || heldItem.type === 'towTankNozzle') {
         heldMesh = createNozzleMesh();
         heldMesh.position.set(0.24, -0.28, -0.48);
         heldMesh.rotation.set(0.05, Math.PI/2+0.1, 0.08);
@@ -2824,6 +2843,35 @@ function computeCurrentAction() {
         return { type:'releaseGasNozzle', label:L.promptReleaseGasNozzle };
     }
 
+    // --- 牽引タンク排出ノズル持ち ---
+    if (heldItem && heldItem.type==='towTankNozzle') {
+        const tt = towTanks[heldItem.tankIdx];
+        if (tt) {
+            const distToTank = Math.hypot(px-tt.x, pz-tt.z);
+            if (distToTank <= TOW_TANK_DRAIN_HOSE) {
+                // 貯蔵タンクへ排出
+                if (raycastStorageTankIdx>=0) {
+                    const st=storageTankObjs[raycastStorageTankIdx];
+                    if (st && st.level<STORAGE_TANK_CAP && (!st.liquidType||st.liquidType===tt.contentType))
+                        return { type:'towTankDrainStorage', label:L.promptTowTankDrainStorage(st.level, STORAGE_TANK_CAP), stIdx:raycastStorageTankIdx };
+                }
+                // 採掘機の燃料タンクへ排出（ガスのみ）
+                if (tt.contentType==='gas' && raycastPumpJackIdx>=0) {
+                    const pj=pumpJackObjs[raycastPumpJackIdx];
+                    if (pj && pj.fuelLevel<PUMP_JACK_FUEL_CAP)
+                        return { type:'towTankDrainPumpJack', label:L.promptTowTankDrainPumpJack(pj.fuelLevel, PUMP_JACK_FUEL_CAP), pjIdx:raycastPumpJackIdx };
+                }
+                // ジェリ缶/ドラム缶へ移す
+                if (aimItem && (aimItem.type==='jerryCan'||aimItem.type==='drum') && (!aimItem.contentType||aimItem.contentType===tt.contentType)) {
+                    const cap=aimItem.type==='drum'?DRUM_CAP:JERRY_CAN_CAP;
+                    if (aimItem.fill<cap)
+                        return { type:'towTankDrainCan', label:L.promptTowTankDrainCan(aimItem.fill, cap), canIdx:aimIdx };
+                }
+            }
+        }
+        return { type:'releaseTowTankNozzle', label:L.promptReleaseTowTankNozzle };
+    }
+
     // --- ジェリ缶持ち ---
     if (heldItem && heldItem.type==='jerryCan') {
         if (heldItem.fill>0 && heldItem.contentType!=='gas' && nearDepot)
@@ -2926,6 +2974,12 @@ function computeCurrentAction() {
         // ガスノズルに照準
         if (raycastGasNozzleIdx>=0)
             return { type:'grabGasNozzle', label:L.promptGrabGasNozzle, stIdx:raycastGasNozzleIdx };
+        // 牽引タンクに照準 → 排出ノズルを取る
+        if (raycastTowTankIdx>=0) {
+            const tt=towTanks[raycastTowTankIdx];
+            if (tt && tt.fill>0)
+                return { type:'grabTowTankNozzle', label:L.promptGrabTowTankNozzle(tt.fill, tt.contentType), tankIdx:raycastTowTankIdx };
+        }
         // エンジンポンプに照準
         if (raycastEnginePumpIdx>=0) {
             const ep = enginePumpObjs[raycastEnginePumpIdx];
@@ -3134,6 +3188,11 @@ function triggerAction() {
         case 'detachTowTank':      doDetachTowTank(); break;
         case 'nozzleFillTowTank':  doNozzleFillTowTank(currentAction.tankIdx); break;
         case 'gasNozzleFillTowTank': doGasNozzleFillTowTank(currentAction.tankIdx); break;
+        case 'grabTowTankNozzle':  doGrabTowTankNozzle(currentAction.tankIdx); break;
+        case 'releaseTowTankNozzle': doReleaseTowTankNozzle(); break;
+        case 'towTankDrainStorage':doTowTankDrainStorage(currentAction.stIdx); break;
+        case 'towTankDrainPumpJack':doTowTankDrainPumpJack(currentAction.pjIdx); break;
+        case 'towTankDrainCan':    doTowTankDrainCan(currentAction.canIdx); break;
         case 'sellTowTank':        doSellTowTank(); break;
         case 'installPumpJack':    doInstallPumpJack(); break;
         case 'removePumpJack':     doRemovePumpJack(currentAction.pjIdx); break;
@@ -3647,6 +3706,73 @@ function doSellTowTank() {
     showNotification(L.msgSold(earn));
 }
 
+// ===== 牽引タンク排出ノズルアクション =====
+function doGrabTowTankNozzle(tankIdx) {
+    const L=I18N[currentLang];
+    const tt=towTanks[tankIdx]; if(!tt||tt.fill<=0) return;
+    heldItem={type:'towTankNozzle', tankIdx, contentType:tt.contentType};
+    updateHeldMesh(); updateUI();
+    showNotification(L.msgTowTankNozzleGrabbed);
+}
+
+function doReleaseTowTankNozzle() {
+    const L=I18N[currentLang];
+    if (heldMesh) { camera.remove(heldMesh); heldMesh=null; }
+    heldItem=null;
+    towTankDrainAccum=0;
+    updateUI();
+    showNotification(L.msgTowTankNozzleReleased);
+}
+
+function doTowTankDrainStorage(stIdx) {
+    const L=I18N[currentLang];
+    if (!heldItem||heldItem.type!=='towTankNozzle') return;
+    const tt=towTanks[heldItem.tankIdx]; if(!tt||tt.fill<=0) { showNotification(L.msgTowTankNozzleEmpty); return; }
+    const st=storageTankObjs[stIdx]; if(!st) return;
+    if (st.liquidType && st.liquidType!==tt.contentType) { showNotification(I18N[currentLang].msgStorageMixError||'混入不可'); return; }
+    if (st.level>=STORAGE_TANK_CAP) return;
+    const add=Math.min(1, STORAGE_TANK_CAP-st.level, tt.fill);
+    if (add<=0) return;
+    st.level+=add; st.liquidType=tt.contentType;
+    tt.fill=Math.max(0,tt.fill-add);
+    if (tt.fill<=0) tt.contentType=null;
+    refreshTowTankMesh(heldItem.tankIdx); updateUI();
+    if (tt.fill<=0) { showNotification(L.msgTowTankNozzleEmpty); doReleaseTowTankNozzle(); }
+}
+
+function doTowTankDrainPumpJack(pjIdx) {
+    const L=I18N[currentLang];
+    if (!heldItem||heldItem.type!=='towTankNozzle') return;
+    const tt=towTanks[heldItem.tankIdx]; if(!tt||tt.fill<=0||tt.contentType!=='gas') { showNotification(L.msgTowTankNozzleEmpty); return; }
+    const pj=pumpJackObjs[pjIdx]; if(!pj) return;
+    if (pj.fuelLevel>=PUMP_JACK_FUEL_CAP) return;
+    const add=Math.min(1, PUMP_JACK_FUEL_CAP-pj.fuelLevel, tt.fill);
+    if (add<=0) return;
+    pj.fuelLevel+=add;
+    tt.fill=Math.max(0,tt.fill-add);
+    if (tt.fill<=0) tt.contentType=null;
+    refreshTowTankMesh(heldItem.tankIdx); updateUI();
+    if (tt.fill<=0) { showNotification(L.msgTowTankNozzleEmpty); doReleaseTowTankNozzle(); }
+}
+
+function doTowTankDrainCan(canIdx) {
+    const L=I18N[currentLang];
+    if (!heldItem||heldItem.type!=='towTankNozzle') return;
+    const tt=towTanks[heldItem.tankIdx]; if(!tt||tt.fill<=0) { showNotification(L.msgTowTankNozzleEmpty); return; }
+    if (canIdx<0||canIdx>=worldItems.length) return;
+    const target=worldItems[canIdx];
+    if (target.contentType && target.contentType!==tt.contentType) return;
+    const cap=target.type==='drum'?DRUM_CAP:JERRY_CAN_CAP;
+    if (target.fill>=cap) return;
+    const add=Math.min(1, cap-target.fill, tt.fill);
+    if (add<=0) return;
+    target.fill+=add; target.contentType=tt.contentType;
+    tt.fill=Math.max(0,tt.fill-add);
+    if (tt.fill<=0) tt.contentType=null;
+    refreshWorldItemMesh(canIdx); refreshTowTankMesh(heldItem.tankIdx); updateUI();
+    if (tt.fill<=0) { showNotification(L.msgTowTankNozzleEmpty); doReleaseTowTankNozzle(); }
+}
+
 // ===== エンジンポンプアクション =====
 function doInstallEnginePump() {
     const L=I18N[currentLang];
@@ -3951,6 +4077,19 @@ function updateGame() {
             }
         }
 
+        // ホース距離制限（牽引タンク排出ノズル保持中）
+        if (heldItem && heldItem.type==='towTankNozzle') {
+            const tt=towTanks[heldItem.tankIdx];
+            if (tt) {
+                const hx=playerGroup.position.x-tt.x, hz=playerGroup.position.z-tt.z;
+                const hd=Math.hypot(hx,hz);
+                if (hd>TOW_TANK_DRAIN_HOSE) {
+                    playerGroup.position.x=tt.x+hx/hd*TOW_TANK_DRAIN_HOSE;
+                    playerGroup.position.z=tt.z+hz/hd*TOW_TANK_DRAIN_HOSE;
+                }
+            }
+        }
+
         playerGroup.rotation.y=gameState.cameraYaw;
         if (!(towVehicle&&towVehicle.inVehicle)) {
             camera.position.set(playerGroup.position.x,1.45,playerGroup.position.z);
@@ -4230,6 +4369,25 @@ function updateGame() {
             engineNozzleFillAccum = 0;
         }
 
+        // 牽引タンク排出ノズル連続排出（SPACE押しっぱなし・5L/秒）
+        if (heldItem && heldItem.type==='towTankNozzle' && keys.space) {
+            const drainType = currentAction && (currentAction.type==='towTankDrainStorage'||currentAction.type==='towTankDrainPumpJack'||currentAction.type==='towTankDrainCan');
+            if (drainType) {
+                towTankDrainAccum += delta;
+                const tickInterval = 1/TOW_TANK_DRAIN_RATE;
+                while (towTankDrainAccum >= tickInterval) {
+                    towTankDrainAccum -= tickInterval;
+                    if (currentAction.type==='towTankDrainStorage') doTowTankDrainStorage(currentAction.stIdx);
+                    else if (currentAction.type==='towTankDrainPumpJack') doTowTankDrainPumpJack(currentAction.pjIdx);
+                    else if (currentAction.type==='towTankDrainCan') doTowTankDrainCan(currentAction.canIdx);
+                }
+            } else {
+                towTankDrainAccum = 0;
+            }
+        } else {
+            towTankDrainAccum = 0;
+        }
+
         const prompt=document.getElementById('interaction-prompt');
         const crosshairEl=document.getElementById('crosshair');
         if (currentAction) { prompt.style.display='block'; prompt.innerText=currentAction.label; }
@@ -4437,6 +4595,12 @@ function updateUI() {
             heldText=L.heldNozzle(ep?ep.gasFuel:0);
         }
         else if (heldItem.type==='gasNozzle') heldText=L.heldGasNozzle;
+        else if (heldItem.type==='towTankNozzle') {
+            const tt=towTanks[heldItem.tankIdx];
+            const ct=tt?tt.contentType:null;
+            const f=tt?tt.fill:0;
+            heldText=(currentLang==='ja'?`手持ち: 排出ノズル (${ct==='gas'?'ガス':'原油'} ${f}L)`:`Holding: drain nozzle (${ct==='gas'?'gas':'oil'} ${f}L)`);
+        }
         else if (heldItem.type==='pumpJack')      heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.namePumpJack;
         else if (heldItem.type==='storageTank')   heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.nameStorageTank;
         else if (heldItem.type==='pipe')          heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.namePipe;
