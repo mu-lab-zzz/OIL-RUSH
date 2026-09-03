@@ -1395,7 +1395,7 @@ function updateNodeJoint(gx,gz) {
     if (conns.size<1) return;
     const jm=createNodeJointMesh();
     const wp=gridToWorld(gx,gz);
-    jm.position.set(wp.x,0,wp.z);
+    jm.position.set(wp.x,0.5,wp.z);
     scene.add(jm);
     nodeJointMeshes.set(nk,jm);
 }
@@ -1527,7 +1527,7 @@ function doInstallPipe() {
     if (ltA&&ltB&&ltA!==ltB) { showNotification(L.msgPipeLiquidMismatch); return; }
     const x=(edge.gx1+edge.gx2)/2*GRID_SNAP, z=(edge.gz1+edge.gz2)/2*GRID_SNAP;
     const seg=createPipeSegmentMesh(edge.axis);
-    seg.position.set(x,0,z);
+    seg.position.set(x,0.5,z);
     scene.add(seg);
     pipeEdges.set(ek,{liquidType:ltA||ltB||null, mesh:seg});
     const nk1=nodeKey(edge.gx1,edge.gz1), nk2=nodeKey(edge.gx2,edge.gz2);
