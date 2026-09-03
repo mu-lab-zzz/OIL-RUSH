@@ -26,6 +26,7 @@
         #joystick-zone { width: 110px; height: 110px; background: rgba(255,255,255,0.12); border: 2px solid rgba(255,255,255,0.3); border-radius: 55px; position: relative; touch-action: none; pointer-events: auto; }
         #joystick-knob { width: 46px; height: 46px; background: rgba(255,255,255,0.55); border-radius: 23px; position: absolute; top: 32px; left: 32px; pointer-events: none; }
         #action-button { width: 82px; height: 82px; background: rgba(230,126,34,0.88); border: 3px solid rgba(255,255,255,0.45); border-radius: 41px; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 13px; color: white; touch-action: manipulation; pointer-events: auto; text-align: center; line-height: 1.3; }
+        #rotate-button { width: 60px; height: 60px; background: rgba(52,152,219,0.88); border: 3px solid rgba(255,255,255,0.45); border-radius: 30px; display: none; justify-content: center; align-items: center; font-size: 28px; color: white; touch-action: manipulation; pointer-events: auto; }
         .modal { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 100; justify-content: center; align-items: center; pointer-events: auto; }
         .modal-content { background: #222; border: 1px solid #444; width: 90%; max-width: 500px; padding: 20px; border-radius: 8px; }
         .modal-header { font-size: 18px; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #444; padding-bottom: 8px; }
@@ -67,7 +68,10 @@
     <div id="interaction-prompt"></div>
     <div id="touch-controls">
         <div id="joystick-zone"><div id="joystick-knob"></div></div>
-        <div id="action-button" onclick="triggerAction()">ACT</div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+            <div id="rotate-button" onclick="doTouchRotate()">↺</div>
+            <div id="action-button" onclick="triggerAction()">ACT</div>
+        </div>
     </div>
 </div>
 <div id="settings-modal" class="modal" onclick="if(event.target===this)closeSettingsModal()">
@@ -4297,6 +4301,13 @@ function updateUI() {
     document.getElementById('ui-held').innerText=heldText;
     document.getElementById('ui-hint').innerText=L.hintText;
     document.getElementById('btn-lang').innerText=currentLang==='ja'?'English':'日本語';
+    const rotBtn=document.getElementById('rotate-button');
+    if (rotBtn) rotBtn.style.display=(heldItem&&GRID_SNAP_TYPES.includes(heldItem.type))?'flex':'none';
+}
+
+function doTouchRotate() {
+    if (!heldItem || !GRID_SNAP_TYPES.includes(heldItem.type)) return;
+    placementRot = (placementRot + Math.PI/2) % (Math.PI*2);
 }
 
 function toggleLanguage() {
