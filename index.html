@@ -936,12 +936,12 @@ function createPumpJackMesh() {
     const oCap=cy(0.13,0.13,0.06,0x135220,8);
     oCap.rotation.z=Math.PI/2; oCap.position.set(2.06,0.5,0); g.add(oCap);
 
-    // 燃料供給口 (赤/橙, 左側 -x) — 手動給油のみ、短めで区別
+    // 燃料供給口 (黒, 左側 -x) — パイプ接続可能な燃料吸入口
     const fSupport=bk(0.28,0.62,0.28,dark); fSupport.position.set(-1.20,0.31,0); g.add(fSupport);
-    const fIn=cy(0.09,0.09,0.56,0xb54a0a,8);
-    fIn.rotation.z=Math.PI/2; fIn.position.set(-1.48,0.5,0); g.add(fIn);
-    const fCap=cy(0.13,0.13,0.06,0x7a3006,8);
-    fCap.rotation.z=Math.PI/2; fCap.position.set(-1.76,0.5,0); g.add(fCap);
+    const fIn=cy(0.09,0.09,0.88,0x1a1a1a,8);
+    fIn.rotation.z=Math.PI/2; fIn.position.set(-1.64,0.5,0); g.add(fIn);
+    const fCap=cy(0.13,0.13,0.06,0x0a0a0a,8);
+    fCap.rotation.z=Math.PI/2; fCap.position.set(-2.06,0.5,0); g.add(fCap);
 
     return { group:g, crankGrp, beamGrp, rod };
 }
@@ -1403,9 +1403,9 @@ function updateNodeJoint(gx,gz) {
     nodeJointMeshes.set(nk,jm);
 }
 // ポート方向矢印コーン生成（3Dメッシュ: カメラ方向に依存しない）
-function createPortArrowMesh(portType, dx, dz) {
+function createPortArrowMesh(portType, dx, dz, liquidType) {
     const isOut = portType === 'out';
-    const col = isOut ? 0xff8c00 : 0x00c853;
+    const col = liquidType==='gas' ? 0x222222 : (isOut ? 0xff8c00 : 0x00c853);
     // 排出口: 施設から外向き / 吸入口: 施設へ向く
     const adx = isOut ? dx : -dx;
     const adz = isOut ? dz : -dz;
@@ -1432,24 +1432,26 @@ function registerFacilityPorts(facilityType, idx, gx, gz, rotY) {
         const key=nodeKey(pgx,pgz);
         if (!portRegistry.has(key)) portRegistry.set(key,[]);
         portRegistry.get(key).push({facilityType,idx,portType,liquidType});
-        // 地面マーカー + 矢印ラベル（排出=橙, 吸入=緑）
+        // 地面マーカー + 矢印ラベル（排出=橙, 吸入=緑, ガス=黒）
         if (!portMarkers.has(key)) {
-            const col = portType==='out' ? 0xff8c00 : 0x00c853;
-            const mat = new THREE.MeshStandardMaterial({color:col,roughness:0.8,emissive:col,emissiveIntensity:0.35});
+            const col = liquidType==='gas' ? 0x333333 : (portType==='out' ? 0xff8c00 : 0x00c853);
+            const emit = liquidType==='gas' ? 0x333333 : col;
+            const mat = new THREE.MeshStandardMaterial({color:col,roughness:0.8,emissive:emit,emissiveIntensity:0.35});
             const mark = new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.35,0.06,16), mat);
             const wp=gridToWorld(pgx,pgz);
             mark.position.set(wp.x,0.03,wp.z);
             scene.add(mark);
             portMarkers.set(key,mark);
             // 矢印コーンを地面マーカーの上に配置
-            const arrow = createPortArrowMesh(portType, d.dx, d.dz);
+            const arrow = createPortArrowMesh(portType, d.dx, d.dz, liquidType);
             arrow.position.set(wp.x, 1.4, wp.z);
             scene.add(arrow);
             portLabels.set(key, arrow);
         }
     };
     if (facilityType==='pumpJack') {
-        addPort(1,0,'out','oil');   // 右側 (+x) → 原油排出口
+        addPort( 1,0,'out','oil');  // 右側 (+x) → 原油排出口
+        addPort(-1,0,'in', 'gas');  // 左側 (-x) → 燃料吸入口
     } else if (facilityType==='storageTank') {
         addPort(-1,0,'in','oil');   // 左側 (-x) → 液体入口
         addPort(1,0,'out','oil');   // 右側 (+x) → 液体排出口
@@ -1468,6 +1470,24 @@ function unregisterFacilityPorts(facilityType, idx) {
     for (const [key,ports] of portRegistry) {
         ports.forEach(p=>{ if(p.facilityType===facilityType&&p.idx>idx) p.idx--; });
     }
+}
+// BFS: 指定ノードから接続されている排出口を探す
+function findConnectedSources(startKey, liquidType) {
+    const visited=new Set([startKey]), queue=[startKey], sources=[];
+    while (queue.length>0) {
+        const key=queue.shift();
+        const ports=portRegistry.get(key);
+        if (ports) {
+            for (const p of ports) {
+                if (p.portType==='out' && p.liquidType===liquidType) sources.push(p);
+            }
+        }
+        const conns=pipeNodeConns.get(key)||new Set();
+        for (const nk of conns) {
+            if (!visited.has(nk)) { visited.add(nk); queue.push(nk); }
+        }
+    }
+    return sources;
 }
 // BFS: 指定ノードから接続されている吸入口を探す
 function findConnectedSinks(startKey, liquidType) {
@@ -1553,6 +1573,34 @@ function simulatePipeFlow(delta) {
             }
         });
         srcTank.level=Math.max(0, srcTank.level-moved);
+    });
+    // ガス → 採掘機 燃料供給
+    const GAS_SUPPLY_RATE = 2.0; // L/秒
+    pumpJackObjs.forEach((pj)=>{
+        if (pj.fuelLevel >= PUMP_JACK_FUEL_CAP) return;
+        const {gx,gz}=worldToGrid(pj.x,pj.z);
+        const d=rotateGridDir(-1,0,pj.group.rotation.y); // 燃料吸入口は -x 方向
+        const inNK=nodeKey(gx+d.dx, gz+d.dz);
+        const conns=pipeNodeConns.get(inNK);
+        const ports=portRegistry.get(inNK)||[];
+        const directSrcs=ports.filter(p=>p.portType==='out'&&p.liquidType==='gas');
+        const srcs=[...directSrcs, ...(conns&&conns.size>0 ? findConnectedSources(inNK,'gas') : [])];
+        const seen=new Set();
+        const uniq=srcs.filter(s=>{ const k=`${s.facilityType}:${s.idx}`; if(seen.has(k))return false; seen.add(k);return true; });
+        if (uniq.length===0) return;
+        const space=PUMP_JACK_FUEL_CAP-pj.fuelLevel;
+        const totalAdd=Math.min(space, GAS_SUPPLY_RATE*delta);
+        const perSrc=totalAdd/uniq.length;
+        let received=0;
+        uniq.forEach(s=>{
+            if (s.facilityType==='storageTank') {
+                const tank=storageTankObjs[s.idx];
+                if (!tank||!(tank.gasLevel>0)) return;
+                const take=Math.min(perSrc, tank.gasLevel);
+                if (take>0) { tank.gasLevel-=take; received+=take; }
+            }
+        });
+        pj.fuelLevel=Math.min(PUMP_JACK_FUEL_CAP, pj.fuelLevel+received);
     });
 }
 // パイプゴーストメッシュ更新
