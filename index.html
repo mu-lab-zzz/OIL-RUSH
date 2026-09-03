@@ -926,17 +926,21 @@ function createPumpJackMesh() {
     const wh=bk(0.28,0.22,0.28,steel); wh.position.set(0,0.11,-0.65); g.add(wh);
     const whF=cy(0.17,0.17,0.06,steel,8); whF.position.set(0,0.25,-0.65); g.add(whF);
 
-    // 原油排出口 (緑, 左側)
-    const oOut=cy(0.09,0.09,0.42,0x1e7a2f,8);
-    oOut.rotation.z=Math.PI/2; oOut.position.set(-1.55,0.45,-0.3); g.add(oOut);
+    // 原油排出口 (緑, 右側 +x) — パイプポート登録方向(+x)に合わせる
+    // 支柱: スキッドからy=0.5のパイプ高さまで接続
+    const oSupport=bk(0.28,0.62,0.28,dark); oSupport.position.set(1.20,0.31,0); g.add(oSupport);
+    // 排出パイプ (スキッド内部→グリッドノードx=2.0まで延伸)
+    const oOut=cy(0.09,0.09,0.88,0x1e7a2f,8);
+    oOut.rotation.z=Math.PI/2; oOut.position.set(1.64,0.5,0); g.add(oOut);
     const oCap=cy(0.13,0.13,0.06,0x135220,8);
-    oCap.rotation.z=Math.PI/2; oCap.position.set(-1.78,0.45,-0.3); g.add(oCap);
+    oCap.rotation.z=Math.PI/2; oCap.position.set(2.06,0.5,0); g.add(oCap);
 
-    // 燃料供給口 (赤/橙, 右側)
-    const fIn=cy(0.09,0.09,0.42,0xb54a0a,8);
-    fIn.rotation.z=Math.PI/2; fIn.position.set(1.55,0.45,0.3); g.add(fIn);
+    // 燃料供給口 (赤/橙, 左側 -x) — 手動給油のみ、短めで区別
+    const fSupport=bk(0.28,0.62,0.28,dark); fSupport.position.set(-1.20,0.31,0); g.add(fSupport);
+    const fIn=cy(0.09,0.09,0.56,0xb54a0a,8);
+    fIn.rotation.z=Math.PI/2; fIn.position.set(-1.48,0.5,0); g.add(fIn);
     const fCap=cy(0.13,0.13,0.06,0x7a3006,8);
-    fCap.rotation.z=Math.PI/2; fCap.position.set(1.78,0.45,0.3); g.add(fCap);
+    fCap.rotation.z=Math.PI/2; fCap.position.set(-1.76,0.5,0); g.add(fCap);
 
     return { group:g, crankGrp, beamGrp, rod };
 }
@@ -995,7 +999,7 @@ function createStorageTankMesh() {
 // ===== パイプメッシュ =====
 function createPipeSegmentMesh(axis) {
     const mat = new THREE.MeshStandardMaterial({color:0x607d8b,metalness:0.75,roughness:0.35});
-    const geo = new THREE.CylinderGeometry(0.1, 0.1, 2, 8);
+    const geo = new THREE.CylinderGeometry(0.2, 0.2, 2, 8);
     const m = new THREE.Mesh(geo, mat);
     m.castShadow = true;
     m.position.y = 0.5;
@@ -1005,7 +1009,7 @@ function createPipeSegmentMesh(axis) {
 }
 function createNodeJointMesh() {
     const mat = new THREE.MeshStandardMaterial({color:0x455a64,metalness:0.8,roughness:0.3});
-    const m = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 8), mat);
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.26, 8, 8), mat);
     m.castShadow = true;
     m.position.y = 0.5;
     return m;
@@ -1014,24 +1018,24 @@ function createTJunctionMesh() {
     const g = new THREE.Group();
     const mat = new THREE.MeshStandardMaterial({color:0x455a64,metalness:0.8,roughness:0.3});
     // 横棒 (-x ← → +x)
-    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,2,8), mat);
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,2,8), mat);
     bar.rotation.z = Math.PI/2; bar.position.y = 0.5; g.add(bar);
     // 腕 (0 → -z : 分岐なし方向が +z になるようデフォルト定義)
-    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,1,8), mat);
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,1,8), mat);
     arm.rotation.x = Math.PI/2; arm.position.set(0,0.5,-0.5); g.add(arm);
     // 中心球
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.16,8,8), mat);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.30,8,8), mat);
     ball.position.y = 0.5; g.add(ball);
     return g;
 }
 function createCrossJunctionMesh() {
     const g = new THREE.Group();
     const mat = new THREE.MeshStandardMaterial({color:0x455a64,metalness:0.8,roughness:0.3});
-    const barX = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,2,8), mat);
+    const barX = new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,2,8), mat);
     barX.rotation.z = Math.PI/2; barX.position.y = 0.5; g.add(barX);
-    const barZ = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,2,8), mat);
+    const barZ = new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,2,8), mat);
     barZ.rotation.x = Math.PI/2; barZ.position.y = 0.5; g.add(barZ);
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.18,8,8), mat);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.34,8,8), mat);
     ball.position.y = 0.5; g.add(ball);
     return g;
 }
