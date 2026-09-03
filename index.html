@@ -249,7 +249,8 @@ const I18N = {
         msgPumpJackRemoved: "採掘機を回収した",
         msgPumpJackFueled: (n) => `採掘機に給油した (${n.toFixed(1)}L)`,
         msgPumpJackCollected: (n) => `採掘油を回収した (${n.toFixed(0)}L)`,
-        msgPumpJackNoSpring: "油田付近(12m以内)に設置してください",
+        msgPumpJackNoSpring: "油田の中心グリッドに設置してください",
+        msgPumpJackDuplicate: "この油田には既に採掘機があります",
         msgPumpJackEmpty: "採掘バッファが空です",
         nameStorageTank: "貯蔵タンク",
         promptInstallStorageTank: "[SPACE] タンクを設置  [R] 回転",
@@ -386,7 +387,8 @@ const I18N = {
         msgPumpJackRemoved: "Pump jack retrieved",
         msgPumpJackFueled: (n) => `Pump jack fueled (+${n.toFixed(1)}L)`,
         msgPumpJackCollected: (n) => `Oil collected (${n.toFixed(0)}L)`,
-        msgPumpJackNoSpring: "Place within 12m of an oil spring",
+        msgPumpJackNoSpring: "Place at the center of an oil field",
+        msgPumpJackDuplicate: "This oil field already has a pump jack",
         msgPumpJackEmpty: "Oil buffer is empty",
         nameStorageTank: "Storage Tank",
         promptInstallStorageTank: "[SPACE] Install storage tank  [R] Rotate",
@@ -554,6 +556,8 @@ let engineNozzleFillAccum = 0;     // 連続充填タイムアキュムレータ
 // ===== 採掘機 (ポンプジャック) =====
 const pumpJackObjs = [];           // { group, crankGrp, beamGrp, rod, x, z, fuelLevel, oilBuffer, crankAngle, nearSpringIdx }
 const pumpJackMeshToIdx = new Map();
+// 各油田の中心グリッド情報 { gx, gz, worldX, worldZ, pumpJackIdx }  pumpJackIdx=-1 で未占有
+const oilSprings = [];
 let raycastPumpJackIdx = -1;
 let highlightedPumpJackIdx = -1;
 const PUMP_JACK_FUEL_CAP  = 50;   // 燃料タンク容量 L
@@ -1346,6 +1350,7 @@ function edgeKey(gx1,gz1,gx2,gz2) {
 }
 function worldToGrid(wx,wz) { return {gx:Math.round(wx/GRID_SNAP),gz:Math.round(wz/GRID_SNAP)}; }
 function gridToWorld(gx,gz) { return {x:gx*GRID_SNAP, z:gz*GRID_SNAP}; }
+function findOilSpringAtGrid(gx,gz) { return oilSprings.find(s=>s.gx===gx&&s.gz===gz)||null; }
 function rotateGridDir(dx,dz,rotY) {
     const c=Math.round(Math.cos(rotY)), s=Math.round(Math.sin(rotY));
     return {dx:c*dx-s*dz, dz:s*dx+c*dz};
@@ -1906,6 +1911,11 @@ function createOilSpring(cx, cz, scale) {
     }
 
     interactables.push({type:'oil', group:g, radius: baseR * 1.5});
+
+    // 油田中心グリッドを登録
+    const sgx = Math.round(gcx / GRID_SNAP);
+    const sgz = Math.round(gcz / GRID_SNAP);
+    oilSprings.push({ gx: sgx, gz: sgz, worldX: sgx * GRID_SNAP, worldZ: sgz * GRID_SNAP, pumpJackIdx: -1 });
 }
 
 function createDerrick(x,z) {
@@ -2752,7 +2762,11 @@ function computeCurrentAction() {
 
     // --- 採掘機持ち ---
     if (heldItem && heldItem.type==='pumpJack') {
-        if (nearOil) return { type:'installPumpJack', label:L.promptInstallPumpJack };
+        const _gp=getGridSnapPos();
+        const {gx:_pgx,gz:_pgz}=worldToGrid(_gp.x,_gp.z);
+        const _spring=findOilSpringAtGrid(_pgx,_pgz);
+        if (_spring && _spring.pumpJackIdx<0)
+            return { type:'installPumpJack', label:L.promptInstallPumpJack };
         return { type:'putDown', label:L.promptPutDown };
     }
 
@@ -3055,28 +3069,23 @@ function doBuyItem(idx) {
 // ===== 採掘機アクション =====
 function doInstallPumpJack() {
     const L = I18N[currentLang];
-    const px=playerGroup.position.x, pz=playerGroup.position.z;
-    let nearSpringIdx = -1;
-    for (let i=0; i<interactables.length; i++) {
-        const it=interactables[i];
-        if (it.type!=='oil') continue;
-        if (Math.hypot(px-it.group.position.x, pz-it.group.position.z) < PUMP_JACK_RANGE) {
-            nearSpringIdx = i; break;
-        }
-    }
-    if (nearSpringIdx < 0) { showNotification(L.msgPumpJackNoSpring); return; }
     const gp = getGridSnapPos();
+    const {gx:pjGx, gz:pjGz} = worldToGrid(gp.x, gp.z);
+    const spring = findOilSpringAtGrid(pjGx, pjGz);
+    if (!spring) { showNotification(L.msgPumpJackNoSpring); return; }
+    if (spring.pumpJackIdx >= 0) { showNotification(L.msgPumpJackDuplicate); return; }
+    // nearSpringIdx = index into interactables for oil entry (kept for pump animation logic)
+    const nearSpringIdx = interactables.findIndex(it=>it.type==='oil'&&it.group.position.x===spring.worldX&&it.group.position.z===spring.worldZ);
     const pjMesh = createPumpJackMesh();
     const g = pjMesh.group;
     g.position.set(gp.x, 0, gp.z);
     g.rotation.y = placementRot;
     scene.add(g);
-    const idx = pumpJackObjs.length;
-    g.traverse(m=>{ if(m.isMesh) pumpJackMeshToIdx.set(m.uuid, idx); });
     const pjIdx = pumpJackObjs.length;
+    g.traverse(m=>{ if(m.isMesh) pumpJackMeshToIdx.set(m.uuid, pjIdx); });
     pumpJackObjs.push({ group:g, crankGrp:pjMesh.crankGrp, beamGrp:pjMesh.beamGrp, rod:pjMesh.rod,
         x:gp.x, z:gp.z, fuelLevel:0, oilBuffer:0, crankAngle:0, nearSpringIdx });
-    const {gx:pjGx,gz:pjGz}=worldToGrid(gp.x,gp.z);
+    spring.pumpJackIdx = pjIdx;
     registerFacilityPorts('pumpJack', pjIdx, pjGx, pjGz, placementRot);
     if (ghostMesh) { scene.remove(ghostMesh); ghostMesh = null; }
     placementRot = 0;
@@ -3092,6 +3101,8 @@ function doRemovePumpJack(idx) {
     unregisterFacilityPorts('pumpJack', idx);
     pj.group.traverse(m=>{ if(m.isMesh) pumpJackMeshToIdx.delete(m.uuid); });
     scene.remove(pj.group);
+    // 油田スロットを解放
+    oilSprings.forEach(s=>{ if(s.pumpJackIdx===idx) s.pumpJackIdx=-1; else if(s.pumpJackIdx>idx) s.pumpJackIdx--; });
     pumpJackObjs.splice(idx, 1);
     pumpJackMeshToIdx.forEach((v,k)=>{ if(v>idx) pumpJackMeshToIdx.set(k,v-1); });
     heldItem = { type:'pumpJack', fill:0, hasOil:false };
@@ -4564,6 +4575,10 @@ function restorePumpJack(x, z, fuelLevel, oilBuffer, nearSpringIdx) {
     g.traverse(m=>{ if(m.isMesh) pumpJackMeshToIdx.set(m.uuid, idx); });
     pumpJackObjs.push({ group:g, crankGrp:pjMesh.crankGrp, beamGrp:pjMesh.beamGrp, rod:pjMesh.rod,
         x, z, fuelLevel, oilBuffer, crankAngle:0, nearSpringIdx });
+    // 油田スロットを復元 (位置でマッチング)
+    const {gx,gz}=worldToGrid(x,z);
+    const spring=findOilSpringAtGrid(gx,gz);
+    if (spring) spring.pumpJackIdx=idx;
 }
 
 function clearStorageTankObjs() {
