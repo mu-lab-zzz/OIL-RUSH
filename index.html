@@ -238,22 +238,22 @@ const I18N = {
         nameTowTank3000: "牽引タンク 3000L",
         namePumpJack: "採掘機",
         promptInstallPumpJack: "[SPACE] 採掘機を設置  [R] 回転",
-        promptRemovePumpJack: "[SPACE] 採掘機を撤去",
+        promptRemovePumpJack: "[SPACE] 採掘機を回収",
         promptFuelPumpJack: (n,cap) => `[SPACE] 採掘機に給油 (${n.toFixed(1)}/${cap}L)`,
         promptCollectPumpJack: (n) => `[SPACE] 採掘油を回収 (${n.toFixed(0)}L)`,
         msgPumpJackInstalled: "採掘機を設置した",
-        msgPumpJackRemoved: "採掘機を撤去した",
+        msgPumpJackRemoved: "採掘機を回収した",
         msgPumpJackFueled: (n) => `採掘機に給油した (${n.toFixed(1)}L)`,
         msgPumpJackCollected: (n) => `採掘油を回収した (${n.toFixed(0)}L)`,
         msgPumpJackNoSpring: "油田付近(12m以内)に設置してください",
         msgPumpJackEmpty: "採掘バッファが空です",
         nameStorageTank: "貯蔵タンク",
         promptInstallStorageTank: "[SPACE] タンクを設置  [R] 回転",
-        promptRemoveStorageTank: "[SPACE] タンクを撤去",
+        promptRemoveStorageTank: "[SPACE] タンクを回収",
         promptFillStorageTank: (n,cap) => `[SPACE] タンクに注入 (${n}/${cap}L)`,
         promptDrawStorageTank: (n,cap) => `[SPACE] タンクから取り出し (${n}/${cap}L)`,
         msgStorageTankInstalled: "貯蔵タンクを設置した",
-        msgStorageTankRemoved: "貯蔵タンクを撤去した",
+        msgStorageTankRemoved: "貯蔵タンクを回収した",
         msgStorageTankFull: "タンクが満杯です",
         msgStorageTankEmpty: "タンクが空です",
         namePipe: "パイプ",
@@ -268,9 +268,9 @@ const I18N = {
         msgJunctionInstalled: "分岐パイプを設置した",
         msgJunctionOccupied: "既に分岐パイプがあります",
         promptRemovePipe: "[SPACE] パイプを撤去",
-        promptRemoveJunction: "[SPACE] 分岐パイプを撤去",
+        promptRemoveJunction: "[SPACE] 分岐パイプを回収",
         msgPipeRemoved: "パイプを撤去した",
-        msgJunctionRemoved: "分岐パイプを撤去した"
+        msgJunctionRemoved: "分岐パイプを回収した"
     },
     en: {
         money: "Money: $",
@@ -375,22 +375,22 @@ const I18N = {
         nameTowTank3000: "Tow Tank 3000L",
         namePumpJack: "Pump Jack",
         promptInstallPumpJack: "[SPACE] Install pump jack  [R] Rotate",
-        promptRemovePumpJack: "[SPACE] Remove pump jack",
+        promptRemovePumpJack: "[SPACE] Retrieve pump jack",
         promptFuelPumpJack: (n,cap) => `[SPACE] Fuel pump jack (${n.toFixed(1)}/${cap}L)`,
         promptCollectPumpJack: (n) => `[SPACE] Collect oil (${n.toFixed(0)}L)`,
         msgPumpJackInstalled: "Pump jack installed",
-        msgPumpJackRemoved: "Pump jack removed",
+        msgPumpJackRemoved: "Pump jack retrieved",
         msgPumpJackFueled: (n) => `Pump jack fueled (+${n.toFixed(1)}L)`,
         msgPumpJackCollected: (n) => `Oil collected (${n.toFixed(0)}L)`,
         msgPumpJackNoSpring: "Place within 12m of an oil spring",
         msgPumpJackEmpty: "Oil buffer is empty",
         nameStorageTank: "Storage Tank",
         promptInstallStorageTank: "[SPACE] Install storage tank  [R] Rotate",
-        promptRemoveStorageTank: "[SPACE] Remove storage tank",
+        promptRemoveStorageTank: "[SPACE] Retrieve storage tank",
         promptFillStorageTank: (n,cap) => `[SPACE] Fill tank (${n}/${cap}L)`,
         promptDrawStorageTank: (n,cap) => `[SPACE] Draw from tank (${n}/${cap}L)`,
         msgStorageTankInstalled: "Storage tank installed",
-        msgStorageTankRemoved: "Storage tank removed",
+        msgStorageTankRemoved: "Storage tank retrieved",
         msgStorageTankFull: "Tank is full",
         msgStorageTankEmpty: "Tank is empty",
         namePipe: "Pipe",
@@ -405,9 +405,9 @@ const I18N = {
         msgJunctionInstalled: "Junction placed",
         msgJunctionOccupied: "Junction already exists here",
         promptRemovePipe: "[SPACE] Remove pipe",
-        promptRemoveJunction: "[SPACE] Remove junction",
+        promptRemoveJunction: "[SPACE] Retrieve junction",
         msgPipeRemoved: "Pipe removed",
-        msgJunctionRemoved: "Junction removed"
+        msgJunctionRemoved: "Junction retrieved"
     }
 };
 let currentLang = 'ja';
@@ -1573,6 +1573,8 @@ function doRemoveJunction() {
     scene.remove(entry.mesh);
     junctionNodes.delete(nk);
     updateNodeJoint(gx,gz); // 接続がまだあればエルボ球を復元
+    heldItem = { type: entry.type==='T' ? 'junctionT' : 'junctionCross', fill:0, hasOil:false };
+    updateHeldMesh(); updateUI();
     showNotification(L.msgJunctionRemoved);
 }
 
@@ -2789,9 +2791,11 @@ function computeCurrentAction() {
             if (pj) {
                 if (pj.oilBuffer > 0)
                     return { type:'collectFromPumpJack', label:L.promptCollectPumpJack(pj.oilBuffer), pjIdx:raycastPumpJackIdx };
-                if (pj.fuelLevel < PUMP_JACK_FUEL_CAP)
-                    return { type:'infoPumpJack', label:L.promptFuelPumpJack(pj.fuelLevel, PUMP_JACK_FUEL_CAP) };
-                return { type:'removePumpJack', label:L.promptRemovePumpJack, pjIdx:raycastPumpJackIdx };
+                // 燃料情報をラベルに含めつつ撤去を許可
+                const removeLabel = pj.fuelLevel > 0
+                    ? `${L.promptRemovePumpJack}  (${currentLang==='ja'?'燃料':'fuel'} ${pj.fuelLevel.toFixed(0)}L)`
+                    : L.promptRemovePumpJack;
+                return { type:'removePumpJack', label:removeLabel, pjIdx:raycastPumpJackIdx };
             }
         }
         // 貯蔵タンクに照準
