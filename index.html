@@ -1625,6 +1625,18 @@ function createGhostMesh(type) {
     return g;
 }
 
+// ポンプジャック専用: 近くの油田中心に吸着 (3m以内)
+function getPumpJackSnapPos() {
+    const gp = getGridSnapPos();
+    const ATTRACT_R2 = 3 * 3;
+    let best = null, bestD2 = ATTRACT_R2;
+    oilSprings.forEach(s => {
+        const d2 = (gp.x - s.worldX)**2 + (gp.z - s.worldZ)**2;
+        if (d2 < bestD2) { bestD2 = d2; best = s; }
+    });
+    return best ? { x: best.worldX, z: best.worldZ } : gp;
+}
+
 function updateGhostMesh() {
     const needGhost = heldItem && GRID_SNAP_TYPES.includes(heldItem.type);
     if (!needGhost) {
@@ -1637,9 +1649,20 @@ function updateGhostMesh() {
         ghostMesh._ghostType = heldItem.type;
         scene.add(ghostMesh);
     }
-    const gp = getGridSnapPos();
+    let gp, ghostColor;
+    if (heldItem.type === 'pumpJack') {
+        gp = getPumpJackSnapPos();
+        const {gx,gz} = worldToGrid(gp.x, gp.z);
+        const spring = findOilSpringAtGrid(gx, gz);
+        ghostColor = (spring && spring.pumpJackIdx < 0) ? 0x44ff88 : 0xff3333;
+    } else {
+        gp = getGridSnapPos();
+        ghostColor = 0x44aaff;
+    }
     ghostMesh.position.set(gp.x, 0, gp.z);
     ghostMesh.rotation.y = placementRot;
+    // 色を毎フレーム更新
+    ghostMesh.traverse(m => { if (m.isMesh) m.material.color.setHex(ghostColor); });
 }
 
 // ===== Three.js 初期化 =====
@@ -2762,7 +2785,7 @@ function computeCurrentAction() {
 
     // --- 採掘機持ち ---
     if (heldItem && heldItem.type==='pumpJack') {
-        const _gp=getGridSnapPos();
+        const _gp=getPumpJackSnapPos();
         const {gx:_pgx,gz:_pgz}=worldToGrid(_gp.x,_gp.z);
         const _spring=findOilSpringAtGrid(_pgx,_pgz);
         if (_spring && _spring.pumpJackIdx<0)
@@ -3069,7 +3092,7 @@ function doBuyItem(idx) {
 // ===== 採掘機アクション =====
 function doInstallPumpJack() {
     const L = I18N[currentLang];
-    const gp = getGridSnapPos();
+    const gp = getPumpJackSnapPos();
     const {gx:pjGx, gz:pjGz} = worldToGrid(gp.x, gp.z);
     const spring = findOilSpringAtGrid(pjGx, pjGz);
     if (!spring) { showNotification(L.msgPumpJackNoSpring); return; }
