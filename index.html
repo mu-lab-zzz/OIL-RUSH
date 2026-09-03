@@ -248,7 +248,11 @@ const I18N = {
         msgPipeOccupied: "既にパイプがあります",
         msgPipeLiquidMismatch: "異なる液体のパイプには接続できません",
         msgJunctionInstalled: "分岐パイプを設置した",
-        msgJunctionOccupied: "既に分岐パイプがあります"
+        msgJunctionOccupied: "既に分岐パイプがあります",
+        promptRemovePipe: "[SPACE] パイプを撤去",
+        promptRemoveJunction: "[SPACE] 分岐パイプを撤去",
+        msgPipeRemoved: "パイプを撤去した",
+        msgJunctionRemoved: "分岐パイプを撤去した"
     },
     en: {
         money: "Money: $",
@@ -381,7 +385,11 @@ const I18N = {
         msgPipeOccupied: "Pipe already exists here",
         msgPipeLiquidMismatch: "Cannot connect different liquid pipes",
         msgJunctionInstalled: "Junction placed",
-        msgJunctionOccupied: "Junction already exists here"
+        msgJunctionOccupied: "Junction already exists here",
+        promptRemovePipe: "[SPACE] Remove pipe",
+        promptRemoveJunction: "[SPACE] Remove junction",
+        msgPipeRemoved: "Pipe removed",
+        msgJunctionRemoved: "Junction removed"
     }
 };
 let currentLang = 'ja';
@@ -1516,6 +1524,35 @@ function doInstallJunctionCross() {
     if (ghostMesh) { scene.remove(ghostMesh); ghostMesh=null; }
     placementRot=0; heldItem=null; updateHeldMesh(); updateUI();
     showNotification(L.msgJunctionInstalled);
+}
+// パイプ撤去
+function doRemovePipe() {
+    const L=I18N[currentLang];
+    const edge=getPipeSnapEdge();
+    const ek=edgeKey(edge.gx1,edge.gz1,edge.gx2,edge.gz2);
+    const entry=pipeEdges.get(ek);
+    if (!entry) return;
+    scene.remove(entry.mesh);
+    pipeEdges.delete(ek);
+    const nk1=nodeKey(edge.gx1,edge.gz1), nk2=nodeKey(edge.gx2,edge.gz2);
+    const c1=pipeNodeConns.get(nk1); if(c1){ c1.delete(nk2); if(c1.size===0) pipeNodeConns.delete(nk1); }
+    const c2=pipeNodeConns.get(nk2); if(c2){ c2.delete(nk1); if(c2.size===0) pipeNodeConns.delete(nk2); }
+    updateNodeJoint(edge.gx1,edge.gz1);
+    updateNodeJoint(edge.gx2,edge.gz2);
+    showNotification(L.msgPipeRemoved);
+}
+// 分岐パイプ撤去
+function doRemoveJunction() {
+    const L=I18N[currentLang];
+    const gp=getGridSnapPos();
+    const gx=Math.round(gp.x/GRID_SNAP), gz=Math.round(gp.z/GRID_SNAP);
+    const nk=nodeKey(gx,gz);
+    const entry=junctionNodes.get(nk);
+    if (!entry) return;
+    scene.remove(entry.mesh);
+    junctionNodes.delete(nk);
+    updateNodeJoint(gx,gz); // 接続がまだあればエルボ球を復元
+    showNotification(L.msgJunctionRemoved);
 }
 
 function createGhostMesh(type) {
@@ -2760,6 +2797,21 @@ function computeCurrentAction() {
             else label=L.promptPickupCan(aimItem.fill, aimItem.contentType);
             return { type:'pickup', label, itemIdx:aimIdx };
         }
+        // 分岐パイプ撤去（グリッドスナップ位置に分岐パイプがある場合）
+        {
+            const gp=getGridSnapPos();
+            const gx=Math.round(gp.x/GRID_SNAP), gz=Math.round(gp.z/GRID_SNAP);
+            const nk=nodeKey(gx,gz);
+            if (junctionNodes.has(nk))
+                return { type:'removeJunction', label:L.promptRemoveJunction };
+        }
+        // パイプ撤去（向いている辺にパイプがある場合）
+        {
+            const edge=getPipeSnapEdge();
+            const ek=edgeKey(edge.gx1,edge.gz1,edge.gx2,edge.gz2);
+            if (pipeEdges.has(ek))
+                return { type:'removePipe', label:L.promptRemovePipe };
+        }
         // カート近傍 → 引く/離す
         if (nearCart) {
             return cartObj.isHeld
@@ -2833,6 +2885,8 @@ function triggerAction() {
         case 'installPipe':        doInstallPipe(); break;
         case 'installJunctionT':   doInstallJunctionT(); break;
         case 'installJunctionCross': doInstallJunctionCross(); break;
+        case 'removePipe':         doRemovePipe(); break;
+        case 'removeJunction':     doRemoveJunction(); break;
         case 'fillStorageTank':    doFillStorageTank(currentAction.stIdx); break;
         case 'drawStorageTank':    doDrawStorageTank(currentAction.stIdx); break;
     }
