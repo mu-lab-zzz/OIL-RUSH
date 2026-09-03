@@ -1405,12 +1405,10 @@ function updateNodeJoint(gx,gz) {
 // ポート方向矢印スプライト生成
 function createPortLabelSprite(portType, dx, dz) {
     const canvas = document.createElement('canvas');
-    canvas.width = 192; canvas.height = 128;
+    canvas.width = 128; canvas.height = 128;
     const ctx = canvas.getContext('2d');
     const isOut = portType === 'out';
     const col = isOut ? '#ff8c00' : '#00c853';
-    const label = isOut ? '排出口' : '吸入口';
-    // 排出口: 施設から外へ向かう方向 / 吸入口: ポートから施設へ向かう方向（逆）
     const adx = isOut ? dx : -dx;
     const adz = isOut ? dz : -dz;
     let arrow;
@@ -1418,24 +1416,15 @@ function createPortLabelSprite(portType, dx, dz) {
     else if (adx < 0) arrow = '←';
     else if (adz > 0) arrow = '↓';
     else              arrow = '↑';
-    // 背景
-    ctx.fillStyle = isOut ? 'rgba(160,60,0,0.75)' : 'rgba(0,100,50,0.75)';
-    ctx.fillRect(0, 0, 192, 128);
-    ctx.strokeStyle = col; ctx.lineWidth = 4;
-    ctx.strokeRect(2, 2, 188, 124);
-    // 矢印（大）
-    ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 6;
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 62px sans-serif';
+    ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 10;
+    ctx.fillStyle = col;
+    ctx.font = 'bold 90px sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(arrow, 52, 64);
-    // ラベルテキスト
-    ctx.font = 'bold 34px sans-serif';
-    ctx.fillText(label, 130, 64);
+    ctx.fillText(arrow, 64, 68);
     const tex = new THREE.CanvasTexture(canvas);
     const mat = new THREE.SpriteMaterial({map:tex, transparent:true, depthTest:false, sizeAttenuation:true});
     const sprite = new THREE.Sprite(mat);
-    sprite.scale.set(1.5, 1.0, 1);
+    sprite.scale.set(0.9, 0.9, 1);
     return sprite;
 }
 // 施設接続口を全クリア（ロード前に呼ぶ）
