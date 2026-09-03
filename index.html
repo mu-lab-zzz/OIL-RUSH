@@ -1405,7 +1405,7 @@ function updateNodeJoint(gx,gz) {
 // ポート方向矢印コーン生成（3Dメッシュ: カメラ方向に依存しない）
 function createPortArrowMesh(portType, dx, dz, liquidType) {
     const isOut = portType === 'out';
-    const col = liquidType==='gas' ? 0x222222 : (isOut ? 0xff8c00 : 0x00c853);
+    const col = liquidType==='gas' ? 0x222222 : !liquidType ? 0x777777 : (isOut ? 0xff8c00 : 0x00c853);
     // 排出口: 施設から外向き / 吸入口: 施設へ向く
     const adx = isOut ? dx : -dx;
     const adz = isOut ? dz : -dz;
@@ -1432,10 +1432,10 @@ function registerFacilityPorts(facilityType, idx, gx, gz, rotY) {
         const key=nodeKey(pgx,pgz);
         if (!portRegistry.has(key)) portRegistry.set(key,[]);
         portRegistry.get(key).push({facilityType,idx,portType,liquidType});
-        // 地面マーカー + 矢印ラベル（排出=橙, 吸入=緑, ガス=黒）
+        // 地面マーカー + 矢印ラベル（排出=橙, 吸入=緑, ガス=黒, 任意=グレー）
         if (!portMarkers.has(key)) {
-            const col = liquidType==='gas' ? 0x333333 : (portType==='out' ? 0xff8c00 : 0x00c853);
-            const emit = liquidType==='gas' ? 0x333333 : col;
+            const col = liquidType==='gas' ? 0x333333 : !liquidType ? 0x888888 : (portType==='out' ? 0xff8c00 : 0x00c853);
+            const emit = liquidType==='gas' ? 0x333333 : !liquidType ? 0x666666 : col;
             const mat = new THREE.MeshStandardMaterial({color:col,roughness:0.8,emissive:emit,emissiveIntensity:0.35});
             const mark = new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.35,0.06,16), mat);
             const wp=gridToWorld(pgx,pgz);
@@ -1453,8 +1453,8 @@ function registerFacilityPorts(facilityType, idx, gx, gz, rotY) {
         addPort( 1,0,'out','oil');  // 右側 (+x) → 原油排出口
         addPort(-1,0,'in', 'gas');  // 左側 (-x) → 燃料吸入口
     } else if (facilityType==='storageTank') {
-        addPort(-1,0,'in','oil');   // 左側 (-x) → 液体入口
-        addPort(1,0,'out','oil');   // 右側 (+x) → 液体排出口
+        addPort(-1,0,'in', null);   // 左側 (-x) → 任意液体吸入口
+        addPort( 1,0,'out',null);   // 右側 (+x) → 任意液体排出口
     }
 }
 function unregisterFacilityPorts(facilityType, idx) {
@@ -1479,7 +1479,7 @@ function findConnectedSources(startKey, liquidType) {
         const ports=portRegistry.get(key);
         if (ports) {
             for (const p of ports) {
-                if (p.portType==='out' && p.liquidType===liquidType) sources.push(p);
+                if (p.portType==='out' && (p.liquidType===liquidType||p.liquidType===null)) sources.push(p);
             }
         }
         const conns=pipeNodeConns.get(key)||new Set();
@@ -1497,7 +1497,7 @@ function findConnectedSinks(startKey, liquidType) {
         const ports=portRegistry.get(key);
         if (ports) {
             for (const p of ports) {
-                if (p.portType==='in' && p.liquidType===liquidType) sinks.push(p);
+                if (p.portType==='in' && (p.liquidType===liquidType||p.liquidType===null)) sinks.push(p);
             }
         }
         const conns=pipeNodeConns.get(key)||new Set();
@@ -1516,91 +1516,69 @@ function findConnectedSinks(startKey, liquidType) {
 }
 // 流体シミュレーション (毎フレーム呼ぶ)
 function simulatePipeFlow(delta) {
-    pumpJackObjs.forEach((pj,pjIdx)=>{
+    // 共通: シンクを重複除去して返す
+    function dedup(arr) {
+        const seen=new Set();
+        return arr.filter(s=>{ const k=`${s.facilityType}:${s.idx}`; if(seen.has(k))return false; seen.add(k);return true; });
+    }
+
+    // 採掘機 → タンク (原油)
+    pumpJackObjs.forEach((pj)=>{
         if (pj.oilBuffer<=0) return;
         const {gx,gz}=worldToGrid(pj.x,pj.z);
         const d=rotateGridDir(1,0,pj.group.rotation.y);
         const outNK=nodeKey(gx+d.dx, gz+d.dz);
         const conns=pipeNodeConns.get(outNK);
-        // 直接接続(パイプなし隣接)も含めて確認
         const ports=portRegistry.get(outNK)||[];
-        const directSinks=ports.filter(p=>p.portType==='in'&&p.liquidType==='oil');
-        const sinks=[...directSinks, ...(conns&&conns.size>0 ? findConnectedSinks(outNK,'oil') : [])];
-        // 重複除去
-        const seen=new Set();
-        const uniq=sinks.filter(s=>{ const k=`${s.facilityType}:${s.idx}`; if(seen.has(k))return false; seen.add(k);return true; });
-        if (uniq.length===0) return;
+        const direct=ports.filter(p=>p.portType==='in'&&(p.liquidType==='oil'||p.liquidType===null));
+        const sinks=dedup([...direct,...(conns&&conns.size>0?findConnectedSinks(outNK,'oil'):[])]);
+        if (sinks.length===0) return;
         const totalAvail=Math.min(pj.oilBuffer, PUMP_JACK_OIL_RATE*delta);
-        const perSink=totalAvail/uniq.length;
+        const perSink=totalAvail/sinks.length;
         let moved=0;
-        uniq.forEach(s=>{
+        sinks.forEach(s=>{
             if (s.facilityType==='storageTank') {
                 const tank=storageTankObjs[s.idx];
-                if (!tank) return;
+                if (!tank||(tank.liquidType&&tank.liquidType!=='oil')) return;
                 const add=Math.min(perSink, STORAGE_TANK_CAP-tank.level);
-                if (add>0) { tank.level+=add; moved+=add; }
+                if (add>0) { tank.level+=add; tank.liquidType='oil'; moved+=add; }
             }
         });
         pj.oilBuffer=Math.max(0, pj.oilBuffer-moved);
     });
-    // タンク → タンク 移送
+
+    // タンク → タンク/採掘機 (貯蔵中の任意液体を排出)
     const TANK_TRANSFER_RATE = 5.0; // L/秒
     storageTankObjs.forEach((srcTank, srcIdx)=>{
-        if (srcTank.level<=0) return;
+        if (srcTank.level<=0||!srcTank.liquidType) return;
+        const lt=srcTank.liquidType;
         const {gx,gz}=worldToGrid(srcTank.x, srcTank.z);
         const d=rotateGridDir(1,0, srcTank.rot||0);
         const outNK=nodeKey(gx+d.dx, gz+d.dz);
         const conns=pipeNodeConns.get(outNK);
         const ports=portRegistry.get(outNK)||[];
-        const directSinks=ports.filter(p=>p.portType==='in'&&p.liquidType==='oil');
-        const sinks=[...directSinks, ...(conns&&conns.size>0 ? findConnectedSinks(outNK,'oil') : [])];
-        const seen=new Set();
-        const uniq=sinks.filter(s=>{
-            if (s.facilityType==='storageTank'&&s.idx===srcIdx) return false; // 自己ループ除外
-            const k=`${s.facilityType}:${s.idx}`;
-            if (seen.has(k)) return false; seen.add(k); return true;
-        });
-        if (uniq.length===0) return;
+        const direct=ports.filter(p=>p.portType==='in'&&(p.liquidType===lt||p.liquidType===null));
+        const allSinks=dedup([...direct,...(conns&&conns.size>0?findConnectedSinks(outNK,lt):[])]);
+        const sinks=allSinks.filter(s=>!(s.facilityType==='storageTank'&&s.idx===srcIdx));
+        if (sinks.length===0) return;
         const totalAvail=Math.min(srcTank.level, TANK_TRANSFER_RATE*delta);
-        const perSink=totalAvail/uniq.length;
+        const perSink=totalAvail/sinks.length;
         let moved=0;
-        uniq.forEach(s=>{
+        sinks.forEach(s=>{
             if (s.facilityType==='storageTank') {
                 const dst=storageTankObjs[s.idx];
-                if (!dst) return;
+                if (!dst||(dst.liquidType&&dst.liquidType!==lt)) return;
                 const add=Math.min(perSink, STORAGE_TANK_CAP-dst.level);
-                if (add>0) { dst.level+=add; moved+=add; }
+                if (add>0) { dst.level+=add; dst.liquidType=lt; moved+=add; }
+            } else if (s.facilityType==='pumpJack'&&lt==='gas') {
+                const pj=pumpJackObjs[s.idx];
+                if (!pj) return;
+                const add=Math.min(perSink, PUMP_JACK_FUEL_CAP-pj.fuelLevel);
+                if (add>0) { pj.fuelLevel+=add; moved+=add; }
             }
         });
         srcTank.level=Math.max(0, srcTank.level-moved);
-    });
-    // ガス → 採掘機 燃料供給
-    const GAS_SUPPLY_RATE = 2.0; // L/秒
-    pumpJackObjs.forEach((pj)=>{
-        if (pj.fuelLevel >= PUMP_JACK_FUEL_CAP) return;
-        const {gx,gz}=worldToGrid(pj.x,pj.z);
-        const d=rotateGridDir(-1,0,pj.group.rotation.y); // 燃料吸入口は -x 方向
-        const inNK=nodeKey(gx+d.dx, gz+d.dz);
-        const conns=pipeNodeConns.get(inNK);
-        const ports=portRegistry.get(inNK)||[];
-        const directSrcs=ports.filter(p=>p.portType==='out'&&p.liquidType==='gas');
-        const srcs=[...directSrcs, ...(conns&&conns.size>0 ? findConnectedSources(inNK,'gas') : [])];
-        const seen=new Set();
-        const uniq=srcs.filter(s=>{ const k=`${s.facilityType}:${s.idx}`; if(seen.has(k))return false; seen.add(k);return true; });
-        if (uniq.length===0) return;
-        const space=PUMP_JACK_FUEL_CAP-pj.fuelLevel;
-        const totalAdd=Math.min(space, GAS_SUPPLY_RATE*delta);
-        const perSrc=totalAdd/uniq.length;
-        let received=0;
-        uniq.forEach(s=>{
-            if (s.facilityType==='storageTank') {
-                const tank=storageTankObjs[s.idx];
-                if (!tank||!(tank.gasLevel>0)) return;
-                const take=Math.min(perSrc, tank.gasLevel);
-                if (take>0) { tank.gasLevel-=take; received+=take; }
-            }
-        });
-        pj.fuelLevel=Math.min(PUMP_JACK_FUEL_CAP, pj.fuelLevel+received);
+        if (srcTank.level===0) srcTank.liquidType=null;
     });
 }
 // パイプゴーストメッシュ更新
@@ -2864,9 +2842,9 @@ function computeCurrentAction() {
             if (pj && pj.oilBuffer > 0)
                 return { type:'collectOilPumpJack', label:L.promptCollectPumpJack(pj.oilBuffer), pjIdx:raycastPumpJackIdx };
         }
-        if (heldItem.contentType!=='gas' && heldItem.fill > 0 && raycastStorageTankIdx>=0) {
+        if (heldItem.fill > 0 && raycastStorageTankIdx>=0) {
             const st=storageTankObjs[raycastStorageTankIdx];
-            if (st && st.level < STORAGE_TANK_CAP)
+            if (st && st.level < STORAGE_TANK_CAP && (!st.liquidType||!heldItem.contentType||st.liquidType===heldItem.contentType))
                 return { type:'fillStorageTank', label:L.promptFillStorageTank(Math.floor(st.level), STORAGE_TANK_CAP), stIdx:raycastStorageTankIdx };
         }
         if (nearCart && cartCapacityUsed()+1<=10) return { type:'loadCart', label:L.promptLoadCart };
@@ -3299,7 +3277,7 @@ function doInstallStorageTank() {
     const idx = storageTankObjs.length;
     g.traverse(m=>{ if(m.isMesh) storageTankMeshToIdx.set(m.uuid, idx); });
     const stIdx = storageTankObjs.length;
-    storageTankObjs.push({ group:g, x:gp.x, z:gp.z, level:0, rot:placementRot });
+    storageTankObjs.push({ group:g, x:gp.x, z:gp.z, level:0, liquidType:null, rot:placementRot });
     const {gx:stGx,gz:stGz}=worldToGrid(gp.x,gp.z);
     registerFacilityPorts('storageTank', stIdx, stGx, stGz, placementRot);
     if (ghostMesh) { scene.remove(ghostMesh); ghostMesh = null; }
@@ -3328,10 +3306,16 @@ function doFillStorageTank(idx) {
     const L = I18N[currentLang];
     const st = storageTankObjs[idx];
     if (!st || !heldItem || heldItem.fill<=0) return;
+    // 液体種別チェック: タンクに内容物がある場合は同種のみ
+    const ct = heldItem.contentType;
+    if (st.liquidType && ct && st.liquidType!==ct) {
+        showNotification(currentLang==='ja'?'異なる液体は混入できません':'Cannot mix different liquids'); return;
+    }
     const space = STORAGE_TANK_CAP - st.level;
     if (space <= 0) { showNotification(L.msgStorageTankFull); return; }
     const add = Math.min(heldItem.fill, space);
     st.level += add;
+    if (ct) st.liquidType = ct; // 液体種別を記録
     heldItem.fill -= add;
     if (heldItem.fill <= 0) { heldItem.fill=0; heldItem.contentType=null; }
     updateHeldMesh(); updateUI();
@@ -3344,8 +3328,9 @@ function doDrawStorageTank(idx) {
     if (!st || st.level<=0) { showNotification(L.msgStorageTankEmpty); return; }
     const take = Math.min(st.level, JERRY_CAN_CAP);
     st.level -= take;
+    if (st.level===0) st.liquidType=null;
     const dp = getDropPos();
-    spawnWorldItem('jerryCan', dp.x, dp.z, false, take, 0.04, 'oil');
+    spawnWorldItem('jerryCan', dp.x, dp.z, false, take, 0.04, st.liquidType||'oil');
     updateUI();
     showNotification(L.promptDrawStorageTank(Math.floor(st.level), STORAGE_TANK_CAP));
 }
@@ -4548,7 +4533,7 @@ function saveGame(isAuto=false) {
     gameState.savedTowVehicle=towVehiclePurchased&&towVehicle?{x:towVehicle.x,z:towVehicle.z,rot:towVehicle.rot,hitchedTankIdx:towVehicle.hitchedTankIdx}:null;
     gameState.savedTowTanks=towTanks.map(tt=>({x:tt.x,z:tt.z,capacity:tt.capacity,fill:tt.fill,contentType:tt.contentType}));
     gameState.savedPumpJacks=pumpJackObjs.map(pj=>({x:pj.x,z:pj.z,fuelLevel:pj.fuelLevel,oilBuffer:pj.oilBuffer,nearSpringIdx:pj.nearSpringIdx,rot:pj.rot||0}));
-    gameState.savedStorageTanks=storageTankObjs.map(st=>({x:st.x,z:st.z,level:st.level,rot:st.rot||0}));
+    gameState.savedStorageTanks=storageTankObjs.map(st=>({x:st.x,z:st.z,level:st.level,liquidType:st.liquidType||null,rot:st.rot||0}));
     gameState.savedPipes=[...pipeEdges.entries()].map(([ek,v])=>{
         const parts=ek.split(':');
         const [gx1,gz1]=parts[0].split(',').map(Number);
@@ -4657,7 +4642,7 @@ function loadGame() {
 
         // 貯蔵タンク復元
         clearStorageTankObjs();
-        (gameState.savedStorageTanks||[]).forEach(st=>restoreStorageTank(st.x,st.z,st.level||0,st.rot||0));
+        (gameState.savedStorageTanks||[]).forEach(st=>restoreStorageTank(st.x,st.z,st.level||0,st.rot||0,st.liquidType||null));
 
         // パイプ・ジャンクション復元
         clearPipeObjs();
@@ -4750,14 +4735,14 @@ function clearStorageTankObjs() {
     raycastStorageTankIdx=-1; highlightedStorageTankIdx=-1;
 }
 
-function restoreStorageTank(x, z, level, rot=0) {
+function restoreStorageTank(x, z, level, rot=0, liquidType=null) {
     const g = createStorageTankMesh();
     g.position.set(x, 0, z);
     g.rotation.y = rot;
     scene.add(g);
     const idx = storageTankObjs.length;
     g.traverse(m=>{ if(m.isMesh) storageTankMeshToIdx.set(m.uuid, idx); });
-    storageTankObjs.push({ group:g, x, z, level, rot });
+    storageTankObjs.push({ group:g, x, z, level, liquidType: liquidType||null, rot });
     const {gx,gz}=worldToGrid(x,z);
     registerFacilityPorts('storageTank', idx, gx, gz, rot);
 }
