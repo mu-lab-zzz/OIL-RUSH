@@ -1315,11 +1315,26 @@ function getDropPos() {
 }
 
 function getGridSnapPos() {
-    const fx=-Math.sin(gameState.cameraYaw), fz=-Math.cos(gameState.cameraYaw);
-    const px=playerGroup.position.x+fx*2.0, pz=playerGroup.position.z+fz*2.0;
+    const MAX_PLACE_DIST = 15;
+    const dir = new THREE.Vector3();
+    camera.getWorldDirection(dir);
+    let tx, tz;
+    if (dir.y < -0.01) {
+        // 視線とy=0平面の交点を求める
+        let t = camera.position.y / (-dir.y);
+        t = Math.min(t, MAX_PLACE_DIST);
+        tx = camera.position.x + dir.x * t;
+        tz = camera.position.z + dir.z * t;
+    } else {
+        // 水平か上向きの場合は正面2mにフォールバック
+        const fx = -Math.sin(gameState.cameraYaw);
+        const fz = -Math.cos(gameState.cameraYaw);
+        tx = playerGroup.position.x + fx * 2.0;
+        tz = playerGroup.position.z + fz * 2.0;
+    }
     return {
-        x: Math.round(px / GRID_SNAP) * GRID_SNAP,
-        z: Math.round(pz / GRID_SNAP) * GRID_SNAP
+        x: Math.round(tx / GRID_SNAP) * GRID_SNAP,
+        z: Math.round(tz / GRID_SNAP) * GRID_SNAP
     };
 }
 
