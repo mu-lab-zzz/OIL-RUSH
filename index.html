@@ -1410,11 +1410,14 @@ function createPortLabelSprite(portType, dx, dz) {
     const isOut = portType === 'out';
     const col = isOut ? '#ff8c00' : '#00c853';
     const label = isOut ? '排出口' : '吸入口';
+    // 排出口: 施設から外へ向かう方向 / 吸入口: ポートから施設へ向かう方向（逆）
+    const adx = isOut ? dx : -dx;
+    const adz = isOut ? dz : -dz;
     let arrow;
-    if      (dx > 0) arrow = '→';
-    else if (dx < 0) arrow = '←';
-    else if (dz > 0) arrow = '↓';
-    else             arrow = '↑';
+    if      (adx > 0) arrow = '→';
+    else if (adx < 0) arrow = '←';
+    else if (adz > 0) arrow = '↓';
+    else              arrow = '↑';
     // 背景
     ctx.fillStyle = isOut ? 'rgba(160,60,0,0.75)' : 'rgba(0,100,50,0.75)';
     ctx.fillRect(0, 0, 192, 128);
