@@ -979,15 +979,17 @@ function createStorageTankMesh() {
     const ladR=bk(0.04,4.0,0.04,band); ladR.position.set(1.22,2.25, 0.16); g.add(ladR);
     for(let i=0;i<7;i++){ const rg=bk(0.30,0.04,0.04,band); rg.position.set(1.37,0.5+i*0.56,0); g.add(rg); }
 
-    // 入口パイプスタブ (緑, 上部)
-    const inP=cy(0.11,0.11,0.50,0x1e6626,8); inP.position.set(0.45,4.61,0); g.add(inP);
-    const inV=cy(0.16,0.16,0.08,0x134418,8); inV.position.set(0.45,4.90,0); g.add(inV);
+    // 入口パイプスタブ (緑, 左側 -x, y=0.5でパイプ高さに合わせる)
+    const inP=cy(0.11,0.11,0.65,0x1e6626,8);
+    inP.rotation.z=Math.PI/2; inP.position.set(-1.675,0.5,0); g.add(inP);
+    const inV=cy(0.16,0.16,0.08,0x134418,8);
+    inV.rotation.z=Math.PI/2; inV.position.set(-2.0,0.5,0); g.add(inV);
 
-    // 出口パイプスタブ (橙, 側面下部)
-    const outP=cy(0.11,0.11,0.46,0xcc6600,8);
-    outP.rotation.z=Math.PI/2; outP.position.set(1.57,0.65,0); g.add(outP);
+    // 出口パイプスタブ (橙, 右側 +x, y=0.5でパイプ高さに合わせる)
+    const outP=cy(0.11,0.11,0.65,0xcc6600,8);
+    outP.rotation.z=Math.PI/2; outP.position.set(1.675,0.5,0); g.add(outP);
     const outV=cy(0.16,0.16,0.08,0x994400,8);
-    outV.rotation.z=Math.PI/2; outV.position.set(1.81,0.65,0); g.add(outV);
+    outV.rotation.z=Math.PI/2; outV.position.set(2.0,0.5,0); g.add(outV);
 
     // レベルゲージ
     const gauge=cy(0.035,0.035,4.0,0xe8e8ff,8);
