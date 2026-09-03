@@ -94,10 +94,17 @@
         <div style="border-top:1px solid #444;padding-top:14px;margin-top:4px;">
             <div class="settings-row">
                 <div>
-                    <div class="settings-label" id="lbl-touch">タッチ選択</div>
-                    <div style="font-size:11px;color:#888;margin-top:2px;" id="lbl-touch-sub">近くのオブジェクトを自動選択</div>
+                    <div class="settings-label" id="lbl-touch">タッチ/クリック選択</div>
+                    <div style="font-size:11px;color:#888;margin-top:2px;" id="lbl-touch-sub">画面タップ・クリックでオブジェクトを選択</div>
                 </div>
                 <button class="toggle-btn on-green" id="btn-touch" onclick="toggleTouchSelect()"></button>
+            </div>
+            <div class="settings-row" style="margin-top:10px;">
+                <div>
+                    <div class="settings-label" id="lbl-prox">近接自動選択</div>
+                    <div style="font-size:11px;color:#888;margin-top:2px;" id="lbl-prox-sub">近くのオブジェクトを自動選択</div>
+                </div>
+                <button class="toggle-btn" id="btn-prox" onclick="toggleProximitySelect()"></button>
             </div>
         </div>
         <div style="border-top:1px solid #444;padding-top:14px;margin-top:4px;">
@@ -405,7 +412,9 @@ const I18N = {
 };
 let currentLang = 'ja';
 let debugMode = false;
-let touchSelectEnabled = true; // 近接タッチ選択
+let touchSelectEnabled    = true;  // 画面タップ/クリック選択
+let proximitySelectEnabled = false; // 近接自動選択
+let pinnedTarget = null; // { type, idx, x, z } タップ選択で固定されたターゲット
 let placementRot = 0;  // グリッド設置時の回転角 (0,90,180,270°)
 let ghostMesh = null;  // 設置プレビューメッシュ
 
@@ -2487,6 +2496,8 @@ window.addEventListener('keyup',e=>{
 
 let joystickActive=false,joystickTouchId=null,joystickVector={x:0,y:0};
 let lookTouchId=null,lastTouchPos={x:0,y:0},isMouseDown=false;
+let mouseDownPos={x:0,y:0}; // クリック判定用
+let lookTouchStartPos={x:0,y:0}; // タップ判定用
 const joystickZone=document.getElementById('joystick-zone');
 const joystickKnob=document.getElementById('joystick-knob');
 
@@ -2497,7 +2508,9 @@ window.addEventListener('touchstart',e=>{
         if (t.clientX>=r.left&&t.clientX<=r.right&&t.clientY>=r.top&&t.clientY<=r.bottom) {
             if (joystickTouchId===null) { joystickTouchId=t.identifier; joystickActive=true; updateJoystick(t); }
         } else if (t.clientX>innerWidth/3&&lookTouchId===null) {
-            lookTouchId=t.identifier; lastTouchPos.x=t.clientX; lastTouchPos.y=t.clientY;
+            lookTouchId=t.identifier;
+            lastTouchPos.x=t.clientX; lastTouchPos.y=t.clientY;
+            lookTouchStartPos.x=t.clientX; lookTouchStartPos.y=t.clientY;
         }
     }
 },{passive:false});
@@ -2519,12 +2532,19 @@ window.addEventListener('touchend',e=>{
         if (t.identifier===joystickTouchId) {
             joystickTouchId=null; joystickActive=false; joystickVector={x:0,y:0};
             joystickKnob.style.top='32px'; joystickKnob.style.left='32px';
-        } else if (t.identifier===lookTouchId) { lookTouchId=null; }
+        } else if (t.identifier===lookTouchId) {
+            // 移動量が小さければタップとしてタッチ選択を実行
+            const moved=Math.hypot(t.clientX-lookTouchStartPos.x, t.clientY-lookTouchStartPos.y);
+            if (moved < 12) processTouchSelectAt(t.clientX, t.clientY);
+            lookTouchId=null;
+        }
     }
 });
 window.addEventListener('mousedown',e=>{
     if (e.target.closest('.interactive')||e.target.closest('.modal')) return;
-    isMouseDown=true; lastTouchPos.x=e.clientX; lastTouchPos.y=e.clientY;
+    isMouseDown=true;
+    mouseDownPos.x=e.clientX; mouseDownPos.y=e.clientY;
+    lastTouchPos.x=e.clientX; lastTouchPos.y=e.clientY;
 });
 window.addEventListener('mousemove',e=>{
     if (!isMouseDown) return;
@@ -2533,7 +2553,14 @@ window.addEventListener('mousemove',e=>{
     gameState.cameraPitch=Math.max(-Math.PI/2.2,Math.min(Math.PI/2.2,gameState.cameraPitch));
     lastTouchPos.x=e.clientX; lastTouchPos.y=e.clientY;
 });
-window.addEventListener('mouseup',()=>{isMouseDown=false;});
+window.addEventListener('mouseup',e=>{
+    if (isMouseDown) {
+        // ドラッグ量が小さければクリックとしてタッチ選択を実行
+        const moved=Math.hypot(e.clientX-mouseDownPos.x, e.clientY-mouseDownPos.y);
+        if (moved < 8) processTouchSelectAt(e.clientX, e.clientY);
+    }
+    isMouseDown=false;
+});
 
 function updateJoystick(touch) {
     const r=joystickZone.getBoundingClientRect();
@@ -2845,9 +2872,79 @@ function drumPrice(fill) {
     return Math.min(DRUM_CAP, fill); // $1/L
 }
 
+// ===== タップ/クリック選択 =====
+function processTouchSelectAt(clientX, clientY) {
+    if (!touchSelectEnabled) return;
+    // UIパーツ上のタップは無視
+    if (document.elementFromPoint(clientX,clientY)?.closest('.interactive,.modal,#ui-overlay')) return;
+    const ndcX=(clientX/innerWidth)*2-1, ndcY=-(clientY/innerHeight)*2+1;
+    const rc=new THREE.Raycaster();
+    rc.far=30;
+    rc.setFromCamera({x:ndcX,y:ndcY}, camera);
+
+    // 採掘機
+    if (pumpJackObjs.length>0) {
+        const ms=[]; pumpJackObjs.forEach(pj=>pj.group.traverse(m=>{if(m.isMesh)ms.push(m);}));
+        const h=rc.intersectObjects(ms,false);
+        if(h.length>0){
+            const idx=pumpJackMeshToIdx.get(h[0].object.uuid);
+            if(idx!==undefined){pinnedTarget={type:'pumpJack',idx,x:pumpJackObjs[idx].x,z:pumpJackObjs[idx].z};return;}
+        }
+    }
+    // 貯蔵タンク
+    if (storageTankObjs.length>0) {
+        const ms=[]; storageTankObjs.forEach(st=>st.group.traverse(m=>{if(m.isMesh)ms.push(m);}));
+        const h=rc.intersectObjects(ms,false);
+        if(h.length>0){
+            const idx=storageTankMeshToIdx.get(h[0].object.uuid);
+            if(idx!==undefined){pinnedTarget={type:'storageTank',idx,x:storageTankObjs[idx].x,z:storageTankObjs[idx].z};return;}
+        }
+    }
+    // 設置済みポンプ
+    if (pumpObjs.length>0) {
+        const ms=[]; pumpObjs.forEach(po=>po.group.traverse(m=>{if(m.isMesh)ms.push(m);}));
+        const h=rc.intersectObjects(ms,false);
+        if(h.length>0){
+            const idx=pumpMeshToIdx.get(h[0].object.uuid);
+            if(idx!==undefined){pinnedTarget={type:'pump',idx,x:pumpObjs[idx].x,z:pumpObjs[idx].z};return;}
+        }
+    }
+    // エンジンポンプ
+    if (enginePumpObjs.length>0) {
+        const ms=[]; enginePumpObjs.forEach(ep=>ep.group.traverse(m=>{if(m.isMesh)ms.push(m);}));
+        const h=rc.intersectObjects(ms,false);
+        if(h.length>0){
+            const idx=enginePumpMeshToIdx.get(h[0].object.uuid);
+            if(idx!==undefined){pinnedTarget={type:'enginePump',idx,x:enginePumpObjs[idx].x,z:enginePumpObjs[idx].z};return;}
+        }
+    }
+    // 牽引タンク
+    if (towTanks.length>0) {
+        const ms=[]; towTanks.forEach(tt=>tt.group.traverse(m=>{if(m.isMesh)ms.push(m);}));
+        const h=rc.intersectObjects(ms,false);
+        if(h.length>0){
+            const idx=towTankMeshToIdx.get(h[0].object.uuid);
+            if(idx!==undefined){const tp=towTanks[idx].group.position;pinnedTarget={type:'towTank',idx,x:tp.x,z:tp.z};return;}
+        }
+    }
+    // ワールドアイテム
+    if (worldItems.length>0) {
+        const ms=[], wmap=new Map();
+        worldItems.forEach((item,idx)=>item.group.traverse(m=>{if(m.isMesh){ms.push(m);wmap.set(m.uuid,idx);}}));
+        const h=rc.intersectObjects(ms,false);
+        if(h.length>0){
+            const idx=wmap.get(h[0].object.uuid);
+            if(idx!==undefined){pinnedTarget={type:'worldItem',idx,x:worldItems[idx].x,z:worldItems[idx].z};return;}
+        }
+    }
+    // 何も当たらなければピン解除
+    pinnedTarget=null;
+}
+
 // ===== アクション実行 =====
 function triggerAction() {
     if (!currentAction) return;
+    pinnedTarget = null; // アクション実行でピン解除
     const L=I18N[currentLang];
     switch (currentAction.type) {
         case 'pickup':             doPickup(currentAction.itemIdx); break;
@@ -3736,7 +3833,7 @@ function updateGame() {
         const hits = raycaster.intersectObjects(itemMeshes, false);
         raycastTargetIdx = (hits.length>0) ? (meshToIdx.get(hits[0].object.uuid)??-1) : -1;
         // 近接フォールバック（ワールドアイテム）
-        if (touchSelectEnabled && raycastTargetIdx<0 && worldItems.length>0) {
+        if (proximitySelectEnabled && raycastTargetIdx<0 && worldItems.length>0) {
             const _px=playerGroup.position.x, _pz=playerGroup.position.z;
             let bestD=1.5*1.5, bestI=-1;
             worldItems.forEach((item,idx)=>{
@@ -3781,7 +3878,7 @@ function updateGame() {
                 if (idx !== undefined) raycastPumpIdx = idx;
             }
             // 近接フォールバック
-            if (touchSelectEnabled && raycastPumpIdx<0) {
+            if (proximitySelectEnabled && raycastPumpIdx<0) {
                 const _px=playerGroup.position.x, _pz=playerGroup.position.z;
                 let bestD=1.8*1.8, bestI=-1;
                 pumpObjs.forEach((po,idx)=>{
@@ -3803,7 +3900,7 @@ function updateGame() {
                 if (idx !== undefined) raycastEnginePumpIdx = idx;
             }
             // 近接フォールバック
-            if (touchSelectEnabled && raycastEnginePumpIdx<0) {
+            if (proximitySelectEnabled && raycastEnginePumpIdx<0) {
                 const _px=playerGroup.position.x, _pz=playerGroup.position.z;
                 let bestD=2.0*2.0, bestI=-1;
                 enginePumpObjs.forEach((ep,idx)=>{
@@ -3827,7 +3924,7 @@ function updateGame() {
                 }
             }
             // 近接フォールバック
-            if (touchSelectEnabled && raycastGasNozzleIdx<0) {
+            if (proximitySelectEnabled && raycastGasNozzleIdx<0) {
                 const _px=playerGroup.position.x, _pz=playerGroup.position.z;
                 let bestD=2.0*2.0, bestI=-1;
                 gasStationObjs.forEach((gs,idx)=>{
@@ -3850,7 +3947,7 @@ function updateGame() {
                 if (idx!==undefined) raycastTowTankIdx=idx;
             }
             // 近接フォールバック
-            if (touchSelectEnabled && raycastTowTankIdx<0) {
+            if (proximitySelectEnabled && raycastTowTankIdx<0) {
                 const _px=playerGroup.position.x, _pz=playerGroup.position.z;
                 let bestD=2.5*2.5, bestI=-1;
                 towTanks.forEach((tt,idx)=>{
@@ -3885,7 +3982,7 @@ function updateGame() {
                 if (idx!==undefined) raycastPumpJackIdx=idx;
             }
             // 近接フォールバック
-            if (touchSelectEnabled && raycastPumpJackIdx<0) {
+            if (proximitySelectEnabled && raycastPumpJackIdx<0) {
                 const _px=playerGroup.position.x, _pz=playerGroup.position.z;
                 let bestD=2.5*2.5, bestI=-1;
                 pumpJackObjs.forEach((pj,idx)=>{
@@ -3907,7 +4004,7 @@ function updateGame() {
                 if (idx!==undefined) raycastStorageTankIdx=idx;
             }
             // 近接フォールバック
-            if (touchSelectEnabled && raycastStorageTankIdx<0) {
+            if (proximitySelectEnabled && raycastStorageTankIdx<0) {
                 const _px=playerGroup.position.x, _pz=playerGroup.position.z;
                 let bestD=3.0*3.0, bestI=-1;
                 storageTankObjs.forEach((st,idx)=>{
@@ -3915,6 +4012,25 @@ function updateGame() {
                     if(d2<bestD){bestD=d2;bestI=idx;}
                 });
                 raycastStorageTankIdx=bestI;
+            }
+        }
+
+        // pinnedTarget 適用（タップ/クリック選択）
+        // クロスヘアが何も取らなかった種別にのみ上書き（クロスヘア優先）
+        // 遠くなりすぎたらピン解除（距離8m超）
+        if (pinnedTarget) {
+            const _ppx=playerGroup.position.x, _ppz=playerGroup.position.z;
+            const dist=Math.hypot(_ppx-pinnedTarget.x, _ppz-pinnedTarget.z);
+            if (dist > 8) { pinnedTarget=null; }
+            else {
+                switch(pinnedTarget.type) {
+                    case 'pumpJack':    if(raycastPumpJackIdx<0)    raycastPumpJackIdx   =pinnedTarget.idx; break;
+                    case 'storageTank': if(raycastStorageTankIdx<0) raycastStorageTankIdx=pinnedTarget.idx; break;
+                    case 'pump':        if(raycastPumpIdx<0)        raycastPumpIdx       =pinnedTarget.idx; break;
+                    case 'enginePump':  if(raycastEnginePumpIdx<0)  raycastEnginePumpIdx =pinnedTarget.idx; break;
+                    case 'towTank':     if(raycastTowTankIdx<0)     raycastTowTankIdx    =pinnedTarget.idx; break;
+                    case 'worldItem':   if(raycastTargetIdx<0)      raycastTargetIdx     =pinnedTarget.idx; break;
+                }
             }
         }
 
@@ -4204,8 +4320,10 @@ function updateSettingsModalLabels() {
     document.getElementById('btn-load-s').innerText = ja ? '読み込む' : 'Load';
     document.getElementById('lbl-data').innerText = ja ? 'データ管理' : 'Data Mgmt';
     document.getElementById('btn-data-s').innerText = ja ? '開く' : 'Open';
-    document.getElementById('lbl-touch').innerText = ja ? 'タッチ選択' : 'Touch Select';
-    document.getElementById('lbl-touch-sub').innerText = ja ? '近くのオブジェクトを自動選択' : 'Auto-select nearby objects';
+    document.getElementById('lbl-touch').innerText = ja ? 'タッチ/クリック選択' : 'Tap/Click Select';
+    document.getElementById('lbl-touch-sub').innerText = ja ? '画面タップ・クリックでオブジェクトを選択' : 'Tap or click on objects to select them';
+    document.getElementById('lbl-prox').innerText = ja ? '近接自動選択' : 'Proximity Auto-Select';
+    document.getElementById('lbl-prox-sub').innerText = ja ? '近くのオブジェクトを自動選択' : 'Auto-select nearby objects';
     document.getElementById('lbl-debug').innerText = ja ? '🐛 デバッグモード' : '🐛 Debug Mode';
     document.getElementById('lbl-debug-sub').innerText = ja ? '全商品を無料で購入できます' : 'Buy all items for free';
     document.getElementById('btn-close-s').innerText = ja ? '閉じる' : 'Close';
@@ -4220,8 +4338,12 @@ function toggleDebugMode() {
 
 function toggleTouchSelect() {
     touchSelectEnabled = !touchSelectEnabled;
-    const btn = document.getElementById('btn-touch');
-    btn.classList.toggle('on-green', touchSelectEnabled);
+    document.getElementById('btn-touch').classList.toggle('on-green', touchSelectEnabled);
+    if (!touchSelectEnabled) pinnedTarget = null;
+}
+function toggleProximitySelect() {
+    proximitySelectEnabled = !proximitySelectEnabled;
+    document.getElementById('btn-prox').classList.toggle('on-green', proximitySelectEnabled);
 }
 
 function showNotification(msg) {
