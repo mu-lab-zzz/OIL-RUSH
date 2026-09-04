@@ -283,7 +283,20 @@ const I18N = {
         promptRemovePipe: "[SPACE] パイプを撤去",
         promptRemoveJunction: "[SPACE] 分岐パイプを回収",
         msgPipeRemoved: "パイプを撤去した",
-        msgJunctionRemoved: "分岐パイプを回収した"
+        msgJunctionRemoved: "分岐パイプを回収した",
+        nameRefinery: "原油精製施設",
+        promptInstallRefinery: "[SPACE] 精製施設を設置  [R] 回転",
+        promptRemoveRefinery: "[SPACE] 精製施設を回収",
+        promptToggleRefineryOn:  "[SPACE] 精製施設をONにする",
+        promptToggleRefineryOff: "[SPACE] 精製施設をOFFにする",
+        promptSellStorageTank: (earn, lt) => `[SPACE] タンク内容物を売却 (+$${earn})`,
+        msgRefineryInstalled: "精製施設を設置した",
+        msgRefineryRemoved: "精製施設を回収した",
+        msgRefineryOn: "精製施設をONにした",
+        msgRefineryOff: "精製施設をOFFにした",
+        msgRefineryBlocked: "出力バッファが満杯 — 搬出してください",
+        msgStorageTankSold: (earn) => `タンク内容物を売却した (+$${earn})`,
+        msgStorageTankEmpty2: "タンクが空です"
     },
     en: {
         money: "Money: $",
@@ -429,7 +442,20 @@ const I18N = {
         promptRemovePipe: "[SPACE] Remove pipe",
         promptRemoveJunction: "[SPACE] Retrieve junction",
         msgPipeRemoved: "Pipe removed",
-        msgJunctionRemoved: "Junction retrieved"
+        msgJunctionRemoved: "Junction retrieved",
+        nameRefinery: "Oil Refinery",
+        promptInstallRefinery: "[SPACE] Install refinery  [R] Rotate",
+        promptRemoveRefinery: "[SPACE] Retrieve refinery",
+        promptToggleRefineryOn:  "[SPACE] Turn refinery ON",
+        promptToggleRefineryOff: "[SPACE] Turn refinery OFF",
+        promptSellStorageTank: (earn, lt) => `[SPACE] Sell tank contents (+$${earn})`,
+        msgRefineryInstalled: "Refinery installed",
+        msgRefineryRemoved: "Refinery retrieved",
+        msgRefineryOn: "Refinery turned ON",
+        msgRefineryOff: "Refinery turned OFF",
+        msgRefineryBlocked: "Output buffer full — clear outputs",
+        msgStorageTankSold: (earn) => `Tank contents sold (+$${earn})`,
+        msgStorageTankEmpty2: "Tank is empty"
     }
 };
 let currentLang = 'ja';
@@ -584,7 +610,7 @@ const PUMP_JACK_RANGE     = 12;   // 油田検知距離 m
 const PUMP_JACK_CRANK_SPD = 0.9;  // クランク角速度 rad/秒
 const PUMP_JACK_BEAM_AMP  = 0.26; // ビーム振れ角 rad (~15°)
 const GRID_SNAP      = 2;                                                   // グリッド間隔 m
-const GRID_SNAP_TYPES = ['pumpJack','storageTank','junctionT','junctionCross']; // グリッド設置が必要な設備種別
+const GRID_SNAP_TYPES = ['pumpJack','storageTank','junctionT','junctionCross','refinery']; // グリッド設置が必要な設備種別
 
 // ===== パイプライン =====
 const pipeEdges       = new Map(); // edgeKey → { liquidType:null|'oil'|'gas', mesh }
@@ -603,6 +629,19 @@ const storageTankMeshToIdx = new Map();
 let raycastStorageTankIdx = -1;
 let highlightedStorageTankIdx = -1;
 const STORAGE_TANK_CAP = 1000;    // 貯蔵容量 L
+
+// ===== 原油精製施設 =====
+const refineryObjs = []; // { group, x, z, rot, enabled, products:{gas,diesel,kerosene,naphtha,lpg,heavyoil}, oilBuf, fuelBuf, switchMat, processAccum }
+const refineryMeshToIdx = new Map();
+let raycastRefineryIdx = -1;
+let highlightedRefineryIdx = -1;
+const REFINERY_PRICE         = 5000;
+const REFINERY_OIL_RATE      = 10.0;  // 原油消費 L/秒
+const REFINERY_FUEL_RATE     = 0.1;   // 燃料消費 L/秒
+const REFINERY_OIL_BUF_CAP   = 5000;  // 原油バッファ
+const REFINERY_FUEL_BUF_CAP  = 500;   // 燃料バッファ
+const REFINERY_PRODUCT_CAP   = 2000;  // 各精製物バッファ
+const REFINERY_YIELDS        = {gas:0.25,diesel:0.30,kerosene:0.15,naphtha:0.15,lpg:0.07,heavyoil:0.08};
 
 // ===== ガソリンスタンド ノズル =====
 const gasStationObjs = []; // { group, x, z, nozzleMesh }
@@ -1018,6 +1057,65 @@ function createStorageTankMesh() {
     return g;
 }
 
+// ===== 精製施設メッシュ =====
+function createRefineryMesh() {
+    const g = new THREE.Group();
+    function bx(w,h,d,c,r=0.85,m=0.1){
+        const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),
+            new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m}));
+        mesh.castShadow=true; mesh.receiveShadow=true; return mesh;
+    }
+    function cy(rt,rb,h,c,seg=16,r=0.75,m=0.2){
+        const mesh=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg),
+            new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m}));
+        mesh.castShadow=true; mesh.receiveShadow=true; return mesh;
+    }
+
+    // 本体 (工場棟)
+    const body=bx(3.8,3.0,5.6,0x78909c,0.85,0.2); body.position.set(0,1.5,0); g.add(body);
+    const roof=bx(3.9,0.25,5.7,0x546e7a,0.9,0.15); roof.position.set(0,3.08,0); g.add(roof);
+
+    // 蒸留塔 (右側後方)
+    const tower=cy(0.55,0.6,6.0,0xb0bec5,16,0.7,0.35); tower.position.set(1.5,3.0,1.8); g.add(tower);
+    const towerTop=cy(0.55,0.3,0.4,0x90a4ae,16); towerTop.position.set(1.5,6.2,1.8); g.add(towerTop);
+    // 蒸留塔バンド
+    [1.5,2.5,3.5,4.5,5.5].forEach(y=>{
+        const b=cy(0.57,0.57,0.12,0x78909c,16); b.position.set(1.5,y,1.8); g.add(b);
+    });
+    // 蒸留塔煙突
+    const chimney=cy(0.15,0.15,1.2,0x5d4037,8); chimney.position.set(1.5,6.8,1.8); g.add(chimney);
+
+    // 配管ブリッジ (塔←→本体)
+    const bridge=bx(1.2,0.15,0.2,0x607d8b,0.8,0.4); bridge.position.set(0.6,4.5,1.8); g.add(bridge);
+
+    // ガスフレアスタック (左側)
+    const flare=cy(0.10,0.10,4.0,0x4a4a4a,8); flare.position.set(-2.2,2.0,-1.5); g.add(flare);
+
+    // ON/OFFスイッチパネル (正面中央)
+    const panel=bx(0.8,0.5,0.06,0x37474f,0.7,0.1); panel.position.set(0,1.5,-2.83); g.add(panel);
+    const switchLed=new THREE.Mesh(
+        new THREE.CylinderGeometry(0.12,0.12,0.08,12),
+        new THREE.MeshStandardMaterial({color:0x00cc00, emissive:0x00cc00, emissiveIntensity:1.2, roughness:0.3})
+    );
+    switchLed.rotation.x=Math.PI/2;
+    switchLed.position.set(0,1.5,-2.87); g.add(switchLed);
+
+    // 原油入口パイプスタブ (左側 -x)
+    const oilIn=cy(0.13,0.13,0.9,0x00c853,8); oilIn.rotation.z=Math.PI/2; oilIn.position.set(-2.35,0.5,0); g.add(oilIn);
+    // 燃料入口パイプスタブ (前側 -z)
+    const fuelIn=cy(0.13,0.13,0.9,0x777777,8); fuelIn.rotation.x=Math.PI/2; fuelIn.position.set(0,0.5,-3.25); g.add(fuelIn);
+
+    // 出口パイプスタブ群 (後・右)
+    [[-1,0xaaaaaa],[0,0xccaa00],[1,0x00aacc]].forEach(([ox,c])=>{
+        const stub=cy(0.11,0.11,0.7,c,8); stub.rotation.x=-Math.PI/2; stub.position.set(ox*0.9,0.5,3.25); g.add(stub);
+    });
+    [[1,0xff7700],[0,0x9944cc],[-1,0x3d2200]].forEach(([oz,c])=>{
+        const stub=cy(0.11,0.11,0.7,c,8); stub.rotation.z=-Math.PI/2; stub.position.set(2.35,0.5,oz*0.9); g.add(stub);
+    });
+
+    return { group: g, switchMat: switchLed.material };
+}
+
 // ===== パイプメッシュ =====
 function createPipeSegmentMesh(axis) {
     const mat = new THREE.MeshStandardMaterial({color:0x607d8b,metalness:0.75,roughness:0.35});
@@ -1209,6 +1307,9 @@ function spawnWorldItem(type, x, z, hasOil=false, fill=0, yPos=0, contentType=nu
     } else if (type === 'junctionCross') {
         mesh = createCrossJunctionMesh();
         mesh.scale.setScalar(0.8);
+    } else if (type === 'refinery') {
+        mesh = createRefineryMesh().group;
+        mesh.scale.setScalar(0.6);
     } else {
         mesh = createJerryCanMesh(fill);
         mesh.scale.setScalar(1.3);
@@ -1302,6 +1403,11 @@ function updateHeldMesh() {
         heldMesh.position.set(0.28, -0.38, -0.6);
         heldMesh.rotation.set(0.05, 0.3, 0.05);
         heldMesh.scale.setScalar(0.2);
+    } else if (heldItem.type === 'refinery') {
+        heldMesh = createRefineryMesh().group;
+        heldMesh.position.set(0.35, -0.35, -0.7);
+        heldMesh.rotation.set(0.05, 0.3, 0.05);
+        heldMesh.scale.setScalar(0.09);
     } else if (heldItem.type === 'engineNozzle' || heldItem.type === 'gasNozzle' || heldItem.type === 'towTankNozzle') {
         heldMesh = createNozzleMesh();
         heldMesh.position.set(0.24, -0.28, -0.48);
@@ -1421,10 +1527,25 @@ function updateNodeJoint(gx,gz) {
     scene.add(jm);
     nodeJointMeshes.set(nk,jm);
 }
+// 液体種別カラー取得
+function getLiquidColor(liquidType, portType) {
+    if (!liquidType) return 0x777777; // 任意 = グレー
+    const isOut = portType === 'out';
+    switch (liquidType) {
+        case 'oil':      return isOut ? 0xff8c00 : 0x00c853;
+        case 'gas':      return 0x222222;
+        case 'diesel':   return 0xccaa00;
+        case 'kerosene': return 0x00aacc;
+        case 'naphtha':  return 0xff7700;
+        case 'lpg':      return 0x9944cc;
+        case 'heavyoil': return 0x3d1a00;
+        default:         return isOut ? 0xff8c00 : 0x00c853;
+    }
+}
 // ポート方向矢印コーン生成（3Dメッシュ: カメラ方向に依存しない）
 function createPortArrowMesh(portType, dx, dz, liquidType) {
     const isOut = portType === 'out';
-    const col = liquidType==='gas' ? 0x222222 : !liquidType ? 0x777777 : (isOut ? 0xff8c00 : 0x00c853);
+    const col = getLiquidColor(liquidType, portType);
     // 排出口: 施設から外向き / 吸入口: 施設へ向く
     const adx = isOut ? dx : -dx;
     const adz = isOut ? dz : -dz;
@@ -1451,10 +1572,10 @@ function registerFacilityPorts(facilityType, idx, gx, gz, rotY) {
         const key=nodeKey(pgx,pgz);
         if (!portRegistry.has(key)) portRegistry.set(key,[]);
         portRegistry.get(key).push({facilityType,idx,portType,liquidType});
-        // 地面マーカー + 矢印ラベル（排出=橙, 吸入=緑, ガス=黒, 任意=グレー）
+        // 地面マーカー + 矢印ラベル
         if (!portMarkers.has(key)) {
-            const col = liquidType==='gas' ? 0x333333 : !liquidType ? 0x888888 : (portType==='out' ? 0xff8c00 : 0x00c853);
-            const emit = liquidType==='gas' ? 0x333333 : !liquidType ? 0x666666 : col;
+            const col = getLiquidColor(liquidType, portType);
+            const emit = col;
             const mat = new THREE.MeshStandardMaterial({color:col,roughness:0.8,emissive:emit,emissiveIntensity:0.35});
             const mark = new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.35,0.06,16), mat);
             const wp=gridToWorld(pgx,pgz);
@@ -1474,6 +1595,15 @@ function registerFacilityPorts(facilityType, idx, gx, gz, rotY) {
     } else if (facilityType==='storageTank') {
         addPort(-1,0,'in', null);   // 左側 (-x) → 任意液体吸入口
         addPort( 1,0,'out',null);   // 右側 (+x) → 任意液体排出口
+    } else if (facilityType==='refinery') {
+        addPort(-2, 0,'in', 'oil');      // 左側 → 原油吸入口
+        addPort( 0,-2,'in', null);       // 前側 → 燃料吸入口 (gas/diesel)
+        addPort(-1, 2,'out','gas');      // 後左 → ガソリン排出口
+        addPort( 0, 2,'out','diesel');   // 後中 → 軽油排出口
+        addPort( 1, 2,'out','kerosene'); // 後右 → 灯油排出口
+        addPort( 2, 1,'out','naphtha');  // 右後 → ナフサ排出口
+        addPort( 2, 0,'out','lpg');      // 右中 → LPG排出口
+        addPort( 2,-1,'out','heavyoil'); // 右前 → 重油排出口
     }
 }
 function unregisterFacilityPorts(facilityType, idx) {
@@ -1541,7 +1671,7 @@ function simulatePipeFlow(delta) {
         return arr.filter(s=>{ const k=`${s.facilityType}:${s.idx}`; if(seen.has(k))return false; seen.add(k);return true; });
     }
 
-    // 採掘機 → タンク (原油)
+    // 採掘機 → タンク/精製施設 (原油)
     pumpJackObjs.forEach((pj)=>{
         if (pj.oilBuffer<=0) return;
         const {gx,gz}=worldToGrid(pj.x,pj.z);
@@ -1561,12 +1691,17 @@ function simulatePipeFlow(delta) {
                 if (!tank||(tank.liquidType&&tank.liquidType!=='oil')) return;
                 const add=Math.min(perSink, STORAGE_TANK_CAP-tank.level);
                 if (add>0) { tank.level+=add; tank.liquidType='oil'; moved+=add; }
+            } else if (s.facilityType==='refinery') {
+                const rf=refineryObjs[s.idx];
+                if (!rf) return;
+                const add=Math.min(perSink, REFINERY_OIL_BUF_CAP-rf.oilBuf);
+                if (add>0) { rf.oilBuf+=add; moved+=add; }
             }
         });
         pj.oilBuffer=Math.max(0, pj.oilBuffer-moved);
     });
 
-    // タンク → タンク/採掘機 (貯蔵中の任意液体を排出)
+    // タンク → タンク/採掘機/精製施設 (貯蔵中の任意液体を排出)
     const TANK_TRANSFER_RATE = 5.0; // L/秒
     storageTankObjs.forEach((srcTank, srcIdx)=>{
         if (srcTank.level<=0||!srcTank.liquidType) return;
@@ -1589,17 +1724,104 @@ function simulatePipeFlow(delta) {
                 if (!dst||(dst.liquidType&&dst.liquidType!==lt)) return;
                 const add=Math.min(perSink, STORAGE_TANK_CAP-dst.level);
                 if (add>0) { dst.level+=add; dst.liquidType=lt; moved+=add; }
-            } else if (s.facilityType==='pumpJack'&&lt==='gas') {
+            } else if (s.facilityType==='pumpJack'&&(lt==='gas'||lt==='diesel')) {
                 const pj=pumpJackObjs[s.idx];
                 if (!pj) return;
                 const add=Math.min(perSink, PUMP_JACK_FUEL_CAP-pj.fuelLevel);
                 if (add>0) { pj.fuelLevel+=add; moved+=add; }
+            } else if (s.facilityType==='refinery') {
+                const rf=refineryObjs[s.idx];
+                if (!rf) return;
+                if (lt==='oil') {
+                    const add=Math.min(perSink, REFINERY_OIL_BUF_CAP-rf.oilBuf);
+                    if (add>0) { rf.oilBuf+=add; moved+=add; }
+                } else if (lt==='gas'||lt==='diesel') {
+                    const add=Math.min(perSink, REFINERY_FUEL_BUF_CAP-rf.fuelBuf);
+                    if (add>0) { rf.fuelBuf+=add; moved+=add; }
+                }
             }
         });
         srcTank.level=Math.max(0, srcTank.level-moved);
         if (srcTank.level===0) srcTank.liquidType=null;
     });
+
+    // 精製施設 → 貯蔵タンク (精製物の排出)
+    const REFINERY_PUSH_RATE = 8.0; // L/秒 per product
+    refineryObjs.forEach((rf, rfIdx)=>{
+        const {gx,gz}=worldToGrid(rf.x, rf.z);
+        const productMap = {
+            gas:      rotateGridDir(-1, 2, rf.rot||0),
+            diesel:   rotateGridDir( 0, 2, rf.rot||0),
+            kerosene: rotateGridDir( 1, 2, rf.rot||0),
+            naphtha:  rotateGridDir( 2, 1, rf.rot||0),
+            lpg:      rotateGridDir( 2, 0, rf.rot||0),
+            heavyoil: rotateGridDir( 2,-1, rf.rot||0)
+        };
+        Object.entries(productMap).forEach(([product, dir])=>{
+            const amount = rf.products[product];
+            if (amount<=0) return;
+            const outNK=nodeKey(gx+dir.dx, gz+dir.dz);
+            const conns=pipeNodeConns.get(outNK);
+            const ports=portRegistry.get(outNK)||[];
+            const direct=ports.filter(p=>p.portType==='in'&&(p.liquidType===product||p.liquidType===null));
+            const sinks=dedup([...direct,...(conns&&conns.size>0?findConnectedSinks(outNK,product):[])]);
+            if (sinks.length===0) return;
+            const totalAvail=Math.min(amount, REFINERY_PUSH_RATE*delta);
+            const perSink=totalAvail/sinks.length;
+            let moved=0;
+            sinks.forEach(s=>{
+                if (s.facilityType==='storageTank') {
+                    const dst=storageTankObjs[s.idx];
+                    if (!dst||(dst.liquidType&&dst.liquidType!==product)) return;
+                    const add=Math.min(perSink, STORAGE_TANK_CAP-dst.level);
+                    if (add>0) { dst.level+=add; dst.liquidType=product; moved+=add; }
+                }
+            });
+            rf.products[product]=Math.max(0, rf.products[product]-moved);
+        });
+    });
 }
+// 精製施設シミュレーション
+let refineryBlinkTimer = 0;
+function simulateRefinery(delta) {
+    refineryBlinkTimer = (refineryBlinkTimer + delta) % 1.0;
+    const blinkOn = refineryBlinkTimer < 0.5;
+    refineryObjs.forEach(rf => {
+        if (!rf.switchMat) return;
+        const blocked = Object.values(rf.products).some(v => v >= REFINERY_PRODUCT_CAP);
+        if (blocked) {
+            // 黄色明滅
+            rf.switchMat.emissive.set(blinkOn ? 0xdddd00 : 0x222200);
+            rf.switchMat.color.set(blinkOn ? 0xdddd00 : 0x333300);
+            rf.blocked = true;
+        } else if (rf.enabled) {
+            rf.switchMat.emissive.set(0x00cc00);
+            rf.switchMat.color.set(0x00cc00);
+            rf.blocked = false;
+        } else {
+            rf.switchMat.emissive.set(0xcc0000);
+            rf.switchMat.color.set(0xcc0000);
+            rf.blocked = false;
+        }
+        if (!rf.enabled || blocked) return;
+        if (rf.oilBuf <= 0 || rf.fuelBuf <= 0) return;
+        const oilPerTick = REFINERY_OIL_RATE * delta;
+        const fuelPerTick = REFINERY_FUEL_RATE * delta;
+        const actualOil = Math.min(oilPerTick, rf.oilBuf);
+        const actualFuel = Math.min(fuelPerTick, rf.fuelBuf);
+        const ratio = Math.min(actualOil / oilPerTick, actualFuel / fuelPerTick);
+        const oilUsed = oilPerTick * ratio;
+        const fuelUsed = fuelPerTick * ratio;
+        if (oilUsed <= 0) return;
+        rf.oilBuf  = Math.max(0, rf.oilBuf  - oilUsed);
+        rf.fuelBuf = Math.max(0, rf.fuelBuf - fuelUsed);
+        Object.keys(REFINERY_YIELDS).forEach(product => {
+            const produced = oilUsed * REFINERY_YIELDS[product];
+            rf.products[product] = Math.min(REFINERY_PRODUCT_CAP, (rf.products[product]||0) + produced);
+        });
+    });
+}
+
 // パイプゴーストメッシュ更新
 function updatePipeGhostMesh() {
     if (!heldItem||heldItem.type!=='pipe') {
@@ -1721,6 +1943,8 @@ function createGhostMesh(type) {
         g = createTJunctionMesh();
     } else if (type === 'junctionCross') {
         g = createCrossJunctionMesh();
+    } else if (type === 'refinery') {
+        g = createRefineryMesh().group;
     } else {
         g = createStorageTankMesh();
     }
@@ -2378,6 +2602,7 @@ function createShopDisplay(x, z, rotY=0) {
         {type:'pipe',          price:10,   col:1, row:2},
         {type:'junctionT',     price:80,   col:2, row:2},
         {type:'junctionCross', price:150,  col:0, row:3},
+        {type:'refinery',      price:REFINERY_PRICE, col:1, row:3},
     ];
 
     CATALOG.forEach(({type, price, col, row}) => {
@@ -2418,6 +2643,9 @@ function createShopDisplay(x, z, rotY=0) {
             m.position.set(lx, baseY, lz);
         } else if (type === 'junctionCross') {
             m = createCrossJunctionMesh(); m.scale.setScalar(0.52);
+            m.position.set(lx, baseY, lz);
+        } else if (type === 'refinery') {
+            m = createRefineryMesh().group; m.scale.setScalar(0.18);
             m.position.set(lx, baseY, lz);
         } else {
             m = createJerryCanMesh(0); m.scale.setScalar(2.0);
@@ -2874,8 +3102,8 @@ function computeCurrentAction() {
 
     // --- ジェリ缶持ち ---
     if (heldItem && heldItem.type==='jerryCan') {
-        if (heldItem.fill>0 && heldItem.contentType!=='gas' && nearDepot)
-            return { type:'sell', label:L.promptSell(canPrice(heldItem.fill)) };
+        if (heldItem.fill>0 && nearDepot)
+            return { type:'sell', label:L.promptSell(canPrice(heldItem.fill, heldItem.contentType)) };
         if (raycastPumpIdx>=0 && !pumpObjs[raycastPumpIdx].attachedCan)
             return { type:'attachCan', label:L.promptAttachCan, pumpIdx:raycastPumpIdx };
         if (heldItem.contentType==='gas' && raycastEnginePumpIdx>=0)
@@ -2901,8 +3129,8 @@ function computeCurrentAction() {
 
     // --- ドラム缶持ち ---
     if (heldItem && heldItem.type==='drum') {
-        if (heldItem.fill>0 && heldItem.contentType!=='gas' && nearDepot)
-            return { type:'sellDrum', label:L.promptSellDrum(drumPrice(heldItem.fill)) };
+        if (heldItem.fill>0 && nearDepot)
+            return { type:'sellDrum', label:L.promptSellDrum(drumPrice(heldItem.fill, heldItem.contentType)) };
         if (heldItem.contentType==='gas' && raycastEnginePumpIdx>=0)
             return { type:'fuelEnginePump', label:L.promptFuelEnginePump(enginePumpObjs[raycastEnginePumpIdx].gasFuel), epIdx:raycastEnginePumpIdx };
         if (nearCart && cartCapacityUsed()+5<=10) return { type:'loadCart', label:L.promptLoadCart };
@@ -2949,6 +3177,10 @@ function computeCurrentAction() {
     // --- 十字分岐持ち ---
     if (heldItem && heldItem.type==='junctionCross') {
         return { type:'installJunctionCross', label:L.promptInstallJunctionCross };
+    }
+    // --- 精製施設持ち ---
+    if (heldItem && heldItem.type==='refinery') {
+        return { type:'installRefinery', label:L.promptInstallRefinery };
     }
 
     // --- ジェリ缶持ち（追加: 採掘機・貯蔵タンク） ---
@@ -3004,9 +3236,27 @@ function computeCurrentAction() {
         if (raycastStorageTankIdx>=0) {
             const st = storageTankObjs[raycastStorageTankIdx];
             if (st) {
+                if (nearDepot && st.level > 0) {
+                    const earn = Math.floor(st.level * liquidSellPrice(st.liquidType||'oil'));
+                    return { type:'sellStorageTank', label:L.promptSellStorageTank(earn, st.liquidType), stIdx:raycastStorageTankIdx };
+                }
                 if (st.level > 0)
                     return { type:'drawStorageTank', label:L.promptDrawStorageTank(Math.floor(st.level), STORAGE_TANK_CAP), stIdx:raycastStorageTankIdx };
                 return { type:'removeStorageTank', label:L.promptRemoveStorageTank, stIdx:raycastStorageTankIdx };
+            }
+        }
+        // 精製施設に照準
+        if (raycastRefineryIdx>=0) {
+            const rf = refineryObjs[raycastRefineryIdx];
+            if (rf) {
+                const hasProducts = Object.values(rf.products).some(v=>v>0);
+                if (nearDepot && hasProducts) {
+                    const earn = Math.floor(Object.entries(rf.products).reduce((s,[lt,v])=>s+v*liquidSellPrice(lt),0));
+                    return { type:'sellRefineryProducts', label:L.promptSellStorageTank(earn, null), rfIdx:raycastRefineryIdx };
+                }
+                if (rf.enabled)
+                    return { type:'toggleRefinery', label:L.promptToggleRefineryOff, rfIdx:raycastRefineryIdx };
+                return { type:'toggleRefinery', label:L.promptToggleRefineryOn, rfIdx:raycastRefineryIdx };
             }
         }
         // 設置済みポンプに照準
@@ -3029,6 +3279,7 @@ function computeCurrentAction() {
                 : si.type==='enginePump' ? L.nameEnginePump
                 : si.type==='pumpJack' ? L.namePumpJack
                 : si.type==='storageTank' ? L.nameStorageTank
+                : si.type==='refinery' ? L.nameRefinery
                 : L.nameCan;
             return { type:'buyItem', label:L.promptBuy(name, si.price), shopItemIdx:raycastShopItemIdx };
         }
@@ -3069,13 +3320,25 @@ function computeCurrentAction() {
     return null;
 }
 
-function canPrice(fill) {
-    if (fill<=0) return 0;
-    return Math.min(JERRY_CAN_CAP, fill); // $1/L
+function liquidSellPrice(liquidType) {
+    switch(liquidType) {
+        case 'oil':      return 1.0;
+        case 'gas':      return 1.5;
+        case 'diesel':   return 1.3;
+        case 'kerosene': return 1.2;
+        case 'naphtha':  return 1.0;
+        case 'lpg':      return 1.5;
+        case 'heavyoil': return 0.8;
+        default:         return 1.0;
+    }
 }
-function drumPrice(fill) {
+function canPrice(fill, contentType) {
     if (fill<=0) return 0;
-    return Math.min(DRUM_CAP, fill); // $1/L
+    return Math.floor(Math.min(JERRY_CAN_CAP, fill) * liquidSellPrice(contentType||'oil'));
+}
+function drumPrice(fill, contentType) {
+    if (fill<=0) return 0;
+    return Math.floor(Math.min(DRUM_CAP, fill) * liquidSellPrice(contentType||'oil'));
 }
 
 // ===== タップ/クリック選択 =====
@@ -3104,6 +3367,15 @@ function processTouchSelectAt(clientX, clientY) {
         if(h.length>0){
             const idx=storageTankMeshToIdx.get(h[0].object.uuid);
             if(idx!==undefined){pinnedTarget={type:'storageTank',idx,x:storageTankObjs[idx].x,z:storageTankObjs[idx].z};return;}
+        }
+    }
+    // 精製施設
+    if (refineryObjs.length>0) {
+        const ms=[]; refineryObjs.forEach(rf=>rf.group.traverse(m=>{if(m.isMesh)ms.push(m);}));
+        const h=rc.intersectObjects(ms,false);
+        if(h.length>0){
+            const idx=refineryMeshToIdx.get(h[0].object.uuid);
+            if(idx!==undefined){pinnedTarget={type:'refinery',idx,x:refineryObjs[idx].x,z:refineryObjs[idx].z};return;}
         }
     }
     // 設置済みポンプ
@@ -3209,6 +3481,10 @@ function triggerAction() {
         case 'removeJunction':     doRemoveJunction(); break;
         case 'fillStorageTank':    doFillStorageTank(currentAction.stIdx); break;
         case 'drawStorageTank':    doDrawStorageTank(currentAction.stIdx); break;
+        case 'installRefinery':    doInstallRefinery(); break;
+        case 'toggleRefinery':     doToggleRefinery(currentAction.rfIdx); break;
+        case 'sellStorageTank':    doSellStorageTank(currentAction.stIdx); break;
+        case 'sellRefineryProducts': doSellRefineryProducts(currentAction.rfIdx); break;
     }
 }
 
@@ -3236,7 +3512,9 @@ function doBuyItem(idx) {
     spawnWorldItem(si.type, si.dropX, si.dropZ, false, 0, 0.04);
     updateUI();
     const name = si.type==='ladle' ? L.nameLadle : si.type==='handPump' ? L.nameHandPump
-        : si.type==='drum' ? L.nameDrum : si.type==='enginePump' ? L.nameEnginePump : L.nameCan;
+        : si.type==='drum' ? L.nameDrum : si.type==='enginePump' ? L.nameEnginePump
+        : si.type==='pumpJack' ? L.namePumpJack : si.type==='storageTank' ? L.nameStorageTank
+        : si.type==='refinery' ? L.nameRefinery : L.nameCan;
     showNotification(L.msgBought(name, si.price));
 }
 
@@ -3359,6 +3637,64 @@ function doRemoveStorageTank(idx) {
     raycastStorageTankIdx=-1; highlightedStorageTankIdx=-1;
     updateHeldMesh(); updateUI();
     showNotification(L.msgStorageTankRemoved);
+}
+
+function doSellStorageTank(stIdx) {
+    const L = I18N[currentLang];
+    const st = storageTankObjs[stIdx];
+    if (!st || st.level <= 0) { showNotification(L.msgStorageTankEmpty2); return; }
+    const earn = Math.floor(st.level * liquidSellPrice(st.liquidType||'oil'));
+    gameState.money += earn;
+    st.level = 0;
+    st.liquidType = null;
+    updateUI();
+    showNotification(L.msgStorageTankSold(earn));
+}
+
+function doSellRefineryProducts(rfIdx) {
+    const L = I18N[currentLang];
+    const rf = refineryObjs[rfIdx];
+    if (!rf) return;
+    const total = Object.values(rf.products).reduce((s,v)=>s+v, 0);
+    if (total <= 0) { showNotification(L.msgStorageTankEmpty2); return; }
+    const earn = Math.floor(Object.entries(rf.products).reduce((s,[lt,v])=>s+v*liquidSellPrice(lt), 0));
+    gameState.money += earn;
+    Object.keys(rf.products).forEach(k => { rf.products[k] = 0; });
+    updateUI();
+    showNotification(L.msgStorageTankSold(earn));
+}
+
+function doInstallRefinery() {
+    const L = I18N[currentLang];
+    const gp = getGridSnapPos();
+    const result = createRefineryMesh();
+    const g = result.group;
+    g.position.set(gp.x, 0, gp.z);
+    g.rotation.y = placementRot;
+    scene.add(g);
+    const rfIdx = refineryObjs.length;
+    g.traverse(m=>{ if(m.isMesh) refineryMeshToIdx.set(m.uuid, rfIdx); });
+    refineryObjs.push({
+        group:g, x:gp.x, z:gp.z, rot:placementRot, enabled:true,
+        products:{gas:0,diesel:0,kerosene:0,naphtha:0,lpg:0,heavyoil:0},
+        oilBuf:0, fuelBuf:0, switchMat:result.switchMat, blocked:false
+    });
+    const {gx,gz}=worldToGrid(gp.x, gp.z);
+    registerFacilityPorts('refinery', rfIdx, gx, gz, placementRot);
+    if (ghostMesh) { scene.remove(ghostMesh); ghostMesh=null; }
+    placementRot=0;
+    heldItem=null;
+    updateHeldMesh(); updateUI();
+    showNotification(L.msgRefineryInstalled);
+}
+
+function doToggleRefinery(rfIdx) {
+    const L = I18N[currentLang];
+    const rf = refineryObjs[rfIdx];
+    if (!rf) return;
+    rf.enabled = !rf.enabled;
+    updateUI();
+    showNotification(rf.enabled ? L.msgRefineryOn : L.msgRefineryOff);
 }
 
 function doFillStorageTank(idx) {
@@ -3508,8 +3844,8 @@ function doPourDrum(drumIdx) {
 
 function doSellDrum() {
     const L=I18N[currentLang];
-    if (!heldItem||heldItem.fill<=0||heldItem.contentType==='gas') { showNotification(L.msgCanEmpty); return; }
-    const earn=drumPrice(heldItem.fill);
+    if (!heldItem||heldItem.fill<=0) { showNotification(L.msgCanEmpty); return; }
+    const earn=drumPrice(heldItem.fill, heldItem.contentType);
     gameState.money+=earn;
     heldItem.fill=0; heldItem.contentType=null;
     updateHeldMesh(); updateUI();
@@ -3864,7 +4200,8 @@ function doPickup(idx) {
     const L=I18N[currentLang];
     const name=item.type==='ladle'?L.nameLadle:item.type==='drum'?L.nameDrum
         :item.type==='enginePump'?L.nameEnginePump:item.type==='handPump'?L.nameHandPump
-        :item.type==='pumpJack'?L.namePumpJack:item.type==='storageTank'?L.nameStorageTank:L.nameCan;
+        :item.type==='pumpJack'?L.namePumpJack:item.type==='storageTank'?L.nameStorageTank
+        :item.type==='refinery'?L.nameRefinery:L.nameCan;
     showNotification(L.msgPickedUp(name));
 }
 
@@ -3889,9 +4226,10 @@ function doPour(canIdx) {
 
 function doSell() {
     if (!heldItem||heldItem.fill<=0) { showNotification(I18N[currentLang].msgCanEmpty); return; }
-    const earn=canPrice(heldItem.fill);
+    const earn=canPrice(heldItem.fill, heldItem.contentType);
     gameState.money+=earn;
     heldItem.fill=0;
+    heldItem.contentType=null;
     updateHeldMesh();
     updateUI();
     showNotification(I18N[currentLang].msgSold(earn));
@@ -4310,6 +4648,28 @@ function updateGame() {
             }
         }
 
+        // 精製施設レイキャスト
+        raycastRefineryIdx = -1;
+        if (refineryObjs.length > 0) {
+            const rfMeshes=[];
+            refineryObjs.forEach(rf=>{ rf.group.traverse(m=>{ if(m.isMesh) rfMeshes.push(m); }); });
+            const rfHits=raycaster.intersectObjects(rfMeshes,false);
+            if (rfHits.length>0) {
+                const idx=refineryMeshToIdx.get(rfHits[0].object.uuid);
+                if (idx!==undefined) raycastRefineryIdx=idx;
+            }
+            // 近接フォールバック
+            if (proximitySelectEnabled && raycastRefineryIdx<0) {
+                const _px=playerGroup.position.x, _pz=playerGroup.position.z;
+                let bestD=4.0*4.0, bestI=-1;
+                refineryObjs.forEach((rf,idx)=>{
+                    const d2=(_px-rf.x)**2+(_pz-rf.z)**2;
+                    if(d2<bestD){bestD=d2;bestI=idx;}
+                });
+                raycastRefineryIdx=bestI;
+            }
+        }
+
         // pinnedTarget 適用（タップ/クリック選択）
         // クロスヘアが何も取らなかった種別にのみ上書き（クロスヘア優先）
         // 遠くなりすぎたらピン解除（距離8m超）
@@ -4325,6 +4685,7 @@ function updateGame() {
                     case 'enginePump':  if(raycastEnginePumpIdx<0)  raycastEnginePumpIdx =pinnedTarget.idx; break;
                     case 'towTank':     if(raycastTowTankIdx<0)     raycastTowTankIdx    =pinnedTarget.idx; break;
                     case 'worldItem':   if(raycastTargetIdx<0)      raycastTargetIdx     =pinnedTarget.idx; break;
+                    case 'refinery':    if(raycastRefineryIdx<0)    raycastRefineryIdx   =pinnedTarget.idx; break;
                 }
             }
         }
@@ -4566,6 +4927,7 @@ function updateGame() {
 
         // パイプライン流体転送
         simulatePipeFlow(delta);
+        simulateRefinery(delta);
 
         // スカイドームをカメラ位置に追従（端が見えないよう）
         if (skyDome) skyDome.position.copy(camera.position);
@@ -4606,6 +4968,7 @@ function updateUI() {
         else if (heldItem.type==='pipe')          heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.namePipe;
         else if (heldItem.type==='junctionT')     heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.nameJunctionT;
         else if (heldItem.type==='junctionCross') heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.nameJunctionCross;
+        else if (heldItem.type==='refinery')      heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.nameRefinery;
         else heldText=L.heldCan(heldItem.fill, heldItem.contentType);
     }
     if (towVehicle && towVehicle.inVehicle) {
@@ -4698,6 +5061,7 @@ function saveGame(isAuto=false) {
     gameState.savedTowTanks=towTanks.map(tt=>({x:tt.x,z:tt.z,capacity:tt.capacity,fill:tt.fill,contentType:tt.contentType}));
     gameState.savedPumpJacks=pumpJackObjs.map(pj=>({x:pj.x,z:pj.z,fuelLevel:pj.fuelLevel,oilBuffer:pj.oilBuffer,nearSpringIdx:pj.nearSpringIdx,rot:pj.rot||0}));
     gameState.savedStorageTanks=storageTankObjs.map(st=>({x:st.x,z:st.z,level:st.level,liquidType:st.liquidType||null,rot:st.rot||0}));
+    gameState.savedRefineries=refineryObjs.map(rf=>({x:rf.x,z:rf.z,rot:rf.rot||0,enabled:rf.enabled,products:{...rf.products},oilBuf:rf.oilBuf,fuelBuf:rf.fuelBuf}));
     gameState.savedPipes=[...pipeEdges.entries()].map(([ek,v])=>{
         const parts=ek.split(':');
         const [gx1,gz1]=parts[0].split(',').map(Number);
@@ -4808,6 +5172,10 @@ function loadGame() {
         clearStorageTankObjs();
         (gameState.savedStorageTanks||[]).forEach(st=>restoreStorageTank(st.x,st.z,st.level||0,st.rot||0,st.liquidType||null));
 
+        // 精製施設復元
+        clearRefineryObjs();
+        (gameState.savedRefineries||[]).forEach(rf=>restoreRefinery(rf.x,rf.z,rf.rot||0,rf.enabled!==false,rf.products||{},rf.oilBuf||0,rf.fuelBuf||0));
+
         // パイプ・ジャンクション復元
         clearPipeObjs();
         (gameState.savedPipes||[]).forEach(p=>restorePipe(p.gx1,p.gz1,p.gx2,p.gz2,p.liquidType||null));
@@ -4897,6 +5265,29 @@ function clearStorageTankObjs() {
     while(storageTankObjs.length>0){ scene.remove(storageTankObjs[0].group); storageTankObjs.splice(0,1); }
     storageTankMeshToIdx.clear();
     raycastStorageTankIdx=-1; highlightedStorageTankIdx=-1;
+}
+
+function clearRefineryObjs() {
+    while(refineryObjs.length>0){ scene.remove(refineryObjs[0].group); refineryObjs.splice(0,1); }
+    refineryMeshToIdx.clear();
+    raycastRefineryIdx=-1; highlightedRefineryIdx=-1;
+}
+
+function restoreRefinery(x, z, rot, enabled, products, oilBuf, fuelBuf) {
+    const result = createRefineryMesh();
+    const g = result.group;
+    g.position.set(x, 0, z);
+    g.rotation.y = rot;
+    scene.add(g);
+    const idx = refineryObjs.length;
+    g.traverse(m=>{ if(m.isMesh) refineryMeshToIdx.set(m.uuid, idx); });
+    const defaultProducts = {gas:0,diesel:0,kerosene:0,naphtha:0,lpg:0,heavyoil:0};
+    const mergedProducts = Object.assign(defaultProducts, products||{});
+    refineryObjs.push({ group:g, x, z, rot, enabled:enabled!==false,
+        products:mergedProducts, oilBuf:oilBuf||0, fuelBuf:fuelBuf||0,
+        switchMat:result.switchMat, blocked:false });
+    const {gx,gz}=worldToGrid(x, z);
+    registerFacilityPorts('refinery', idx, gx, gz, rot);
 }
 
 function restoreStorageTank(x, z, level, rot=0, liquidType=null) {
