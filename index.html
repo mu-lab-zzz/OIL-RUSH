@@ -1101,18 +1101,18 @@ function createRefineryMesh() {
     switchLed.rotation.x=Math.PI/2;
     switchLed.position.set(0,1.5,-2.95); g.add(switchLed);
 
-    // 原油入口スタブ (左壁 x=-2, ポート x=-4m 壁外)
-    const oilIn=cy(0.13,0.13,0.9,0x00c853,8); oilIn.rotation.z=Math.PI/2; oilIn.position.set(-2.5,0.6,0); g.add(oilIn);
-    // 燃料入口スタブ (前壁 z=-3, ポート z=-4m 壁外)
-    const fuelIn=cy(0.13,0.13,0.9,0x777777,8); fuelIn.rotation.x=Math.PI/2; fuelIn.position.set(0,0.6,-3.5); g.add(fuelIn);
+    // 原油入口スタブ (左壁x=-2m → ポートx=-4m): 長さ2.2m、中心x=-3m
+    const oilIn=cy(0.13,0.13,2.2,0x00c853,8); oilIn.rotation.z=Math.PI/2; oilIn.position.set(-3.0,0.6,0); g.add(oilIn);
+    // 燃料入口スタブ (前壁z=-3m → ポートz=-4m): 長さ1.2m、中心z=-3.5m
+    const fuelIn=cy(0.13,0.13,1.2,0x777777,8); fuelIn.rotation.x=Math.PI/2; fuelIn.position.set(0,0.6,-3.5); g.add(fuelIn);
 
-    // 後壁出口スタブ (z=+3m壁, ポートは z=+4m 壁外) — gas(-2m), diesel(0), kerosene(+2m)
+    // 後壁出口スタブ (後壁z=+3m → ポートz=+4m): 長さ1.2m、中心z=+3.5m — gas(x=-2), diesel(x=0), kerosene(x=+2)
     [[-2,0x222222],[0,0xccaa00],[2,0x00aacc]].forEach(([ox,c])=>{
-        const stub=cy(0.11,0.11,0.8,c,8); stub.rotation.x=-Math.PI/2; stub.position.set(ox,0.6,3.5); g.add(stub);
+        const stub=cy(0.11,0.11,1.2,c,8); stub.rotation.x=-Math.PI/2; stub.position.set(ox,0.6,3.5); g.add(stub);
     });
-    // 右壁出口スタブ (x=+2m壁, ポートは x=+4m 壁外) — naphtha(z=+2), lpg(0), heavyoil(-2)
+    // 右壁出口スタブ (右壁x=+2m → ポートx=+4m): 長さ2.2m、中心x=+3m — naphtha(z=+2), lpg(z=0), heavyoil(z=-2)
     [[2,0xff7700],[0,0x9944cc],[-2,0x3d2200]].forEach(([oz,c])=>{
-        const stub=cy(0.11,0.11,0.8,c,8); stub.rotation.z=-Math.PI/2; stub.position.set(2.5,0.6,oz); g.add(stub);
+        const stub=cy(0.11,0.11,2.2,c,8); stub.rotation.z=-Math.PI/2; stub.position.set(3.0,0.6,oz); g.add(stub);
     });
 
     return { group: g, switchMat: switchLed.material };
