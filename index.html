@@ -1071,48 +1071,48 @@ function createRefineryMesh() {
         mesh.castShadow=true; mesh.receiveShadow=true; return mesh;
     }
 
-    // 本体 6m×8m — 壁: x=±3m, z=±4m
-    // ポートは壁の外側: oil(-4,0), fuel(0,-6), gas(-4,+4), diesel(0,+4), kerosene(+4,+4), naphtha(+4,+2), lpg(+4,-2), heavyoil(+4,-6)
-    const body=bx(6,3.5,8,0x78909c,0.85,0.2); body.position.set(0,1.75,0); g.add(body);
-    const roof=bx(6.2,0.25,8.2,0x546e7a,0.9,0.15); roof.position.set(0,3.63,0); g.add(roof);
+    // 本体 4m×6m — 壁: x=±2m, z=±3m
+    // ポートは壁外: oil(-4,0), fuel(0,-4), back(-2~+2,+4), right(+4,+2~-2)
+    const body=bx(4,3.5,6,0x78909c,0.85,0.2); body.position.set(0,1.75,0); g.add(body);
+    const roof=bx(4.2,0.25,6.2,0x546e7a,0.9,0.15); roof.position.set(0,3.63,0); g.add(roof);
 
-    // 蒸留塔 (右側後方 — 建物外縁に露出)
-    const tower=cy(0.55,0.6,6.0,0xb0bec5,16,0.7,0.35); tower.position.set(2.0,3.5,1.5); g.add(tower);
-    const towerTop=cy(0.55,0.3,0.4,0x90a4ae,16); towerTop.position.set(2.0,6.7,1.5); g.add(towerTop);
+    // 蒸留塔 (右側後方)
+    const tower=cy(0.55,0.6,6.0,0xb0bec5,16,0.7,0.35); tower.position.set(1.2,3.5,1.2); g.add(tower);
+    const towerTop=cy(0.55,0.3,0.4,0x90a4ae,16); towerTop.position.set(1.2,6.7,1.2); g.add(towerTop);
     // 蒸留塔バンド
     [1.5,2.5,3.5,4.5,5.5].forEach(y=>{
-        const b=cy(0.57,0.57,0.12,0x78909c,16); b.position.set(2.0,y,1.5); g.add(b);
+        const b=cy(0.57,0.57,0.12,0x78909c,16); b.position.set(1.2,y,1.2); g.add(b);
     });
     // 蒸留塔煙突
-    const chimney=cy(0.15,0.15,1.2,0x5d4037,8); chimney.position.set(2.0,7.3,1.5); g.add(chimney);
+    const chimney=cy(0.15,0.15,1.2,0x5d4037,8); chimney.position.set(1.2,7.3,1.2); g.add(chimney);
 
     // 配管ブリッジ (塔←→本体)
-    const bridge=bx(1.2,0.15,0.2,0x607d8b,0.8,0.4); bridge.position.set(0.6,4.5,1.5); g.add(bridge);
+    const bridge=bx(0.8,0.15,0.2,0x607d8b,0.8,0.4); bridge.position.set(0.4,4.5,1.2); g.add(bridge);
 
     // ガスフレアスタック (左側)
-    const flare=cy(0.10,0.10,4.0,0x4a4a4a,8); flare.position.set(-1.5,2.0,-2.5); g.add(flare);
+    const flare=cy(0.10,0.10,4.0,0x4a4a4a,8); flare.position.set(-1.0,2.0,-1.5); g.add(flare);
 
-    // ON/OFFスイッチパネル (前壁 z=-4)
-    const panel=bx(0.8,0.5,0.06,0x37474f,0.7,0.1); panel.position.set(0,1.5,-3.9); g.add(panel);
+    // ON/OFFスイッチパネル (前壁 z=-3)
+    const panel=bx(0.8,0.5,0.06,0x37474f,0.7,0.1); panel.position.set(0,1.5,-2.9); g.add(panel);
     const switchLed=new THREE.Mesh(
         new THREE.CylinderGeometry(0.12,0.12,0.08,12),
         new THREE.MeshStandardMaterial({color:0x00cc00, emissive:0x00cc00, emissiveIntensity:1.2, roughness:0.3})
     );
     switchLed.rotation.x=Math.PI/2;
-    switchLed.position.set(0,1.5,-3.95); g.add(switchLed);
+    switchLed.position.set(0,1.5,-2.95); g.add(switchLed);
 
-    // 原油入口スタブ (左壁 x=-3, ポート x=-4m 壁外)
-    const oilIn=cy(0.13,0.13,0.9,0x00c853,8); oilIn.rotation.z=Math.PI/2; oilIn.position.set(-3.5,0.6,0); g.add(oilIn);
-    // 燃料入口スタブ (前壁 z=-4, ポート z=-6m 壁外)
-    const fuelIn=cy(0.13,0.13,0.9,0x777777,8); fuelIn.rotation.x=Math.PI/2; fuelIn.position.set(0,0.6,-4.5); g.add(fuelIn);
+    // 原油入口スタブ (左壁 x=-2, ポート x=-4m 壁外)
+    const oilIn=cy(0.13,0.13,0.9,0x00c853,8); oilIn.rotation.z=Math.PI/2; oilIn.position.set(-2.5,0.6,0); g.add(oilIn);
+    // 燃料入口スタブ (前壁 z=-3, ポート z=-4m 壁外)
+    const fuelIn=cy(0.13,0.13,0.9,0x777777,8); fuelIn.rotation.x=Math.PI/2; fuelIn.position.set(0,0.6,-3.5); g.add(fuelIn);
 
-    // 後壁出口スタブ (z=+4m壁, 各ポートは壁外) — gas(-4m), diesel(0), kerosene(+4m)
-    [[-4,0x222222],[0,0xccaa00],[4,0x00aacc]].forEach(([ox,c])=>{
-        const stub=cy(0.11,0.11,0.8,c,8); stub.rotation.x=-Math.PI/2; stub.position.set(ox,0.6,4.5); g.add(stub);
+    // 後壁出口スタブ (z=+3m壁, ポートは z=+4m 壁外) — gas(-2m), diesel(0), kerosene(+2m)
+    [[-2,0x222222],[0,0xccaa00],[2,0x00aacc]].forEach(([ox,c])=>{
+        const stub=cy(0.11,0.11,0.8,c,8); stub.rotation.x=-Math.PI/2; stub.position.set(ox,0.6,3.5); g.add(stub);
     });
-    // 右壁出口スタブ (x=+3m壁, 各ポートは壁外) — naphtha(z=+2), lpg(z=-2), heavyoil(z=-6)
-    [[2,0xff7700],[-2,0x9944cc],[-6,0x3d2200]].forEach(([oz,c])=>{
-        const stub=cy(0.11,0.11,0.8,c,8); stub.rotation.z=-Math.PI/2; stub.position.set(3.5,0.6,oz); g.add(stub);
+    // 右壁出口スタブ (x=+2m壁, ポートは x=+4m 壁外) — naphtha(z=+2), lpg(0), heavyoil(-2)
+    [[2,0xff7700],[0,0x9944cc],[-2,0x3d2200]].forEach(([oz,c])=>{
+        const stub=cy(0.11,0.11,0.8,c,8); stub.rotation.z=-Math.PI/2; stub.position.set(2.5,0.6,oz); g.add(stub);
     });
 
     return { group: g, switchMat: switchLed.material };
@@ -1599,13 +1599,13 @@ function registerFacilityPorts(facilityType, idx, gx, gz, rotY) {
         addPort( 1,0,'out',null);   // 右側 (+x) → 任意液体排出口
     } else if (facilityType==='refinery') {
         addPort(-2, 0,'in', 'oil');      // 左側 → 原油吸入口
-        addPort( 0,-3,'in', null);       // 前側 → 燃料吸入口 (gas/diesel)
-        addPort(-2, 2,'out','gas');      // 後左 → ガソリン排出口  (1グリッド間隔)
+        addPort( 0,-2,'in', null);       // 前側 → 燃料吸入口 (gas/diesel)
+        addPort(-1, 2,'out','gas');      // 後左 → ガソリン排出口  (~1m間隔)
         addPort( 0, 2,'out','diesel');   // 後中 → 軽油排出口
-        addPort( 2, 2,'out','kerosene'); // 後右 → 灯油排出口      (角)
+        addPort( 1, 2,'out','kerosene'); // 後右 → 灯油排出口
         addPort( 2, 1,'out','naphtha');  // 右後 → ナフサ排出口
-        addPort( 2,-1,'out','lpg');      // 右中 → LPG排出口       (1グリッド間隔)
-        addPort( 2,-3,'out','heavyoil'); // 右前 → 重油排出口
+        addPort( 2, 0,'out','lpg');      // 右中 → LPG排出口
+        addPort( 2,-1,'out','heavyoil'); // 右前 → 重油排出口
     }
 }
 function unregisterFacilityPorts(facilityType, idx) {
@@ -1752,12 +1752,12 @@ function simulatePipeFlow(delta) {
     refineryObjs.forEach((rf, rfIdx)=>{
         const {gx,gz}=worldToGrid(rf.x, rf.z);
         const productMap = {
-            gas:      rotateGridDir(-2, 2, rf.rot||0),
+            gas:      rotateGridDir(-1, 2, rf.rot||0),
             diesel:   rotateGridDir( 0, 2, rf.rot||0),
-            kerosene: rotateGridDir( 2, 2, rf.rot||0),
+            kerosene: rotateGridDir( 1, 2, rf.rot||0),
             naphtha:  rotateGridDir( 2, 1, rf.rot||0),
-            lpg:      rotateGridDir( 2,-1, rf.rot||0),
-            heavyoil: rotateGridDir( 2,-3, rf.rot||0)
+            lpg:      rotateGridDir( 2, 0, rf.rot||0),
+            heavyoil: rotateGridDir( 2,-1, rf.rot||0)
         };
         Object.entries(productMap).forEach(([product, dir])=>{
             const amount = rf.products[product];
