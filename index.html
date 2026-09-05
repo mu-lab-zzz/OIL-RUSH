@@ -2797,8 +2797,7 @@ function createGasStation(x,z) {
     nozzleG.traverse(m=>{ if(m.isMesh) gasNozzleMeshToIdx.set(m.uuid, stIdx); });
     gasStationObjs.push({ group:g, x, z, nozzleMesh:nozzleG });
     interactables.push({type:'gasStation', group:g, radius:6.0});
-    collisionBoxes.push({x:x-3.5,z,hw:2.5,hd:2});
-    collisionBoxes.push({x:x+2,z,hw:5,hd:4.2});
+    collisionBoxes.push({x:x-3.5,z,hw:2.5,hd:2}); // 事務所のみ（キャノピー下は開放）
 }
 
 function createHouse(x,z,wallColor,roofColor,rotation) {
