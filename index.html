@@ -1947,6 +1947,8 @@ function doRemovePipe() {
     const c2=pipeNodeConns.get(nk2); if(c2){ c2.delete(nk1); if(c2.size===0) pipeNodeConns.delete(nk2); }
     updateNodeJoint(edge.gx1,edge.gz1);
     updateNodeJoint(edge.gx2,edge.gz2);
+    heldItem = { type:'pipe', fill:0, hasOil:false };
+    updateHeldMesh(); updateUI();
     showNotification(L.msgPipeRemoved);
 }
 // 分岐パイプ撤去
