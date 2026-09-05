@@ -3155,6 +3155,8 @@ function computeCurrentAction() {
                 return { type:'fillStorageTank', label:L.promptFillStorageTank(Math.floor(st.level), STORAGE_TANK_CAP), stIdx:raycastStorageTankIdx };
         }
         if (nearCart && cartCapacityUsed()+1<=10) return { type:'loadCart', label:L.promptLoadCart };
+        if (nearGasStation && heldItem.contentType!=='oil' && heldItem.fill<JERRY_CAN_CAP)
+            return { type:'fillGas', label:L.promptFillGas(GAS_FILL_COST*(JERRY_CAN_CAP-heldItem.fill)) };
         return { type:'putDown', label:L.promptPutDown };
     }
 
@@ -3165,6 +3167,8 @@ function computeCurrentAction() {
         if (heldItem.contentType==='gas' && raycastEnginePumpIdx>=0)
             return { type:'fuelEnginePump', label:L.promptFuelEnginePump(enginePumpObjs[raycastEnginePumpIdx].gasFuel), epIdx:raycastEnginePumpIdx };
         if (nearCart && cartCapacityUsed()+5<=10) return { type:'loadCart', label:L.promptLoadCart };
+        if (nearGasStation && heldItem.contentType!=='oil' && heldItem.fill<DRUM_CAP)
+            return { type:'fillGasDrum', label:L.promptFillGas(GAS_FILL_COST*(DRUM_CAP-heldItem.fill)) };
         return { type:'putDown', label:L.promptPutDown };
     }
 
@@ -3888,11 +3892,12 @@ function doFillGas() {
     const L=I18N[currentLang];
     if (!heldItem||heldItem.type!=='jerryCan') return;
     if (heldItem.contentType==='oil') { showNotification(L.msgGasOnly); return; }
-    const needed=5-heldItem.fill;
+    const needed=JERRY_CAN_CAP-heldItem.fill;
+    if (needed<=0) return;
     const cost=GAS_FILL_COST*needed;
     if (!debugMode && gameState.money<cost) { showNotification(L.msgNoMoney); return; }
     if (!debugMode) gameState.money-=cost;
-    heldItem.fill=5; heldItem.contentType='gas';
+    heldItem.fill=JERRY_CAN_CAP; heldItem.contentType='gas';
     updateHeldMesh(); updateUI();
     showNotification(L.msgGotGas(cost));
 }
@@ -3901,11 +3906,12 @@ function doFillGasDrum() {
     const L=I18N[currentLang];
     if (!heldItem||heldItem.type!=='drum') return;
     if (heldItem.contentType==='oil') { showNotification(L.msgGasOnly); return; }
-    const needed=10-heldItem.fill;
-    const cost=GAS_FILL_COST*2*needed;
+    const needed=DRUM_CAP-heldItem.fill;
+    if (needed<=0) return;
+    const cost=GAS_FILL_COST*needed;
     if (!debugMode && gameState.money<cost) { showNotification(L.msgNoMoney); return; }
     if (!debugMode) gameState.money-=cost;
-    heldItem.fill=10; heldItem.contentType='gas';
+    heldItem.fill=DRUM_CAP; heldItem.contentType='gas';
     updateHeldMesh(); updateUI();
     showNotification(L.msgGotGas(cost));
 }
