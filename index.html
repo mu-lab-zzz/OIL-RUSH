@@ -1115,6 +1115,39 @@ function createRefineryMesh() {
         const stub=cy(0.11,0.11,2.2,c,8); stub.rotation.z=-Math.PI/2; stub.position.set(3.0,0.6,oz); g.add(stub);
     });
 
+    // 壁面ポートラベル (近づくと見える程度の小さな文字、ポート色と合わせる)
+    function makeWallLabel(text, col, w, x, y, z, ry) {
+        const cw=256, ch=64;
+        const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
+        const ctx=cv.getContext('2d');
+        // 半透明黒背景
+        ctx.fillStyle='rgba(0,0,0,0.68)';
+        ctx.fillRect(0,0,cw,ch);
+        // テキスト
+        ctx.fillStyle=col;
+        ctx.font='bold 26px sans-serif';
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(text, cw/2, ch/2);
+        const tex=new THREE.CanvasTexture(cv);
+        const mat=new THREE.MeshBasicMaterial({map:tex,transparent:true,side:THREE.DoubleSide,depthWrite:false});
+        const pl=new THREE.Mesh(new THREE.PlaneGeometry(w, w*ch/cw), mat);
+        pl.position.set(x,y,z); pl.rotation.y=ry;
+        g.add(pl);
+    }
+    const LW=1.0, LY=1.8;
+    // 左壁 (x=-2, facing outward -X → ry=-PI/2)
+    makeWallLabel('原油 IN',  '#00c853', LW, -2.06, LY,  0,    -Math.PI/2);
+    // 前壁 (z=-3, facing outward -Z → ry=PI)
+    makeWallLabel('燃料 IN',  '#999999', LW,  0,    LY, -3.06,  Math.PI);
+    // 後壁 (z=+3, facing outward +Z → ry=0)
+    makeWallLabel('ガス OUT', '#888888', LW, -2,    LY,  3.06,  0);
+    makeWallLabel('軽油 OUT', '#ccaa00', LW,  0,    LY,  3.06,  0);
+    makeWallLabel('灯油 OUT', '#00aacc', LW,  2,    LY,  3.06,  0);
+    // 右壁 (x=+2, facing outward +X → ry=PI/2)
+    makeWallLabel('ナフサ OUT','#ff7700', LW,  2.06, LY,  2,     Math.PI/2);
+    makeWallLabel('LPG OUT',  '#aa66ff', LW,  2.06, LY,  0,     Math.PI/2);
+    makeWallLabel('重油 OUT', '#aa6600', LW,  2.06, LY, -2,     Math.PI/2);
+
     return { group: g, switchMat: switchLed.material };
 }
 
