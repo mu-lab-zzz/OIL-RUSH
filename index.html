@@ -5635,6 +5635,20 @@ function feZeroCollisions(obj) {
     }
 }
 
+// Sync runtime data arrays after a move
+function feSyncRuntimeData(obj) {
+    if (obj.type === 'gasStation') {
+        const gs = gasStationObjs.find(g => g.group === obj.group);
+        if (gs) { gs.x = obj.x; gs.z = obj.z; }
+    }
+}
+
+// Disable interactable entries after delete
+function feDisableInteractable(obj) {
+    const it = interactables.find(i => i.group === obj.group);
+    if (it) it.radius = -1;  // hypot is always >= 0, so < -1 never matches
+}
+
 // --- Field Editor: open/close ---
 function feOpenPanel() {
     feIsOpen = true;
@@ -5738,6 +5752,7 @@ function feApply() {
     obj.group.position.set(newX, 0, newZ);
     obj.group.rotation.y = newRot;
     feUpdateCollisions(obj);
+    feSyncRuntimeData(obj);
     feRefreshList();
     showNotification(`${obj.label} → (${newX}, ${newZ}) rot:${Math.round(newRot*180/Math.PI)}°`);
 }
@@ -5753,6 +5768,7 @@ function feDelete() {
     if (!obj || obj.deleted) return;
     if (!confirm(`「${obj.label}」を削除しますか?`)) return;
     feZeroCollisions(obj);
+    feDisableInteractable(obj);
     obj.group.traverse(m => { if (m.isMesh) fieldMeshToId.delete(m.uuid); });
     scene.remove(obj.group);
     obj.deleted = true;
@@ -5777,16 +5793,15 @@ function feAddAtPlayer() {
 }
 
 function feSpawnType(type, x, z, rot=0) {
-    let g;
-    if      (type === 'streetLight')   g = feCreateAndTrack(type, x, z, rot, () => { const gg=new THREE.Group(); gg.position.set(x,0,z); gg.rotation.y=rot; const pole=bx(0.1,4.5,0.1,0x9e9e9e,0.5,0.8); pole.position.y=2.25; gg.add(pole); const arm=bx(0.08,0.08,0.8,0x9e9e9e,0.5,0.8); arm.position.set(0,4.5,-0.4); gg.add(arm); const lamp=new THREE.Mesh(new THREE.SphereGeometry(0.18,8,6),new THREE.MeshStandardMaterial({color:0xffff88,emissive:0xffff00,emissiveIntensity:0.8})); lamp.position.set(0,4.5,-0.8); gg.add(lamp); const lt=new THREE.PointLight(0xffeeaa,0.6,18); lt.position.set(0,4.4,-0.8); gg.add(lt); scene.add(gg); return gg; });
-    else if (type === 'roadSign')      { createRoadSign(x,z); return; }
-    else if (type === 'rock')          { createRock(x, z, 0.8); return; }
-    else if (type === 'junkPile')      { createJunkPile(x, z); return; }
-    else if (type === 'gasStation')    { createGasStation(x, z); return; }
-    else if (type === 'toolShop')      { createToolShop(x, z); return; }
-    else if (type === 'shippingDepot') { createShippingDepot(x, z); return; }
-    else if (type === 'vehicleLot')    { createVehicleLot(x, z); return; }
-    else if (type === 'giantDepot')    { createGiantDepot(x, z); return; }
+    if      (type === 'streetLight')   feCreateAndTrack(type, x, z, rot, () => { const gg=new THREE.Group(); gg.position.set(x,0,z); gg.rotation.y=rot; const pole=bx(0.1,4.5,0.1,0x9e9e9e,0.5,0.8); pole.position.y=2.25; gg.add(pole); const arm=bx(0.08,0.08,0.8,0x9e9e9e,0.5,0.8); arm.position.set(0,4.5,-0.4); gg.add(arm); const lamp=new THREE.Mesh(new THREE.SphereGeometry(0.18,8,6),new THREE.MeshStandardMaterial({color:0xffff88,emissive:0xffff00,emissiveIntensity:0.8})); lamp.position.set(0,4.5,-0.8); gg.add(lamp); const lt=new THREE.PointLight(0xffeeaa,0.6,18); lt.position.set(0,4.4,-0.8); gg.add(lt); scene.add(gg); return gg; });
+    else if (type === 'roadSign')      createRoadSign(x, z);
+    else if (type === 'rock')          createRock(x, z, 0.8);
+    else if (type === 'junkPile')      createJunkPile(x, z);
+    else if (type === 'gasStation')    createGasStation(x, z);
+    else if (type === 'toolShop')      createToolShop(x, z);
+    else if (type === 'shippingDepot') createShippingDepot(x, z);
+    else if (type === 'vehicleLot')    createVehicleLot(x, z);
+    else if (type === 'giantDepot')    createGiantDepot(x, z);
     feRefreshList();
     showNotification(`${type} を配置しました (${x}, ${z})`);
 }
