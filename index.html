@@ -47,6 +47,20 @@
         #debug-badge { display: none; position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: rgba(231,76,60,0.92); color: #fff; font-size: 11px; font-weight: bold; padding: 2px 10px; border-radius: 10px; pointer-events: none; z-index: 15; letter-spacing: 1px; }
         body.debug-mode #debug-badge { display: block; }
         @media (pointer: coarse) { #touch-controls { display: flex; } #interaction-prompt { bottom: 155px; } }
+        /* Field Editor: mobile toggle button */
+        #fe-toggle-btn { display:none; width:40px; height:40px; background:rgba(230,126,34,0.88); border:2px solid rgba(255,255,255,0.3); border-radius:8px; font-size:20px; cursor:pointer; color:#000; align-items:center; justify-content:center; flex-shrink:0; transition:background 0.2s; }
+        #fe-toggle-btn:active { transform:scale(0.93); }
+        @media (pointer: coarse) {
+            #fe-toggle-btn { display:flex; }
+            #field-editor { width:100%; height:auto; max-height:60vh; border-left:none; border-bottom:2px solid #e67e22; }
+            #field-editor.ghost-mode #fe-body { display:none !important; }
+            #field-editor.ghost-mode { max-height:none; }
+            #fe-obj-list { max-height:130px; }
+        }
+        /* Ghost action overlay (mobile) */
+        #fe-ghost-overlay { position:fixed; bottom:32px; left:50%; transform:translateX(-50%); z-index:600; gap:14px; pointer-events:auto; display:none; }
+        #fe-ghost-overlay.active { display:flex; }
+        .fe-ghost-ovl-btn { padding:14px 22px; font-size:17px; font-weight:bold; color:#fff; border-radius:12px; cursor:pointer; touch-action:manipulation; border:2px solid; }
         /* ===== Field Editor (Dev) ===== */
         #field-editor { display:none; position:fixed; top:0; right:0; width:290px; height:100vh; background:#141414; border-left:2px solid #e67e22; z-index:500; flex-direction:column; font-size:12px; color:#ddd; user-select:text; -webkit-user-select:text; }
         #field-editor.open { display:flex; }
@@ -93,6 +107,7 @@
             <div class="hint-text" id="ui-hint">← 西: 油田　東: 町 →</div>
         </div>
         <button id="btn-settings" class="interactive" onclick="openSettingsModal()">⚙</button>
+        <button id="fe-toggle-btn" onclick="feToggle()">🔧</button>
     </div>
     <div id="debug-badge">DEBUG MODE</div>
     <div id="notification"></div>
@@ -105,6 +120,11 @@
             <div id="action-button" onclick="triggerAction()">ACT</div>
         </div>
     </div>
+</div>
+<!-- Ghost mode floating action buttons (mobile) -->
+<div id="fe-ghost-overlay">
+    <button class="fe-ghost-ovl-btn" style="background:#1a3a5c;border-color:#4fc3f7;" onclick="feGhostRotateTap()">↺ 回転</button>
+    <button class="fe-ghost-ovl-btn" style="background:#7f1a1a;border-color:#ef5350;" onclick="feCancelGhost()">✕ キャンセル</button>
 </div>
 <div id="settings-modal" class="modal" onclick="if(event.target===this)closeSettingsModal()">
     <div class="modal-content">
@@ -3101,6 +3121,17 @@ const joystickKnob=document.getElementById('joystick-knob');
 window.addEventListener('touchstart',e=>{
     for (let i=0;i<e.changedTouches.length;i++) {
         const t=e.changedTouches[i];
+        // Ghost mode: intercept any canvas touch for ghost positioning
+        if (feGhostMode && feGhostTouchId===null) {
+            const el=document.elementFromPoint(t.clientX,t.clientY);
+            if (!el?.closest('#field-editor') && !el?.closest('#fe-ghost-overlay') && !el?.closest('#ui-layer')) {
+                feGhostTouchId=t.identifier;
+                feGhostTouchStart={x:t.clientX,y:t.clientY};
+                const pos=feGetGhostWorldPos(t.clientX,t.clientY);
+                if (pos&&feGhostGroup) feGhostGroup.position.set(pos.x,0,pos.z);
+                continue;
+            }
+        }
         const r=joystickZone.getBoundingClientRect();
         if (t.clientX>=r.left&&t.clientX<=r.right&&t.clientY>=r.top&&t.clientY<=r.bottom) {
             if (joystickTouchId===null) { joystickTouchId=t.identifier; joystickActive=true; updateJoystick(t); }
@@ -3114,6 +3145,11 @@ window.addEventListener('touchstart',e=>{
 window.addEventListener('touchmove',e=>{
     for (let i=0;i<e.changedTouches.length;i++) {
         const t=e.changedTouches[i];
+        if (feGhostTouchId!==null && t.identifier===feGhostTouchId) {
+            const pos=feGetGhostWorldPos(t.clientX,t.clientY);
+            if (pos&&feGhostGroup) feGhostGroup.position.set(pos.x,0,pos.z);
+            continue;
+        }
         if (t.identifier===joystickTouchId) { updateJoystick(t); }
         else if (t.identifier===lookTouchId) {
             gameState.cameraYaw -=(t.clientX-lastTouchPos.x)*0.005;
@@ -3126,6 +3162,12 @@ window.addEventListener('touchmove',e=>{
 window.addEventListener('touchend',e=>{
     for (let i=0;i<e.changedTouches.length;i++) {
         const t=e.changedTouches[i];
+        if (feGhostTouchId!==null && t.identifier===feGhostTouchId) {
+            feGhostTouchId=null;
+            // Confirm at current ghost position (drag-to-position, lift-to-confirm)
+            if (feGhostGroup && feGhostMode) feConfirmGhostAt(feGhostGroup.position.x, feGhostGroup.position.z);
+            continue;
+        }
         if (t.identifier===joystickTouchId) {
             joystickTouchId=null; joystickActive=false; joystickVector={x:0,y:0};
             joystickKnob.style.top='32px'; joystickKnob.style.left='32px';
@@ -5681,6 +5723,8 @@ let feGhostRot = 0;
 let feGhostSnap = 2;
 let feGroundPlane = null;
 let feMoveSourceObj = null;
+let feGhostTouchId = null;
+let feGhostTouchStart = { x: 0, y: 0 };
 const FE_GHOST_SIZE = {
     vehicleLot:    [28, 0.3, 14],
     shippingDepot: [18, 6, 12],
@@ -5800,6 +5844,20 @@ function feGetGhostWorldPos(clientX, clientY) {
     return { x: Math.round(p.x / snap) * snap, z: Math.round(p.z / snap) * snap };
 }
 
+function feGhostRotateTap() {
+    feGhostRot = (feGhostRot + Math.PI/2) % (Math.PI*2);
+    if (feGhostGroup) feGhostGroup.rotation.y = feGhostRot;
+}
+function feShowGhostMobileUI() {
+    document.getElementById('fe-ghost-overlay').classList.add('active');
+    document.getElementById('field-editor').classList.add('ghost-mode');
+}
+function feHideGhostMobileUI() {
+    document.getElementById('fe-ghost-overlay').classList.remove('active');
+    document.getElementById('field-editor').classList.remove('ghost-mode');
+    feGhostTouchId = null;
+}
+
 function feShowGhost(type, patchW, patchD) {
     feHideGhost();
     feGhostGroup = feBuildGhostMesh(type, patchW, patchD);
@@ -5828,8 +5886,14 @@ function feStartPlaceMode() {
     feGhostMode = 'place';
     feMoveSourceObj = null;
     feShowGhost(type, 8, 8);
+    if (feGhostGroup) {
+        const px = Math.round(playerGroup.position.x / feGhostSnap) * feGhostSnap;
+        const pz = Math.round(playerGroup.position.z / feGhostSnap) * feGhostSnap;
+        feGhostGroup.position.set(px, 0, pz);
+    }
+    feShowGhostMobileUI();
     feUpdateModeStatus();
-    showNotification(`${FE_TYPE_LABELS[type]||type}: クリックで配置, R=回転, Esc=キャンセル`);
+    showNotification(`${FE_TYPE_LABELS[type]||type}: タップで配置, ↺=回転, ✕=キャンセル`);
 }
 
 function feStartMoveMode() {
@@ -5841,6 +5905,7 @@ function feStartMoveMode() {
     feMoveSourceObj = obj;
     feShowGhost(obj.type, obj.patchW, obj.patchD);
     if (feGhostGroup) feGhostGroup.position.set(obj.x, 0, obj.z);
+    feShowGhostMobileUI();
     obj.group.traverse(m => {
         if (m.isMesh && m.material && !m.userData._fe_saved_mat) {
             m.userData._fe_saved_mat = m.material;
@@ -5857,6 +5922,7 @@ function feStartMoveMode() {
 function feCancelGhost() {
     if (!feGhostMode) return;
     feHideGhost();
+    feHideGhostMobileUI();
     if (feMoveSourceObj) {
         feMoveSourceObj.group.traverse(m => {
             if (m.isMesh && m.userData._fe_saved_mat) {
@@ -5894,6 +5960,7 @@ function feConfirmGhostAt(x, z) {
         showNotification(`${obj.label} → (${x}, ${z}) rot:${Math.round(feGhostRot*180/Math.PI)}°`);
     }
     feHideGhost();
+    feHideGhostMobileUI();
     feGhostMode = null;
     feGhostType = null;
     feMoveSourceObj = null;
