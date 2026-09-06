@@ -50,6 +50,7 @@
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 </head>
 <body>
 <div id="canvas-container"></div>
@@ -660,6 +661,7 @@ const TOW_TANK_PRICES  = { towTank500:200, towTank1500:500,  towTank3000:1000 };
 const VEHICLE_SPEED      = 10.0;
 const VEHICLE_TURN_SPEED = 1.8;
 
+let truckGLBScene = null; // preloaded GLB truck model
 let towVehicle = null; // {group,x,z,rot,inVehicle,hitchedTankIdx}
 const towTanks = [];   // [{group,x,z,capacity,fill,contentType}]
 const towTankMeshToIdx = new Map();
@@ -1197,46 +1199,43 @@ function createCrossJunctionMesh() {
 
 // ===== タンクトラックメッシュ =====
 function createTowVehicleMesh() {
+    if (truckGLBScene) {
+        const wrapper = new THREE.Group();
+        const clone = truckGLBScene.clone(true);
+        wrapper.add(clone);
+        wrapper.traverse(m=>{ if(m.isMesh){ m.castShadow=true; m.receiveShadow=true; } });
+        return wrapper;
+    }
+    // フォールバック: プロシージャルメッシュ
     const g = new THREE.Group();
     const bodyMat  = new THREE.MeshStandardMaterial({color:0x37474f,roughness:0.5,metalness:0.5});
     const cabMat   = new THREE.MeshStandardMaterial({color:0x546e7a,roughness:0.5,metalness:0.5});
     const glassMat = new THREE.MeshStandardMaterial({color:0x80d8ff,roughness:0.1,metalness:0.1,transparent:true,opacity:0.6});
     const wheelMat = new THREE.MeshStandardMaterial({color:0x212121,roughness:0.8});
     const rimMat   = new THREE.MeshStandardMaterial({color:0x9e9e9e,roughness:0.3,metalness:0.8});
-
-    // キャビン(運転席) - 前方
     const cab = bx(2.0, 2.0, 2.2, 0x546e7a, 0.5, 0.5);
     cab.position.set(0, 1.35, -1.5); g.add(cab);
-    // フロントガラス
     const windshield = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.9, 0.05), glassMat);
     windshield.position.set(0, 1.75, -2.6); g.add(windshield);
-    // バンパー
     const bumper = bx(2.1, 0.25, 0.2, 0x607d8b, 0.5, 0.6);
     bumper.position.set(0, 0.55, -2.65); g.add(bumper);
-    // ヘッドライト
     [-0.7, 0.7].forEach(ox => {
         const hl = new THREE.Mesh(new THREE.BoxGeometry(0.35,0.25,0.05),
             new THREE.MeshStandardMaterial({color:0xffff88,emissive:0xffff00,emissiveIntensity:0.5}));
         hl.position.set(ox, 0.7, -2.68); g.add(hl);
     });
-    // 荷台 - 後方
     const bed = bx(2.0, 0.2, 3.8, 0x455a64, 0.7, 0.4);
     bed.position.set(0, 0.6, 1.4); g.add(bed);
-    // 荷台サイド枠
     [-1.05, 1.05].forEach(ox => {
         const side = bx(0.1, 0.5, 3.8, 0x37474f, 0.7, 0.4);
         side.position.set(ox, 0.95, 1.4); g.add(side);
     });
-    // 牽引フック (後方)
     const hitch = bx(0.3, 0.3, 0.4, 0x9e9e9e, 0.4, 0.8);
     hitch.position.set(0, 0.55, 3.45); g.add(hitch);
-    // 車軸 前
     const axleF = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,2.4,8), rimMat);
     axleF.rotation.z = Math.PI/2; axleF.position.set(0, 0.5, -1.6); g.add(axleF);
-    // 車軸 後
     const axleR = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,2.4,8), rimMat);
     axleR.rotation.z = Math.PI/2; axleR.position.set(0, 0.5, 1.8); g.add(axleR);
-    // 車輪 4個
     [[-1.2,-1.6],[1.2,-1.6],[-1.2,1.8],[1.2,1.8]].forEach(([wx,wz]) => {
         const whl = new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.5,0.3,16), wheelMat);
         whl.rotation.z = Math.PI/2; whl.position.set(wx, 0.5, wz); whl.castShadow=true; g.add(whl);
@@ -5443,6 +5442,34 @@ function importData() {
     } catch(e) { alert(I18N[currentLang].msgImportFail); }
 }
 
+// ===== トラックGLBのプリロード =====
+function preloadTruckGLB(callback) {
+    if (typeof THREE.GLTFLoader === 'undefined') { callback(); return; }
+    const loader = new THREE.GLTFLoader();
+    loader.load('truck.glb', function(gltf) {
+        const scene = gltf.scene;
+        // スケール正規化: 最大辺が6mになるよう調整
+        const box = new THREE.Box3().setFromObject(scene);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        const maxDim = Math.max(size.x, size.y, size.z);
+        if (maxDim > 0) {
+            const s = 6.0 / maxDim;
+            scene.scale.setScalar(s);
+        }
+        scene.updateMatrixWorld(true);
+        // 底面をy=0に合わせる
+        const box2 = new THREE.Box3().setFromObject(scene);
+        scene.position.y = -box2.min.y;
+        scene.updateMatrixWorld(true);
+        truckGLBScene = scene;
+        callback();
+    }, undefined, function(err) {
+        console.warn('truck.glb load failed, using fallback mesh', err);
+        callback();
+    });
+}
+
 // ===== 岩アセットのプリロード =====
 function preloadRock(callback) {
     const loader = new THREE.OBJLoader();
@@ -5466,15 +5493,17 @@ function preloadRock(callback) {
 // ===== 初期化 =====
 window.addEventListener('DOMContentLoaded',()=>{
     preloadRock(function() {
-        initThree();
-        const hasSave=!!localStorage.getItem('oil_rush_save');
-        if (hasSave) {
-            loadGame();
-        } else {
-            initWorldItemsDefault();
-            updateUI();
-        }
-        requestAnimationFrame(updateGame);
+        preloadTruckGLB(function() {
+            initThree();
+            const hasSave=!!localStorage.getItem('oil_rush_save');
+            if (hasSave) {
+                loadGame();
+            } else {
+                initWorldItemsDefault();
+                updateUI();
+            }
+            requestAnimationFrame(updateGame);
+        });
     });
 });
 </script>
