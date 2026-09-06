@@ -881,7 +881,7 @@ function makeTexPatchMat(texType) {
 function createTexPatch(x, z, texType='asphalt', w=8, d=8, rot=0) {
     const g = new THREE.Group(); g.position.set(x, 0.02, z); g.rotation.y = rot;
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1,1), makeTexPatchMat(texType));
-    mesh.rotation.x = -Math.PI/2; mesh.scale.set(w,1,d); mesh.receiveShadow = true;
+    mesh.rotation.x = -Math.PI/2; mesh.scale.set(w,d,1); mesh.receiveShadow = true;
     g.add(mesh);
     scene.add(g);
     const fo = feTrack('texturePatch', g, x, z, rot);
@@ -6031,7 +6031,7 @@ function feApply() {
         obj.patchW = newW; obj.patchD = newD;
         const mesh = obj.group.children[0];
         if (mesh) {
-            mesh.scale.set(newW, 1, newD);
+            mesh.scale.set(newW, newD, 1);
             if (newTex !== obj.texType) { mesh.material = makeTexPatchMat(newTex); }
         }
         obj.texType = newTex;
