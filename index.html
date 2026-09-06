@@ -75,6 +75,9 @@
         #fe-search { background:#111; color:#fff; border:1px solid #444; border-radius:3px; padding:4px 8px; font-size:12px; width:100%; }
         #fe-search:focus { border-color:#e67e22; outline:none; }
         #fe-kbd { position:fixed; bottom:10px; right:10px; background:rgba(230,126,34,0.15); border:1px solid #e67e22; border-radius:6px; color:#e67e22; font-size:11px; padding:4px 8px; z-index:501; pointer-events:none; display:none; }
+        #fe-mode-status { background:#1a0d00; color:#ffb300; font-size:11px; font-weight:bold; padding:6px 8px; border-bottom:1px solid #e67e22; display:none; text-align:center; }
+        #fe-mode-status.active { display:block; }
+        #fe-mode-hint { color:#888; font-size:10px; margin-top:2px; font-weight:normal; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
@@ -162,6 +165,8 @@
         <button onclick="feClose()" style="background:none;border:none;color:#000;font-size:16px;cursor:pointer;line-height:1;">✕</button>
     </div>
     <div id="fe-body">
+        <!-- Ghost mode status bar -->
+        <div id="fe-mode-status"><span id="fe-mode-text">配置モード</span><div id="fe-mode-hint">クリック: 配置 / R: 回転 / Esc: キャンセル</div></div>
         <!-- Add Object -->
         <div class="fe-section">
             <div class="fe-section-title">オブジェクト追加</div>
@@ -181,7 +186,8 @@
                     </select>
                 </div>
                 <div class="fe-row">
-                    <button class="fe-btn fe-btn-add" onclick="feAddAtPlayer()">+ プレイヤー位置に配置</button>
+                    <button class="fe-btn fe-btn-add" onclick="feStartPlaceMode()">+ ゴーストで配置</button>
+                    <button class="fe-btn" style="font-size:10px;" onclick="feAddAtPlayer()">即配置</button>
                 </div>
             </div>
         </div>
@@ -3065,6 +3071,8 @@ window.addEventListener('keydown',e=>{
     if (e.code==='KeyD'||e.code==='ArrowRight') keys.d=true;
     if (e.code==='Space') { e.preventDefault(); if(!keys.space) triggerAction(); keys.space=true; }
     if (e.code==='KeyE' && e.ctrlKey) { e.preventDefault(); feToggle(); return; }
+    if (e.code==='Escape' && feGhostMode) { feCancelGhost(); e.preventDefault(); return; }
+    if (e.code==='KeyR' && feGhostMode) { feGhostRot = (feGhostRot + Math.PI/2) % (Math.PI*2); if (feGhostGroup) feGhostGroup.rotation.y = feGhostRot; e.preventDefault(); return; }
     if (e.code==='KeyG') toggleGridOverlay();
     if (e.code==='KeyR' && heldItem && GRID_SNAP_TYPES.includes(heldItem.type)) {
         placementRot = (placementRot + Math.PI/2) % (Math.PI*2);
@@ -3076,6 +3084,11 @@ window.addEventListener('keyup',e=>{
     if (e.code==='KeyS'||e.code==='ArrowDown')  keys.s=false;
     if (e.code==='KeyD'||e.code==='ArrowRight') keys.d=false;
     if (e.code==='Space') keys.space=false;
+});
+window.addEventListener('mousemove', e => {
+    if (!feGhostMode || !feGhostGroup) return;
+    const pos = feGetGhostWorldPos(e.clientX, e.clientY);
+    if (pos) { feGhostGroup.position.set(pos.x, 0, pos.z); }
 });
 
 let joystickActive=false,joystickTouchId=null,joystickVector={x:0,y:0};
@@ -5660,6 +5673,27 @@ let feSelectedId = -1;
 let feIsOpen = false;
 let feSearchStr = '';
 
+// Ghost mesh system globals
+let feGhostGroup = null;
+let feGhostMode = null;      // null | 'place' | 'move'
+let feGhostType = null;
+let feGhostRot = 0;
+let feGhostSnap = 2;
+let feGroundPlane = null;
+let feMoveSourceObj = null;
+const FE_GHOST_SIZE = {
+    vehicleLot:    [28, 0.3, 14],
+    shippingDepot: [18, 6, 12],
+    giantDepot:    [30, 7, 40],
+    toolShop:      [8, 4, 6],
+    gasStation:    [12, 4, 10],
+    streetLight:   [0.4, 5, 0.4],
+    roadSign:      [2.6, 3, 0.4],
+    junkPile:      [3, 1.5, 3],
+    rock:          [1.5, 1.5, 1.5],
+    texturePatch:  [8, 0.15, 8],
+};
+
 const FE_TYPE_LABELS = {
     shippingDepot:'荷物デポ', toolShop:'道具屋', gasStation:'ガスステーション',
     vehicleLot:'車両展示場', giantDepot:'大型デポ',
@@ -5723,6 +5757,149 @@ function feDisableInteractable(obj) {
     if (it) it.radius = -1;  // hypot is always >= 0, so < -1 never matches
 }
 
+// --- Field Editor: Ghost Mesh System ---
+function feEnsureGroundPlane() {
+    if (feGroundPlane) return;
+    feGroundPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(2000, 2000),
+        new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide })
+    );
+    feGroundPlane.rotation.x = -Math.PI / 2;
+    feGroundPlane.position.y = 0.01;
+    scene.add(feGroundPlane);
+}
+
+function feBuildGhostMesh(type, patchW, patchD) {
+    const sz = FE_GHOST_SIZE[type] ? [...FE_GHOST_SIZE[type]] : [3, 2, 3];
+    if (type === 'texturePatch') { sz[0] = patchW || 8; sz[2] = patchD || 8; }
+    const geo = new THREE.BoxGeometry(sz[0], sz[1], sz[2]);
+    const solidMat = new THREE.MeshBasicMaterial({ color: 0x00e676, transparent: true, opacity: 0.22, depthWrite: false });
+    const solid = new THREE.Mesh(geo, solidMat);
+    solid.position.y = sz[1] / 2;
+    const edges = new THREE.LineSegments(
+        new THREE.EdgesGeometry(geo),
+        new THREE.LineBasicMaterial({ color: 0x00e676, linewidth: 1 })
+    );
+    edges.position.y = sz[1] / 2;
+    const g = new THREE.Group();
+    g.add(solid);
+    g.add(edges);
+    return g;
+}
+
+function feGetGhostWorldPos(clientX, clientY) {
+    feEnsureGroundPlane();
+    const ndcX = (clientX / innerWidth) * 2 - 1;
+    const ndcY = -(clientY / innerHeight) * 2 + 1;
+    const rc = new THREE.Raycaster();
+    rc.setFromCamera({ x: ndcX, y: ndcY }, camera);
+    const hits = rc.intersectObject(feGroundPlane);
+    if (!hits.length) return null;
+    const p = hits[0].point;
+    const snap = feGhostSnap;
+    return { x: Math.round(p.x / snap) * snap, z: Math.round(p.z / snap) * snap };
+}
+
+function feShowGhost(type, patchW, patchD) {
+    feHideGhost();
+    feGhostGroup = feBuildGhostMesh(type, patchW, patchD);
+    feGhostGroup.rotation.y = feGhostRot;
+    scene.add(feGhostGroup);
+}
+
+function feHideGhost() {
+    if (feGhostGroup) { scene.remove(feGhostGroup); feGhostGroup = null; }
+}
+
+function feUpdateModeStatus() {
+    const el = document.getElementById('fe-mode-status');
+    if (!el) return;
+    if (!feGhostMode) { el.classList.remove('active'); return; }
+    el.classList.add('active');
+    const label = FE_TYPE_LABELS[feGhostType] || feGhostType || '';
+    document.getElementById('fe-mode-text').textContent =
+        feGhostMode === 'place' ? `配置モード: ${label}` : `移動モード: ${label}`;
+}
+
+function feStartPlaceMode() {
+    const type = document.getElementById('fe-add-type').value;
+    feGhostType = type;
+    feGhostRot = 0;
+    feGhostMode = 'place';
+    feMoveSourceObj = null;
+    feShowGhost(type, 8, 8);
+    feUpdateModeStatus();
+    showNotification(`${FE_TYPE_LABELS[type]||type}: クリックで配置, R=回転, Esc=キャンセル`);
+}
+
+function feStartMoveMode() {
+    const obj = fieldObjects[feSelectedId];
+    if (!obj || obj.deleted) return;
+    feGhostType = obj.type;
+    feGhostRot = obj.rot || 0;
+    feGhostMode = 'move';
+    feMoveSourceObj = obj;
+    feShowGhost(obj.type, obj.patchW, obj.patchD);
+    if (feGhostGroup) feGhostGroup.position.set(obj.x, 0, obj.z);
+    obj.group.traverse(m => {
+        if (m.isMesh && m.material && !m.userData._fe_saved_mat) {
+            m.userData._fe_saved_mat = m.material;
+            const dim = m.material.clone();
+            dim.transparent = true;
+            dim.opacity = 0.25;
+            m.material = dim;
+        }
+    });
+    feUpdateModeStatus();
+    showNotification(`${FE_TYPE_LABELS[obj.type]||obj.type}: クリックで移動先指定, R=回転, Esc=キャンセル`);
+}
+
+function feCancelGhost() {
+    if (!feGhostMode) return;
+    feHideGhost();
+    if (feMoveSourceObj) {
+        feMoveSourceObj.group.traverse(m => {
+            if (m.isMesh && m.userData._fe_saved_mat) {
+                m.material = m.userData._fe_saved_mat;
+                delete m.userData._fe_saved_mat;
+            }
+        });
+    }
+    feGhostMode = null;
+    feGhostType = null;
+    feMoveSourceObj = null;
+    feUpdateModeStatus();
+}
+
+function feConfirmGhostAt(x, z) {
+    if (!feGhostMode) return;
+    if (feGhostMode === 'place') {
+        feSpawnType(feGhostType, x, z, feGhostRot);
+    } else if (feGhostMode === 'move' && feMoveSourceObj) {
+        const obj = feMoveSourceObj;
+        obj.group.traverse(m => {
+            if (m.isMesh && m.userData._fe_saved_mat) {
+                m.material = m.userData._fe_saved_mat;
+                delete m.userData._fe_saved_mat;
+            }
+        });
+        obj.x = x; obj.z = z; obj.rot = feGhostRot;
+        const yOff = obj.type === 'texturePatch' ? 0.02 : 0;
+        obj.group.position.set(x, yOff, z);
+        obj.group.rotation.y = feGhostRot;
+        feUpdateCollisions(obj);
+        feSyncRuntimeData(obj);
+        feRefreshList();
+        feRenderProps();
+        showNotification(`${obj.label} → (${x}, ${z}) rot:${Math.round(feGhostRot*180/Math.PI)}°`);
+    }
+    feHideGhost();
+    feGhostMode = null;
+    feGhostType = null;
+    feMoveSourceObj = null;
+    feUpdateModeStatus();
+}
+
 // --- Field Editor: open/close ---
 function feOpenPanel() {
     feIsOpen = true;
@@ -5732,6 +5909,7 @@ function feOpenPanel() {
 }
 function feClose() {
     feIsOpen = false;
+    feCancelGhost();
     document.getElementById('field-editor').classList.remove('open');
     feDeselect();
 }
@@ -5831,6 +6009,7 @@ function feRenderProps() {
         </div>
         <div class="fe-row">
             <button class="fe-btn fe-btn-goto" onclick="feGotoObj()">プレイヤーを移動</button>
+            <button class="fe-btn" style="background:#0d2a1a;color:#00e676;border:1px solid #00e676;" onclick="feStartMoveMode()">ゴーストで移動</button>
         </div>`;
 }
 
@@ -5927,6 +6106,11 @@ function feCreateAndTrack(type, x, z, rot, createFn) {
 function feProcessClick(clientX, clientY) {
     if (!feIsOpen) return false;
     if (document.elementFromPoint(clientX, clientY)?.closest('#field-editor')) return false;
+    if (feGhostMode) {
+        const pos = feGetGhostWorldPos(clientX, clientY);
+        if (pos) { feConfirmGhostAt(pos.x, pos.z); return true; }
+        return false;
+    }
     const ndcX=(clientX/innerWidth)*2-1, ndcY=-(clientY/innerHeight)*2+1;
     const rc = new THREE.Raycaster(); rc.far=200;
     rc.setFromCamera({x:ndcX,y:ndcY}, camera);
