@@ -208,8 +208,11 @@
             <div style="padding:8px;display:flex;flex-direction:column;gap:6px;">
                 <textarea id="fe-json" style="width:100%;height:80px;background:#111;color:#0f0;border:1px solid #333;padding:6px;font-family:monospace;font-size:10px;resize:vertical;" placeholder="JSONが出力されます..."></textarea>
                 <div class="fe-row">
-                    <button class="fe-btn fe-btn-apply" onclick="feExport()">エクスポート</button>
+                    <button class="fe-btn fe-btn-apply" onclick="feExport()">JSON出力</button>
                     <button class="fe-btn fe-btn-add" onclick="feImport()">インポート</button>
+                </div>
+                <div class="fe-row">
+                    <button class="fe-btn" style="background:#1a3a1a;color:#4caf50;border:1px solid #4caf50;width:100%;" onclick="feGenCode()">ソースコードを生成 (JS)</button>
                 </div>
             </div>
         </div>
@@ -5788,6 +5791,56 @@ function feExport() {
         rot:Math.round(((o.rot||0)*180/Math.PI+360)%360)
     }));
     document.getElementById('fe-json').value = JSON.stringify(data, null, 2);
+}
+function feGenCode() {
+    // Radians → nice JS Math.PI expression
+    function rotExpr(rad) {
+        const deg = ((rad * 180 / Math.PI) % 360 + 360) % 360;
+        const snap = Math.round(deg / 45) * 45 % 360;
+        const map = {0:'0', 45:'Math.PI/4', 90:'Math.PI/2', 135:'3*Math.PI/4',
+                     180:'Math.PI', 225:'5*Math.PI/4', 270:'3*Math.PI/2', 315:'7*Math.PI/4'};
+        return map[snap] ?? parseFloat(rad.toFixed(4)).toString();
+    }
+    // Type → function signature (args in order)
+    function toCall(o) {
+        const x = Math.round(o.x), z = Math.round(o.z);
+        const rot = o.rot || 0;
+        const hasRot = Math.abs(rot) > 0.01;
+        switch(o.type) {
+            case 'streetLight':   return `createStreetLight(${x}, ${z}${hasRot ? ', '+rotExpr(rot) : ''});`;
+            case 'roadSign':      return `createRoadSign(${x}, ${z});`;
+            case 'junkPile':      return `createJunkPile(${x}, ${z});`;
+            case 'gasStation':    return `createGasStation(${x}, ${z});`;
+            case 'toolShop':      return `createToolShop(${x}, ${z});`;
+            case 'shippingDepot': return `createShippingDepot(${x}, ${z});`;
+            case 'vehicleLot':    return `createVehicleLot(${x}, ${z});`;
+            case 'giantDepot':    return `createGiantDepot(${x}, ${z});`;
+            case 'rock':          return `createRock(${x}, ${z}, 0.8);`;
+            default:              return `// ${o.type} at (${x}, ${z})`;
+        }
+    }
+    const live = fieldObjects.filter(o=>!o.deleted);
+    // Group by type for readability
+    const order = ['shippingDepot','giantDepot','toolShop','gasStation','vehicleLot',
+                   'roadSign','streetLight','junkPile','rock'];
+    const byType = {};
+    live.forEach(o => { (byType[o.type]=byType[o.type]||[]).push(o); });
+    const lines = ['// ====== Field Editor: Generated Source Code ======',
+                   '// Paste these calls into initWorldItems() (or equivalent)',
+                   '// replacing the old create* calls for static world objects.',
+                   ''];
+    order.forEach(t => {
+        if (!byType[t]) return;
+        lines.push(`// --- ${FE_TYPE_LABELS[t]||t} ---`);
+        byType[t].forEach(o => lines.push(toCall(o)));
+        lines.push('');
+    });
+    Object.keys(byType).filter(t=>!order.includes(t)).forEach(t => {
+        lines.push(`// --- ${FE_TYPE_LABELS[t]||t} ---`);
+        byType[t].forEach(o => lines.push(toCall(o)));
+        lines.push('');
+    });
+    document.getElementById('fe-json').value = lines.join('\n');
 }
 function feImport() {
     const json = document.getElementById('fe-json').value.trim();
