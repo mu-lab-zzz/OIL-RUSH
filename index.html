@@ -47,6 +47,21 @@
         #debug-badge { display: none; position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: rgba(231,76,60,0.92); color: #fff; font-size: 11px; font-weight: bold; padding: 2px 10px; border-radius: 10px; pointer-events: none; z-index: 15; letter-spacing: 1px; }
         body.debug-mode #debug-badge { display: block; }
         @media (pointer: coarse) { #touch-controls { display: flex; } #interaction-prompt { bottom: 155px; } }
+        .editor-input { background:#111; color:#fff; border:1px solid #555; border-radius:3px; padding:3px 5px; font-size:12px; width:70px; }
+        .editor-input:focus { border-color:#e67e22; outline:none; }
+        .editor-tab-btn { padding:5px 10px; font-size:12px; border-radius:5px; cursor:pointer; border:1px solid #555; font-weight:bold; transition:background 0.15s; }
+        .editor-tab-btn.active { background:#e67e22; border-color:#e67e22; }
+        .editor-tab-btn:not(.active) { background:#2c3e50; }
+        #editor-modal .modal-content { max-width:760px; width:96%; }
+        .editor-table { width:100%; border-collapse:collapse; font-size:12px; }
+        .editor-table th { padding:5px 6px; text-align:left; color:#aaa; border-bottom:1px solid #444; font-weight:normal; }
+        .editor-table td { padding:4px 4px; border-bottom:1px solid #2a2a2a; vertical-align:middle; }
+        .editor-table tr:hover td { background:rgba(255,255,255,0.03); }
+        .ed-btn { padding:3px 7px; font-size:11px; border-radius:4px; cursor:pointer; border:1px solid #555; color:#fff; font-weight:bold; white-space:nowrap; }
+        .ed-btn-apply { background:#1a5c3a; } .ed-btn-apply:hover { background:#27ae60; }
+        .ed-btn-del   { background:#7f1a1a; } .ed-btn-del:hover   { background:#c0392b; }
+        .ed-btn-goto  { background:#1a3a5c; } .ed-btn-goto:hover  { background:#2980b9; }
+        .editor-empty { color:#666; padding:24px; text-align:center; font-size:13px; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
@@ -121,8 +136,30 @@
                 <button class="toggle-btn" id="btn-debug" onclick="toggleDebugMode()"></button>
             </div>
         </div>
+        <div style="border-top:1px solid #444;padding-top:14px;margin-top:4px;">
+            <div class="settings-row">
+                <span class="settings-label">ワールドエディタ</span>
+                <button class="btn" onclick="openEditorModal()" id="btn-editor-s">開く</button>
+            </div>
+        </div>
         <div class="modal-buttons" style="margin-top:18px;">
             <button class="btn" onclick="closeSettingsModal()" id="btn-close-s">閉じる</button>
+        </div>
+    </div>
+</div>
+<div id="editor-modal" class="modal" onclick="if(event.target===this)closeEditorModal()">
+    <div class="modal-content">
+        <div class="modal-header">ワールドエディタ</div>
+        <div id="editor-tabs" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;"></div>
+        <div id="editor-content" style="overflow-y:auto;max-height:360px;min-height:60px;"></div>
+        <div style="margin-top:14px;border-top:1px solid #444;padding-top:12px;">
+            <div style="font-size:12px;color:#888;margin-bottom:6px;">レイアウトJSON（エクスポート/インポート）</div>
+            <textarea id="editor-json-area" style="height:90px;font-size:11px;" placeholder="エクスポートするかJSONを貼り付けてインポート..."></textarea>
+            <div class="modal-buttons" style="margin-top:4px;">
+                <button class="btn" onclick="editorExportJSON()">エクスポート</button>
+                <button class="btn" onclick="editorImportJSON()">インポート</button>
+                <button class="btn" onclick="closeEditorModal()">閉じる</button>
+            </div>
         </div>
     </div>
 </div>
@@ -5488,6 +5525,237 @@ function preloadRock(callback) {
             callback();
         }, undefined, function() { callback(); });
     }, undefined, function() { callback(); });
+}
+
+// ===== ワールドエディタ =====
+let currentEditorTab = 'pumpJack';
+const EDITOR_TABS = [
+    {id:'pumpJack',   label:'採掘機'},
+    {id:'storageTank',label:'貯蔵タンク'},
+    {id:'refinery',   label:'精製施設'},
+    {id:'pipe',       label:'パイプ'},
+    {id:'junction',   label:'ジャンクション'},
+    {id:'oilSpring',  label:'油田'},
+];
+
+function openEditorModal() {
+    closeSettingsModal();
+    currentEditorTab = 'pumpJack';
+    document.getElementById('editor-modal').style.display = 'flex';
+    renderEditorTabs();
+    renderEditorContent();
+}
+
+function closeEditorModal() {
+    document.getElementById('editor-modal').style.display = 'none';
+}
+
+function renderEditorTabs() {
+    const container = document.getElementById('editor-tabs');
+    container.innerHTML = EDITOR_TABS.map(t =>
+        `<button class="editor-tab-btn${t.id===currentEditorTab?' active':''}" data-tab="${t.id}" onclick="setEditorTab('${t.id}')">${t.label}</button>`
+    ).join('');
+}
+
+function setEditorTab(tab) {
+    currentEditorTab = tab;
+    document.querySelectorAll('.editor-tab-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.tab === tab);
+    });
+    renderEditorContent();
+}
+
+function renderEditorContent() {
+    const el = document.getElementById('editor-content');
+    const tab = currentEditorTab;
+    if (tab === 'pumpJack')    renderFacilityTable(el, 'pumpJack',    pumpJackObjs);
+    else if (tab === 'storageTank') renderFacilityTable(el, 'storageTank', storageTankObjs);
+    else if (tab === 'refinery')    renderFacilityTable(el, 'refinery',    refineryObjs);
+    else if (tab === 'pipe')        renderPipeTable(el);
+    else if (tab === 'junction')    renderJunctionTable(el);
+    else if (tab === 'oilSpring')   renderOilSpringTable(el);
+}
+
+function renderFacilityTable(el, type, objs) {
+    if (!objs.length) { el.innerHTML = '<div class="editor-empty">配置なし</div>'; return; }
+    let html = `<table class="editor-table"><thead><tr>
+        <th>#</th><th>X (m)</th><th>Z (m)</th><th>回転 (°)</th><th>操作</th></tr></thead><tbody>`;
+    objs.forEach((obj, idx) => {
+        const rotDeg = Math.round(((obj.rot||0) * 180 / Math.PI + 360) % 360);
+        html += `<tr>
+            <td style="color:#888;">${idx}</td>
+            <td><input class="editor-input" id="ed-${type}-${idx}-x" type="number" step="2" value="${obj.x}"></td>
+            <td><input class="editor-input" id="ed-${type}-${idx}-z" type="number" step="2" value="${obj.z}"></td>
+            <td><input class="editor-input" id="ed-${type}-${idx}-rot" type="number" step="90" value="${rotDeg}" style="width:55px;"></td>
+            <td style="white-space:nowrap;">
+                <button class="ed-btn ed-btn-apply" onclick="editorApplyFacility('${type}',${idx})">適用</button>
+                <button class="ed-btn ed-btn-del"   onclick="editorDeleteFacility('${type}',${idx})">削除</button>
+                <button class="ed-btn ed-btn-goto"  onclick="editorGoto(${obj.x},${obj.z})">移動</button>
+            </td></tr>`;
+    });
+    el.innerHTML = html + '</tbody></table>';
+}
+
+function editorApplyFacility(type, idx) {
+    const getV = (id) => parseFloat(document.getElementById(id).value);
+    const newX   = getV(`ed-${type}-${idx}-x`);
+    const newZ   = getV(`ed-${type}-${idx}-z`);
+    const newRot = getV(`ed-${type}-${idx}-rot`) * Math.PI / 180;
+    const objs = type==='pumpJack'?pumpJackObjs : type==='storageTank'?storageTankObjs : refineryObjs;
+    const obj = objs[idx];
+    if (!obj) return;
+    unregisterFacilityPorts(type, idx);
+    obj.x = newX; obj.z = newZ; obj.rot = newRot;
+    obj.group.position.set(newX, 0, newZ);
+    obj.group.rotation.y = newRot;
+    registerFacilityPorts(type, idx, Math.round(newX/GRID_SNAP), Math.round(newZ/GRID_SNAP), newRot);
+    showNotification(`#${idx} を移動しました (${newX}, ${newZ})`);
+}
+
+function editorDeleteFacility(type, idx) {
+    if (!confirm(`削除しますか?`)) return;
+    if (type === 'pumpJack') {
+        const pj = pumpJackObjs[idx];
+        if (!pj) return;
+        unregisterFacilityPorts('pumpJack', idx);
+        pj.group.traverse(m=>{ if(m.isMesh) pumpJackMeshToIdx.delete(m.uuid); });
+        scene.remove(pj.group);
+        oilSprings.forEach(s=>{ if(s.pumpJackIdx===idx) s.pumpJackIdx=-1; else if(s.pumpJackIdx>idx) s.pumpJackIdx--; });
+        pumpJackObjs.splice(idx, 1);
+        pumpJackMeshToIdx.forEach((v,k)=>{ if(v>idx) pumpJackMeshToIdx.set(k,v-1); });
+        raycastPumpJackIdx=-1; highlightedPumpJackIdx=-1;
+    } else if (type === 'storageTank') {
+        const st = storageTankObjs[idx];
+        if (!st) return;
+        unregisterFacilityPorts('storageTank', idx);
+        st.group.traverse(m=>{ if(m.isMesh) storageTankMeshToIdx.delete(m.uuid); });
+        scene.remove(st.group);
+        storageTankObjs.splice(idx, 1);
+        storageTankMeshToIdx.forEach((v,k)=>{ if(v>idx) storageTankMeshToIdx.set(k,v-1); });
+        raycastStorageTankIdx=-1; highlightedStorageTankIdx=-1;
+    } else if (type === 'refinery') {
+        const rf = refineryObjs[idx];
+        if (!rf) return;
+        unregisterFacilityPorts('refinery', idx);
+        rf.group.traverse(m=>{ if(m.isMesh) refineryMeshToIdx.delete(m.uuid); });
+        scene.remove(rf.group);
+        refineryObjs.splice(idx, 1);
+        refineryMeshToIdx.forEach((v,k)=>{ if(v>idx) refineryMeshToIdx.set(k,v-1); });
+        raycastRefineryIdx=-1; highlightedRefineryIdx=-1;
+    }
+    renderEditorContent();
+    showNotification('削除しました');
+}
+
+function editorGoto(x, z) {
+    playerGroup.position.set(x + 2, 0, z + 2);
+    closeEditorModal();
+}
+
+function renderPipeTable(el) {
+    const pipes = [...pipeEdges.entries()];
+    if (!pipes.length) { el.innerHTML = '<div class="editor-empty">パイプなし</div>'; return; }
+    let html = `<table class="editor-table"><thead><tr>
+        <th>#</th><th>始点 (Gx,Gz)</th><th>終点 (Gx,Gz)</th><th>液体</th><th>操作</th></tr></thead><tbody>`;
+    pipes.forEach(([key, val], i) => {
+        const [from,to] = key.split(':');
+        html += `<tr>
+            <td style="color:#888;">${i}</td>
+            <td>${from}</td><td>${to}</td>
+            <td style="color:#aaa;">${val.liquidType||'-'}</td>
+            <td><button class="ed-btn ed-btn-del" onclick="editorDeletePipe('${key}')">削除</button></td></tr>`;
+    });
+    el.innerHTML = html + '</tbody></table>';
+}
+
+function editorDeletePipe(ek) {
+    const e = pipeEdges.get(ek);
+    if (e) { scene.remove(e.mesh); pipeEdges.delete(ek); }
+    const [nk1,nk2] = ek.split(':');
+    if (pipeNodeConns.has(nk1)) pipeNodeConns.get(nk1).delete(nk2);
+    if (pipeNodeConns.has(nk2)) pipeNodeConns.get(nk2).delete(nk1);
+    const p1=parseNodeKey(nk1), p2=parseNodeKey(nk2);
+    updateNodeJoint(p1.gx,p1.gz); updateNodeJoint(p2.gx,p2.gz);
+    renderEditorContent();
+}
+
+function renderJunctionTable(el) {
+    const juncs = [...junctionNodes.entries()];
+    if (!juncs.length) { el.innerHTML = '<div class="editor-empty">ジャンクションなし</div>'; return; }
+    let html = `<table class="editor-table"><thead><tr>
+        <th>#</th><th>Gx</th><th>Gz</th><th>種別</th><th>操作</th></tr></thead><tbody>`;
+    juncs.forEach(([key, junc], i) => {
+        const {gx,gz} = parseNodeKey(key);
+        html += `<tr>
+            <td style="color:#888;">${i}</td>
+            <td>${gx}</td><td>${gz}</td>
+            <td style="color:#aaa;">${junc.type||'-'}</td>
+            <td>
+                <button class="ed-btn ed-btn-goto" onclick="editorGoto(${gx*GRID_SNAP},${gz*GRID_SNAP})">移動</button>
+                <button class="ed-btn ed-btn-del"  onclick="editorDeleteJunction('${key}')">削除</button>
+            </td></tr>`;
+    });
+    el.innerHTML = html + '</tbody></table>';
+}
+
+function editorDeleteJunction(nk) {
+    const j = junctionNodes.get(nk);
+    if (j) { scene.remove(j.mesh); junctionNodes.delete(nk); }
+    const {gx,gz} = parseNodeKey(nk);
+    updateNodeJoint(gx,gz);
+    renderEditorContent();
+}
+
+function renderOilSpringTable(el) {
+    if (!oilSprings.length) { el.innerHTML = '<div class="editor-empty">油田なし</div>'; return; }
+    let html = `<table class="editor-table"><thead><tr>
+        <th>#</th><th>Gx</th><th>Gz</th><th>World X</th><th>World Z</th><th>採掘機 #</th><th>操作</th></tr></thead><tbody>`;
+    oilSprings.forEach((sp, i) => {
+        const hasPJ = sp.pumpJackIdx >= 0;
+        html += `<tr>
+            <td style="color:#888;">${i}</td>
+            <td>${sp.gx}</td><td>${sp.gz}</td>
+            <td>${sp.gx*GRID_SNAP}</td><td>${sp.gz*GRID_SNAP}</td>
+            <td style="color:${hasPJ?'#4CAF50':'#555'}">${hasPJ?sp.pumpJackIdx:'-'}</td>
+            <td><button class="ed-btn ed-btn-goto" onclick="editorGoto(${sp.gx*GRID_SNAP},${sp.gz*GRID_SNAP})">移動</button></td></tr>`;
+    });
+    el.innerHTML = html + '</tbody></table>';
+}
+
+function editorExportJSON() {
+    const layout = {
+        oilSprings: oilSprings.map(s=>({gx:s.gx, gz:s.gz})),
+        pumpJacks:  pumpJackObjs.map(pj=>({x:pj.x, z:pj.z, rot:Math.round(((pj.rot||0)*180/Math.PI+360)%360)})),
+        storageTanks: storageTankObjs.map(st=>({x:st.x, z:st.z, rot:Math.round(((st.rot||0)*180/Math.PI+360)%360)})),
+        refineries: refineryObjs.map(rf=>({x:rf.x, z:rf.z, rot:Math.round(((rf.rot||0)*180/Math.PI+360)%360)})),
+        pipes: [...pipeEdges.entries()].map(([k,v])=>{
+            const [nk1,nk2]=k.split(':');
+            const p1=parseNodeKey(nk1), p2=parseNodeKey(nk2);
+            return {gx1:p1.gx,gz1:p1.gz,gx2:p2.gx,gz2:p2.gz,liquidType:v.liquidType||null};
+        }),
+        junctions: [...junctionNodes.entries()].map(([k,j])=>{
+            const {gx,gz}=parseNodeKey(k);
+            return {gx,gz,type:j.type,rot:Math.round(((j.rot||0)*180/Math.PI+360)%360)};
+        })
+    };
+    document.getElementById('editor-json-area').value = JSON.stringify(layout, null, 2);
+}
+
+function editorImportJSON() {
+    const json = document.getElementById('editor-json-area').value.trim();
+    if (!json) { alert('JSONが空です'); return; }
+    let layout;
+    try { layout = JSON.parse(json); } catch(e) { alert('JSONエラー: ' + e.message); return; }
+    if (!confirm('現在の全施設・パイプを消去してインポートします。続けますか?')) return;
+    clearPumpJackObjs(); clearStorageTankObjs(); clearRefineryObjs(); clearPipeObjs();
+    (layout.pumpJacks||[]).forEach(pj=>restorePumpJack(pj.x,pj.z,0,0,0,(pj.rot||0)*Math.PI/180));
+    (layout.storageTanks||[]).forEach(st=>restoreStorageTank(st.x,st.z,0,(st.rot||0)*Math.PI/180,null));
+    (layout.refineries||[]).forEach(rf=>restoreRefinery(rf.x,rf.z,(rf.rot||0)*Math.PI/180,true,{gas:0,diesel:0,kerosene:0,naphtha:0,lpg:0,heavyoil:0},0,0));
+    (layout.pipes||[]).forEach(p=>restorePipe(p.gx1,p.gz1,p.gx2,p.gz2,p.liquidType||null));
+    (layout.junctions||[]).forEach(j=>restoreJunction(j.gx,j.gz,j.type,(j.rot||0)*Math.PI/180));
+    pipeNodeConns.forEach((_,nk)=>{ const {gx,gz}=parseNodeKey(nk); updateNodeJoint(gx,gz); });
+    renderEditorContent();
+    showNotification('レイアウトをインポートしました');
 }
 
 // ===== 初期化 =====
