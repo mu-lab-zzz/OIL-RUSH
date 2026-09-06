@@ -2444,7 +2444,6 @@ function createVehicleLot(x, z) {
     }
     const rail=bx(28,0.1,0.1,0x9e9e9e,0.5,0.7); rail.position.set(0,1.7,-7); g.add(rail);
     scene.add(g); feTrack('vehicleLot', g, x, z);
-    collisionBoxes.push({x, z:z-7, hw:14, hd:0.2});
 
     // 展示品スポーン位置 (ワールド座標)
     const spots = [
@@ -2518,8 +2517,6 @@ function createShippingDepot(x,z) {
 
     scene.add(g); feTrack('shippingDepot', g, x, z);
     interactables.push({type:'depot', group:g, radius:8.0});
-    collisionBoxes.push({x,z,hw:9,hd:6});
-    collisionBoxes.push({x,z:z+9.3,hw:5,hd:2});
 }
 
 function createDepotTank(depotX, depotZ, parentGroup) {
@@ -2604,7 +2601,6 @@ function createGiantDepot(x,z) {
 
     scene.add(g); feTrack('giantDepot', g, x, z);
     interactables.push({type:'giantDepot', group:g, radius:22.0});
-    collisionBoxes.push({x,z:z-5,hw:15,hd:10});
 }
 
 function createToolShop(x,z) {
@@ -2636,7 +2632,6 @@ function createToolShop(x,z) {
         const b=createBarrelMesh(); b.position.set(3.2+i*0.85,0.45,2.8); b.scale.setScalar(0.55); g.add(b);
     }
     scene.add(g); feTrack('toolShop', g, x, z);
-    collisionBoxes.push({x,z,hw:4,hd:3});
 
     // 道具屋の右横に大型展示倉庫 (handcartは内部で生成)
     // 展示倉庫: 分岐道路東側に入口を道路側(西)に向けて配置
@@ -2891,7 +2886,6 @@ function createGasStation(x,z) {
     nozzleG.traverse(m=>{ if(m.isMesh) gasNozzleMeshToIdx.set(m.uuid, stIdx); });
     gasStationObjs.push({ group:g, x, z, nozzleMesh:nozzleG });
     interactables.push({type:'gasStation', group:g, radius:6.0});
-    collisionBoxes.push({x:x-3.5,z,hw:2.5,hd:2}); // 事務所のみ（キャノピー下は開放）
 }
 
 function createHouse(x,z,wallColor,roofColor,rotation) {
@@ -5599,12 +5593,46 @@ const FE_TYPE_LABELS = {
     streetLight:'街灯', roadSign:'道路標識', junkPile:'ジャンク', rock:'岩',
 };
 
+// Per-type collision box offsets in local space (dx,dz relative to object origin)
+const FE_COL_LOCAL = {
+    vehicleLot:    [{dx:0,    dz:-7,  hw:14,  hd:0.2}],
+    shippingDepot: [{dx:0,    dz:0,   hw:9,   hd:6  }, {dx:0, dz:9.3, hw:5, hd:2}],
+    giantDepot:    [{dx:0,    dz:-5,  hw:15,  hd:10 }],
+    toolShop:      [{dx:0,    dz:0,   hw:4,   hd:3  }],
+    gasStation:    [{dx:-3.5, dz:0,   hw:2.5, hd:2  }],
+};
+
 function feTrack(type, group, x, z, rot=0) {
     const id = fieldObjects.length;
     const label = (FE_TYPE_LABELS[type] || type) + ` #${id}`;
-    fieldObjects.push({ id, type, label, group, x, z, rot });
+    const colOffsets = FE_COL_LOCAL[type] || [];
+    const colStart = collisionBoxes.length;
+    const c = Math.cos(rot), s = Math.sin(rot);
+    colOffsets.forEach(({dx, dz, hw, hd}) => {
+        const rx = c*dx - s*dz, rz = s*dx + c*dz;
+        collisionBoxes.push({ x: x+rx, z: z+rz, hw, hd });
+    });
+    fieldObjects.push({ id, type, label, group, x, z, rot, colStart, colCount: colOffsets.length });
     group.traverse(m => { if (m.isMesh) fieldMeshToId.set(m.uuid, id); });
     return group;
+}
+
+function feUpdateCollisions(obj) {
+    if (!obj.colCount) return;
+    const offsets = FE_COL_LOCAL[obj.type] || [];
+    const c = Math.cos(obj.rot||0), s = Math.sin(obj.rot||0);
+    offsets.forEach(({dx, dz, hw, hd}, i) => {
+        const rx = c*dx - s*dz, rz = s*dx + c*dz;
+        const b = collisionBoxes[obj.colStart + i];
+        if (b) { b.x = obj.x + rx; b.z = obj.z + rz; b.hw = hw; b.hd = hd; }
+    });
+}
+
+function feZeroCollisions(obj) {
+    for (let i = 0; i < (obj.colCount||0); i++) {
+        const b = collisionBoxes[obj.colStart + i];
+        if (b) { b.hw = 0; b.hd = 0; }
+    }
 }
 
 // --- Field Editor: open/close ---
@@ -5709,6 +5737,7 @@ function feApply() {
     obj.x = newX; obj.z = newZ; obj.rot = newRot;
     obj.group.position.set(newX, 0, newZ);
     obj.group.rotation.y = newRot;
+    feUpdateCollisions(obj);
     feRefreshList();
     showNotification(`${obj.label} → (${newX}, ${newZ}) rot:${Math.round(newRot*180/Math.PI)}°`);
 }
@@ -5723,6 +5752,7 @@ function feDelete() {
     const obj = fieldObjects[feSelectedId];
     if (!obj || obj.deleted) return;
     if (!confirm(`「${obj.label}」を削除しますか?`)) return;
+    feZeroCollisions(obj);
     obj.group.traverse(m => { if (m.isMesh) fieldMeshToId.delete(m.uuid); });
     scene.remove(obj.group);
     obj.deleted = true;
@@ -5847,8 +5877,8 @@ function feImport() {
     if (!json) { alert('JSONが空です'); return; }
     let data; try { data=JSON.parse(json); } catch(e) { alert('JSONエラー: '+e.message); return; }
     if (!confirm('既存フィールドオブジェクトを消去してインポートしますか?')) return;
-    // Remove all existing tracked field objects
-    fieldObjects.forEach(o=>{ if(!o.deleted){ scene.remove(o.group); o.deleted=true; } });
+    // Remove all existing tracked field objects and their collision boxes
+    fieldObjects.forEach(o=>{ if(!o.deleted){ feZeroCollisions(o); scene.remove(o.group); o.deleted=true; } });
     fieldObjects.length=0; fieldMeshToId.clear();
     data.forEach(d=>feSpawnType(d.type, d.x, d.z, (d.rot||0)*Math.PI/180));
     feRefreshList(); feRenderProps();
