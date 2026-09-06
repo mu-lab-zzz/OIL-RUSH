@@ -47,21 +47,34 @@
         #debug-badge { display: none; position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: rgba(231,76,60,0.92); color: #fff; font-size: 11px; font-weight: bold; padding: 2px 10px; border-radius: 10px; pointer-events: none; z-index: 15; letter-spacing: 1px; }
         body.debug-mode #debug-badge { display: block; }
         @media (pointer: coarse) { #touch-controls { display: flex; } #interaction-prompt { bottom: 155px; } }
-        .editor-input { background:#111; color:#fff; border:1px solid #555; border-radius:3px; padding:3px 5px; font-size:12px; width:70px; }
-        .editor-input:focus { border-color:#e67e22; outline:none; }
-        .editor-tab-btn { padding:5px 10px; font-size:12px; border-radius:5px; cursor:pointer; border:1px solid #555; font-weight:bold; transition:background 0.15s; }
-        .editor-tab-btn.active { background:#e67e22; border-color:#e67e22; }
-        .editor-tab-btn:not(.active) { background:#2c3e50; }
-        #editor-modal .modal-content { max-width:760px; width:96%; }
-        .editor-table { width:100%; border-collapse:collapse; font-size:12px; }
-        .editor-table th { padding:5px 6px; text-align:left; color:#aaa; border-bottom:1px solid #444; font-weight:normal; }
-        .editor-table td { padding:4px 4px; border-bottom:1px solid #2a2a2a; vertical-align:middle; }
-        .editor-table tr:hover td { background:rgba(255,255,255,0.03); }
-        .ed-btn { padding:3px 7px; font-size:11px; border-radius:4px; cursor:pointer; border:1px solid #555; color:#fff; font-weight:bold; white-space:nowrap; }
-        .ed-btn-apply { background:#1a5c3a; } .ed-btn-apply:hover { background:#27ae60; }
-        .ed-btn-del   { background:#7f1a1a; } .ed-btn-del:hover   { background:#c0392b; }
-        .ed-btn-goto  { background:#1a3a5c; } .ed-btn-goto:hover  { background:#2980b9; }
-        .editor-empty { color:#666; padding:24px; text-align:center; font-size:13px; }
+        /* ===== Field Editor (Dev) ===== */
+        #field-editor { display:none; position:fixed; top:0; right:0; width:290px; height:100vh; background:#141414; border-left:2px solid #e67e22; z-index:500; flex-direction:column; font-size:12px; color:#ddd; user-select:text; -webkit-user-select:text; }
+        #field-editor.open { display:flex; }
+        #fe-header { display:flex; align-items:center; justify-content:space-between; background:#e67e22; color:#000; font-weight:bold; font-size:13px; padding:6px 10px; flex-shrink:0; }
+        #fe-body { flex:1; overflow-y:auto; padding:8px; display:flex; flex-direction:column; gap:8px; }
+        .fe-section { border:1px solid #333; border-radius:5px; overflow:hidden; }
+        .fe-section-title { background:#222; color:#aaa; font-size:11px; padding:4px 8px; font-weight:bold; letter-spacing:0.5px; }
+        #fe-obj-list { max-height:220px; overflow-y:auto; }
+        .fe-obj-item { display:flex; align-items:center; padding:4px 8px; cursor:pointer; gap:6px; border-bottom:1px solid #1a1a1a; }
+        .fe-obj-item:hover { background:#222; }
+        .fe-obj-item.selected { background:#2c1a00; border-left:3px solid #e67e22; padding-left:5px; }
+        .fe-obj-label { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .fe-obj-coords { color:#666; font-size:10px; flex-shrink:0; }
+        .fe-input { background:#111; color:#fff; border:1px solid #444; border-radius:3px; padding:3px 5px; font-size:12px; width:72px; }
+        .fe-input:focus { border-color:#e67e22; outline:none; }
+        .fe-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+        .fe-label { color:#888; font-size:11px; min-width:28px; }
+        .fe-btn { padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer; border:1px solid #555; color:#fff; font-weight:bold; white-space:nowrap; background:#2c3e50; }
+        .fe-btn:hover { background:#34495e; }
+        .fe-btn-apply { background:#1a5c3a !important; } .fe-btn-apply:hover { background:#27ae60 !important; }
+        .fe-btn-del   { background:#7f1a1a !important; } .fe-btn-del:hover   { background:#c0392b !important; }
+        .fe-btn-add   { background:#1a3a5c !important; } .fe-btn-add:hover   { background:#2980b9 !important; }
+        .fe-btn-goto  { background:#1a3a5c !important; } .fe-btn-goto:hover  { background:#2980b9 !important; }
+        .fe-select { background:#111; color:#fff; border:1px solid #444; border-radius:3px; padding:3px 5px; font-size:12px; flex:1; }
+        .fe-no-sel { color:#555; font-size:11px; padding:8px; text-align:center; }
+        #fe-search { background:#111; color:#fff; border:1px solid #444; border-radius:3px; padding:4px 8px; font-size:12px; width:100%; }
+        #fe-search:focus { border-color:#e67e22; outline:none; }
+        #fe-kbd { position:fixed; bottom:10px; right:10px; background:rgba(230,126,34,0.15); border:1px solid #e67e22; border-radius:6px; color:#e67e22; font-size:11px; padding:4px 8px; z-index:501; pointer-events:none; display:none; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
@@ -136,33 +149,73 @@
                 <button class="toggle-btn" id="btn-debug" onclick="toggleDebugMode()"></button>
             </div>
         </div>
-        <div style="border-top:1px solid #444;padding-top:14px;margin-top:4px;">
-            <div class="settings-row">
-                <span class="settings-label">ワールドエディタ</span>
-                <button class="btn" onclick="openEditorModal()" id="btn-editor-s">開く</button>
-            </div>
-        </div>
         <div class="modal-buttons" style="margin-top:18px;">
             <button class="btn" onclick="closeSettingsModal()" id="btn-close-s">閉じる</button>
         </div>
     </div>
 </div>
-<div id="editor-modal" class="modal" onclick="if(event.target===this)closeEditorModal()">
-    <div class="modal-content">
-        <div class="modal-header">ワールドエディタ</div>
-        <div id="editor-tabs" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;"></div>
-        <div id="editor-content" style="overflow-y:auto;max-height:360px;min-height:60px;"></div>
-        <div style="margin-top:14px;border-top:1px solid #444;padding-top:12px;">
-            <div style="font-size:12px;color:#888;margin-bottom:6px;">レイアウトJSON（エクスポート/インポート）</div>
-            <textarea id="editor-json-area" style="height:90px;font-size:11px;" placeholder="エクスポートするかJSONを貼り付けてインポート..."></textarea>
-            <div class="modal-buttons" style="margin-top:4px;">
-                <button class="btn" onclick="editorExportJSON()">エクスポート</button>
-                <button class="btn" onclick="editorImportJSON()">インポート</button>
-                <button class="btn" onclick="closeEditorModal()">閉じる</button>
+<!-- ===== Field Editor (Dev Only) ===== -->
+<div id="field-editor">
+    <div id="fe-header">
+        <span>FIELD EDITOR [DEV]</span>
+        <span style="font-size:10px;font-weight:normal;">Ctrl+E</span>
+        <button onclick="feClose()" style="background:none;border:none;color:#000;font-size:16px;cursor:pointer;line-height:1;">✕</button>
+    </div>
+    <div id="fe-body">
+        <!-- Add Object -->
+        <div class="fe-section">
+            <div class="fe-section-title">オブジェクト追加</div>
+            <div style="padding:8px;display:flex;flex-direction:column;gap:6px;">
+                <div class="fe-row">
+                    <select id="fe-add-type" class="fe-select">
+                        <option value="streetLight">街灯 (StreetLight)</option>
+                        <option value="roadSign">道路標識 (RoadSign)</option>
+                        <option value="rock">岩 (Rock)</option>
+                        <option value="junkPile">ジャンクヤード (JunkPile)</option>
+                        <option value="gasStation">ガスステーション</option>
+                        <option value="toolShop">道具屋</option>
+                        <option value="shippingDepot">荷物デポ</option>
+                        <option value="vehicleLot">車両展示場</option>
+                        <option value="giantDepot">大型デポ</option>
+                    </select>
+                </div>
+                <div class="fe-row">
+                    <button class="fe-btn fe-btn-add" onclick="feAddAtPlayer()">+ プレイヤー位置に配置</button>
+                </div>
+            </div>
+        </div>
+        <!-- Object List -->
+        <div class="fe-section" style="flex:1;display:flex;flex-direction:column;min-height:0;">
+            <div class="fe-section-title" style="display:flex;justify-content:space-between;">
+                <span>オブジェクト一覧</span>
+                <span id="fe-count" style="color:#666;font-weight:normal;">0</span>
+            </div>
+            <div style="padding:4px;">
+                <input id="fe-search" placeholder="検索..." oninput="feFilterList()" />
+            </div>
+            <div id="fe-obj-list"></div>
+        </div>
+        <!-- Selected Object Properties -->
+        <div class="fe-section" id="fe-props-section">
+            <div class="fe-section-title">選択中オブジェクト</div>
+            <div id="fe-props" style="padding:8px;display:flex;flex-direction:column;gap:8px;">
+                <div class="fe-no-sel">オブジェクトを選択してください</div>
+            </div>
+        </div>
+        <!-- Export/Import -->
+        <div class="fe-section">
+            <div class="fe-section-title">エクスポート / インポート</div>
+            <div style="padding:8px;display:flex;flex-direction:column;gap:6px;">
+                <textarea id="fe-json" style="width:100%;height:80px;background:#111;color:#0f0;border:1px solid #333;padding:6px;font-family:monospace;font-size:10px;resize:vertical;" placeholder="JSONが出力されます..."></textarea>
+                <div class="fe-row">
+                    <button class="fe-btn fe-btn-apply" onclick="feExport()">エクスポート</button>
+                    <button class="fe-btn fe-btn-add" onclick="feImport()">インポート</button>
+                </div>
             </div>
         </div>
     </div>
 </div>
+<div id="fe-kbd">Ctrl+E でフィールドエディタを開く</div>
 <div id="data-modal" class="modal">
     <div class="modal-content">
         <div class="modal-header" id="modal-title">セーブデータ管理</div>
@@ -2387,7 +2440,7 @@ function createVehicleLot(x, z) {
         const post=bx(0.15,1.8,0.15,0x9e9e9e,0.5,0.7); post.position.set(fx,0.9,-7); g.add(post);
     }
     const rail=bx(28,0.1,0.1,0x9e9e9e,0.5,0.7); rail.position.set(0,1.7,-7); g.add(rail);
-    scene.add(g);
+    scene.add(g); feTrack('vehicleLot', g, x, z);
     collisionBoxes.push({x, z:z-7, hw:14, hd:0.2});
 
     // 展示品スポーン位置 (ワールド座標)
@@ -2460,7 +2513,7 @@ function createShippingDepot(x,z) {
     // 出荷タンク (ここにジェリ缶の中身を注ぐ)
     createDepotTank(x, z, g);
 
-    scene.add(g);
+    scene.add(g); feTrack('shippingDepot', g, x, z);
     interactables.push({type:'depot', group:g, radius:8.0});
     collisionBoxes.push({x,z,hw:9,hd:6});
     collisionBoxes.push({x,z:z+9.3,hw:5,hd:2});
@@ -2546,7 +2599,7 @@ function createGiantDepot(x,z) {
     // ローディングドック
     const dock=bx(14,1.2,4,0x757575); dock.position.set(0,0.6,7.8); g.add(dock);
 
-    scene.add(g);
+    scene.add(g); feTrack('giantDepot', g, x, z);
     interactables.push({type:'giantDepot', group:g, radius:22.0});
     collisionBoxes.push({x,z:z-5,hw:15,hd:10});
 }
@@ -2579,7 +2632,7 @@ function createToolShop(x,z) {
     for (let i=0; i<3; i++) {
         const b=createBarrelMesh(); b.position.set(3.2+i*0.85,0.45,2.8); b.scale.setScalar(0.55); g.add(b);
     }
-    scene.add(g);
+    scene.add(g); feTrack('toolShop', g, x, z);
     collisionBoxes.push({x,z,hw:4,hd:3});
 
     // 道具屋の右横に大型展示倉庫 (handcartは内部で生成)
@@ -2830,7 +2883,7 @@ function createGasStation(x,z) {
     nozzleG.rotation.y = Math.PI / 2;
     g.add(nozzleG);
 
-    scene.add(g);
+    scene.add(g); feTrack('gasStation', g, x, z);
     const stIdx = gasStationObjs.length;
     nozzleG.traverse(m=>{ if(m.isMesh) gasNozzleMeshToIdx.set(m.uuid, stIdx); });
     gasStationObjs.push({ group:g, x, z, nozzleMesh:nozzleG });
@@ -2885,7 +2938,7 @@ function createRoadSign(x,z) {
     const pole=bx(0.12,2.5,0.12,0x9e9e9e,0.5,0.8); pole.position.y=1.25; g.add(pole);
     const board=bx(2.5,0.9,0.12,0x0d47a1); board.position.y=2.7; g.add(board);
     const face=bx(2.3,0.7,0.05,0xffffff); face.position.set(0,2.7,0.09); g.add(face);
-    scene.add(g);
+    scene.add(g); feTrack('roadSign', g, x, z);
 }
 
 // ===== 装飾 =====
@@ -2920,7 +2973,7 @@ function createStreetLight(x,z,rotY=0) {
         new THREE.MeshStandardMaterial({color:0xffff88,emissive:0xffff00,emissiveIntensity:0.8}));
     lamp.position.set(0,4.5,-0.8); g.add(lamp);
     const light=new THREE.PointLight(0xffeeaa,0.6,18);
-    light.position.set(0,4.4,-0.8); g.add(light); scene.add(g);
+    light.position.set(0,4.4,-0.8); g.add(light); scene.add(g); feTrack('streetLight', g, x, z, rotY);
 }
 function createJunkPile(x,z) {
     const g=new THREE.Group(); g.position.set(x,0,z);
@@ -2930,7 +2983,7 @@ function createJunkPile(x,z) {
         junk.position.set((Math.random()-0.5)*2,0.3,(Math.random()-0.5)*2);
         junk.rotation.y=Math.random()*Math.PI; g.add(junk);
     }
-    scene.add(g);
+    scene.add(g); feTrack('junkPile', g, x, z);
 }
 
 // ===== 入力 =====
@@ -2941,6 +2994,7 @@ window.addEventListener('keydown',e=>{
     if (e.code==='KeyS'||e.code==='ArrowDown')  keys.s=true;
     if (e.code==='KeyD'||e.code==='ArrowRight') keys.d=true;
     if (e.code==='Space') { e.preventDefault(); if(!keys.space) triggerAction(); keys.space=true; }
+    if (e.code==='KeyE' && e.ctrlKey) { e.preventDefault(); feToggle(); return; }
     if (e.code==='KeyG') toggleGridOverlay();
     if (e.code==='KeyR' && heldItem && GRID_SNAP_TYPES.includes(heldItem.type)) {
         placementRot = (placementRot + Math.PI/2) % (Math.PI*2);
@@ -3415,6 +3469,8 @@ function drumPrice(fill, contentType) {
 // ===== タップ/クリック選択 =====
 function processTouchSelectAt(clientX, clientY) {
     if (!touchSelectEnabled) return;
+    // フィールドエディタが開いていればそちらで処理
+    if (feProcessClick(clientX, clientY)) return;
     // UIパーツ上のタップは無視
     if (document.elementFromPoint(clientX,clientY)?.closest('.interactive,.modal,#ui-overlay')) return;
     const ndcX=(clientX/innerWidth)*2-1, ndcY=-(clientY/innerHeight)*2+1;
@@ -5527,239 +5583,228 @@ function preloadRock(callback) {
     }, undefined, function() { callback(); });
 }
 
-// ===== ワールドエディタ =====
-let currentEditorTab = 'pumpJack';
-const EDITOR_TABS = [
-    {id:'pumpJack',   label:'採掘機'},
-    {id:'storageTank',label:'貯蔵タンク'},
-    {id:'refinery',   label:'精製施設'},
-    {id:'pipe',       label:'パイプ'},
-    {id:'junction',   label:'ジャンクション'},
-    {id:'oilSpring',  label:'油田'},
-];
+// ===== フィールドエディタ (開発専用) =====
+const fieldObjects = [];           // { id, type, label, group, x, z, rot }
+const fieldMeshToId = new Map();   // mesh.uuid → fieldObject id
+let feSelectedId = -1;
+let feIsOpen = false;
+let feSearchStr = '';
 
-function openEditorModal() {
-    closeSettingsModal();
-    currentEditorTab = 'pumpJack';
-    document.getElementById('editor-modal').style.display = 'flex';
-    renderEditorTabs();
-    renderEditorContent();
+const FE_TYPE_LABELS = {
+    shippingDepot:'荷物デポ', toolShop:'道具屋', gasStation:'ガスステーション',
+    vehicleLot:'車両展示場', giantDepot:'大型デポ',
+    streetLight:'街灯', roadSign:'道路標識', junkPile:'ジャンク', rock:'岩',
+};
+
+function feTrack(type, group, x, z, rot=0) {
+    const id = fieldObjects.length;
+    const label = (FE_TYPE_LABELS[type] || type) + ` #${id}`;
+    fieldObjects.push({ id, type, label, group, x, z, rot });
+    group.traverse(m => { if (m.isMesh) fieldMeshToId.set(m.uuid, id); });
+    return group;
 }
 
-function closeEditorModal() {
-    document.getElementById('editor-modal').style.display = 'none';
+// --- Field Editor: open/close ---
+function feOpenPanel() {
+    feIsOpen = true;
+    document.getElementById('field-editor').classList.add('open');
+    document.getElementById('fe-kbd').style.display = 'none';
+    feRefreshList();
+}
+function feClose() {
+    feIsOpen = false;
+    document.getElementById('field-editor').classList.remove('open');
+    feDeselect();
+}
+function feToggle() {
+    if (feIsOpen) feClose(); else feOpenPanel();
 }
 
-function renderEditorTabs() {
-    const container = document.getElementById('editor-tabs');
-    container.innerHTML = EDITOR_TABS.map(t =>
-        `<button class="editor-tab-btn${t.id===currentEditorTab?' active':''}" data-tab="${t.id}" onclick="setEditorTab('${t.id}')">${t.label}</button>`
-    ).join('');
+// --- Field Editor: list ---
+function feRefreshList() {
+    document.getElementById('fe-count').textContent = fieldObjects.length;
+    const search = feSearchStr.toLowerCase();
+    const list = document.getElementById('fe-obj-list');
+    list.innerHTML = fieldObjects
+        .filter(o => !o.deleted && (!search || o.label.toLowerCase().includes(search) || o.type.toLowerCase().includes(search)))
+        .map(o => `<div class="fe-obj-item${o.id===feSelectedId?' selected':''}" onclick="feSelect(${o.id})">
+            <span class="fe-obj-label">${o.label}</span>
+            <span class="fe-obj-coords">${Math.round(o.x)},${Math.round(o.z)}</span>
+        </div>`).join('');
+}
+function feFilterList() {
+    feSearchStr = document.getElementById('fe-search').value;
+    feRefreshList();
 }
 
-function setEditorTab(tab) {
-    currentEditorTab = tab;
-    document.querySelectorAll('.editor-tab-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.tab === tab);
+// --- Field Editor: selection and highlight ---
+function feSelect(id) {
+    feDeselect();
+    feSelectedId = id;
+    const obj = fieldObjects[id];
+    if (!obj || obj.deleted) { feSelectedId = -1; feRefreshList(); feRenderProps(); return; }
+    // highlight
+    obj.group.traverse(m => {
+        if (m.isMesh && m.material) {
+            m.userData._fe_prevEmissive = m.material.emissive ? m.material.emissive.getHex() : 0;
+            m.userData._fe_prevEmissiveInt = m.material.emissiveIntensity || 0;
+            if (m.material.emissive) { m.material.emissive.setHex(0xe67e22); m.material.emissiveIntensity = 0.4; }
+        }
     });
-    renderEditorContent();
+    feRefreshList();
+    feRenderProps();
+}
+function feDeselect() {
+    if (feSelectedId < 0) return;
+    const obj = fieldObjects[feSelectedId];
+    if (obj && !obj.deleted) {
+        obj.group.traverse(m => {
+            if (m.isMesh && m.material && m.userData._fe_prevEmissive !== undefined) {
+                if (m.material.emissive) {
+                    m.material.emissive.setHex(m.userData._fe_prevEmissive);
+                    m.material.emissiveIntensity = m.userData._fe_prevEmissiveInt;
+                }
+            }
+        });
+    }
+    feSelectedId = -1;
+}
+function feRenderProps() {
+    const el = document.getElementById('fe-props');
+    const obj = feSelectedId >= 0 ? fieldObjects[feSelectedId] : null;
+    if (!obj || obj.deleted) { el.innerHTML = '<div class="fe-no-sel">オブジェクトを選択してください</div>'; return; }
+    const rotDeg = Math.round(((obj.rot||0)*180/Math.PI + 360) % 360);
+    el.innerHTML = `
+        <div style="color:#e67e22;font-weight:bold;font-size:11px;">${obj.label}</div>
+        <div class="fe-row">
+            <span class="fe-label">X</span>
+            <input class="fe-input" id="fe-px" type="number" step="1" value="${obj.x}">
+            <span class="fe-label">Z</span>
+            <input class="fe-input" id="fe-pz" type="number" step="1" value="${obj.z}">
+        </div>
+        <div class="fe-row">
+            <span class="fe-label">Rot°</span>
+            <input class="fe-input" id="fe-pr" type="number" step="45" value="${rotDeg}" style="width:60px;">
+        </div>
+        <div class="fe-row">
+            <button class="fe-btn fe-btn-apply" onclick="feApply()">適用</button>
+            <button class="fe-btn" onclick="feDuplicate()">複製</button>
+            <button class="fe-btn fe-btn-del" onclick="feDelete()">削除</button>
+        </div>
+        <div class="fe-row">
+            <button class="fe-btn fe-btn-goto" onclick="feGotoObj()">プレイヤーを移動</button>
+        </div>`;
 }
 
-function renderEditorContent() {
-    const el = document.getElementById('editor-content');
-    const tab = currentEditorTab;
-    if (tab === 'pumpJack')    renderFacilityTable(el, 'pumpJack',    pumpJackObjs);
-    else if (tab === 'storageTank') renderFacilityTable(el, 'storageTank', storageTankObjs);
-    else if (tab === 'refinery')    renderFacilityTable(el, 'refinery',    refineryObjs);
-    else if (tab === 'pipe')        renderPipeTable(el);
-    else if (tab === 'junction')    renderJunctionTable(el);
-    else if (tab === 'oilSpring')   renderOilSpringTable(el);
-}
-
-function renderFacilityTable(el, type, objs) {
-    if (!objs.length) { el.innerHTML = '<div class="editor-empty">配置なし</div>'; return; }
-    let html = `<table class="editor-table"><thead><tr>
-        <th>#</th><th>X (m)</th><th>Z (m)</th><th>回転 (°)</th><th>操作</th></tr></thead><tbody>`;
-    objs.forEach((obj, idx) => {
-        const rotDeg = Math.round(((obj.rot||0) * 180 / Math.PI + 360) % 360);
-        html += `<tr>
-            <td style="color:#888;">${idx}</td>
-            <td><input class="editor-input" id="ed-${type}-${idx}-x" type="number" step="2" value="${obj.x}"></td>
-            <td><input class="editor-input" id="ed-${type}-${idx}-z" type="number" step="2" value="${obj.z}"></td>
-            <td><input class="editor-input" id="ed-${type}-${idx}-rot" type="number" step="90" value="${rotDeg}" style="width:55px;"></td>
-            <td style="white-space:nowrap;">
-                <button class="ed-btn ed-btn-apply" onclick="editorApplyFacility('${type}',${idx})">適用</button>
-                <button class="ed-btn ed-btn-del"   onclick="editorDeleteFacility('${type}',${idx})">削除</button>
-                <button class="ed-btn ed-btn-goto"  onclick="editorGoto(${obj.x},${obj.z})">移動</button>
-            </td></tr>`;
-    });
-    el.innerHTML = html + '</tbody></table>';
-}
-
-function editorApplyFacility(type, idx) {
-    const getV = (id) => parseFloat(document.getElementById(id).value);
-    const newX   = getV(`ed-${type}-${idx}-x`);
-    const newZ   = getV(`ed-${type}-${idx}-z`);
-    const newRot = getV(`ed-${type}-${idx}-rot`) * Math.PI / 180;
-    const objs = type==='pumpJack'?pumpJackObjs : type==='storageTank'?storageTankObjs : refineryObjs;
-    const obj = objs[idx];
-    if (!obj) return;
-    unregisterFacilityPorts(type, idx);
+// --- Field Editor: apply move/rotate ---
+function feApply() {
+    const obj = fieldObjects[feSelectedId];
+    if (!obj || obj.deleted) return;
+    const newX  = parseFloat(document.getElementById('fe-px').value);
+    const newZ  = parseFloat(document.getElementById('fe-pz').value);
+    const newRot = parseFloat(document.getElementById('fe-pr').value) * Math.PI / 180;
     obj.x = newX; obj.z = newZ; obj.rot = newRot;
     obj.group.position.set(newX, 0, newZ);
     obj.group.rotation.y = newRot;
-    registerFacilityPorts(type, idx, Math.round(newX/GRID_SNAP), Math.round(newZ/GRID_SNAP), newRot);
-    showNotification(`#${idx} を移動しました (${newX}, ${newZ})`);
+    feRefreshList();
+    showNotification(`${obj.label} → (${newX}, ${newZ}) rot:${Math.round(newRot*180/Math.PI)}°`);
+}
+function feGotoObj() {
+    const obj = fieldObjects[feSelectedId];
+    if (!obj) return;
+    playerGroup.position.set(obj.x + 3, 0, obj.z + 3);
 }
 
-function editorDeleteFacility(type, idx) {
-    if (!confirm(`削除しますか?`)) return;
-    if (type === 'pumpJack') {
-        const pj = pumpJackObjs[idx];
-        if (!pj) return;
-        unregisterFacilityPorts('pumpJack', idx);
-        pj.group.traverse(m=>{ if(m.isMesh) pumpJackMeshToIdx.delete(m.uuid); });
-        scene.remove(pj.group);
-        oilSprings.forEach(s=>{ if(s.pumpJackIdx===idx) s.pumpJackIdx=-1; else if(s.pumpJackIdx>idx) s.pumpJackIdx--; });
-        pumpJackObjs.splice(idx, 1);
-        pumpJackMeshToIdx.forEach((v,k)=>{ if(v>idx) pumpJackMeshToIdx.set(k,v-1); });
-        raycastPumpJackIdx=-1; highlightedPumpJackIdx=-1;
-    } else if (type === 'storageTank') {
-        const st = storageTankObjs[idx];
-        if (!st) return;
-        unregisterFacilityPorts('storageTank', idx);
-        st.group.traverse(m=>{ if(m.isMesh) storageTankMeshToIdx.delete(m.uuid); });
-        scene.remove(st.group);
-        storageTankObjs.splice(idx, 1);
-        storageTankMeshToIdx.forEach((v,k)=>{ if(v>idx) storageTankMeshToIdx.set(k,v-1); });
-        raycastStorageTankIdx=-1; highlightedStorageTankIdx=-1;
-    } else if (type === 'refinery') {
-        const rf = refineryObjs[idx];
-        if (!rf) return;
-        unregisterFacilityPorts('refinery', idx);
-        rf.group.traverse(m=>{ if(m.isMesh) refineryMeshToIdx.delete(m.uuid); });
-        scene.remove(rf.group);
-        refineryObjs.splice(idx, 1);
-        refineryMeshToIdx.forEach((v,k)=>{ if(v>idx) refineryMeshToIdx.set(k,v-1); });
-        raycastRefineryIdx=-1; highlightedRefineryIdx=-1;
+// --- Field Editor: delete ---
+function feDelete() {
+    const obj = fieldObjects[feSelectedId];
+    if (!obj || obj.deleted) return;
+    if (!confirm(`「${obj.label}」を削除しますか?`)) return;
+    obj.group.traverse(m => { if (m.isMesh) fieldMeshToId.delete(m.uuid); });
+    scene.remove(obj.group);
+    obj.deleted = true;
+    feSelectedId = -1;
+    feRefreshList();
+    feRenderProps();
+}
+
+// --- Field Editor: duplicate ---
+function feDuplicate() {
+    const obj = fieldObjects[feSelectedId];
+    if (!obj || obj.deleted) return;
+    const nx = obj.x + 4, nz = obj.z + 4;
+    feSpawnType(obj.type, nx, nz, obj.rot);
+}
+
+// --- Field Editor: add at player ---
+function feAddAtPlayer() {
+    const type = document.getElementById('fe-add-type').value;
+    const px = playerGroup.position.x, pz = playerGroup.position.z;
+    feSpawnType(type, Math.round(px), Math.round(pz), 0);
+}
+
+function feSpawnType(type, x, z, rot=0) {
+    let g;
+    if      (type === 'streetLight')   g = feCreateAndTrack(type, x, z, rot, () => { const gg=new THREE.Group(); gg.position.set(x,0,z); gg.rotation.y=rot; const pole=bx(0.1,4.5,0.1,0x9e9e9e,0.5,0.8); pole.position.y=2.25; gg.add(pole); const arm=bx(0.08,0.08,0.8,0x9e9e9e,0.5,0.8); arm.position.set(0,4.5,-0.4); gg.add(arm); const lamp=new THREE.Mesh(new THREE.SphereGeometry(0.18,8,6),new THREE.MeshStandardMaterial({color:0xffff88,emissive:0xffff00,emissiveIntensity:0.8})); lamp.position.set(0,4.5,-0.8); gg.add(lamp); const lt=new THREE.PointLight(0xffeeaa,0.6,18); lt.position.set(0,4.4,-0.8); gg.add(lt); scene.add(gg); return gg; });
+    else if (type === 'roadSign')      { createRoadSign(x,z); return; }
+    else if (type === 'rock')          { createRock(x, z, 0.8); return; }
+    else if (type === 'junkPile')      { createJunkPile(x, z); return; }
+    else if (type === 'gasStation')    { createGasStation(x, z); return; }
+    else if (type === 'toolShop')      { createToolShop(x, z); return; }
+    else if (type === 'shippingDepot') { createShippingDepot(x, z); return; }
+    else if (type === 'vehicleLot')    { createVehicleLot(x, z); return; }
+    else if (type === 'giantDepot')    { createGiantDepot(x, z); return; }
+    feRefreshList();
+    showNotification(`${type} を配置しました (${x}, ${z})`);
+}
+function feCreateAndTrack(type, x, z, rot, createFn) {
+    const g = createFn();
+    feTrack(type, g, x, z, rot);
+    return g;
+}
+
+// --- Field Editor: 3D click select ---
+function feProcessClick(clientX, clientY) {
+    if (!feIsOpen) return false;
+    if (document.elementFromPoint(clientX, clientY)?.closest('#field-editor')) return false;
+    const ndcX=(clientX/innerWidth)*2-1, ndcY=-(clientY/innerHeight)*2+1;
+    const rc = new THREE.Raycaster(); rc.far=200;
+    rc.setFromCamera({x:ndcX,y:ndcY}, camera);
+    const meshes = [];
+    fieldObjects.forEach(o => { if (!o.deleted) o.group.traverse(m => { if(m.isMesh) meshes.push(m); }); });
+    const hits = rc.intersectObjects(meshes, false);
+    if (hits.length > 0) {
+        const id = fieldMeshToId.get(hits[0].object.uuid);
+        if (id !== undefined) { feSelect(id); return true; }
     }
-    renderEditorContent();
-    showNotification('削除しました');
+    feDeselect(); feRefreshList(); feRenderProps();
+    return false;
 }
 
-function editorGoto(x, z) {
-    playerGroup.position.set(x + 2, 0, z + 2);
-    closeEditorModal();
+// --- Field Editor: export/import ---
+function feExport() {
+    const data = fieldObjects.filter(o=>!o.deleted).map(o=>({
+        type:o.type, x:o.x, z:o.z,
+        rot:Math.round(((o.rot||0)*180/Math.PI+360)%360)
+    }));
+    document.getElementById('fe-json').value = JSON.stringify(data, null, 2);
 }
-
-function renderPipeTable(el) {
-    const pipes = [...pipeEdges.entries()];
-    if (!pipes.length) { el.innerHTML = '<div class="editor-empty">パイプなし</div>'; return; }
-    let html = `<table class="editor-table"><thead><tr>
-        <th>#</th><th>始点 (Gx,Gz)</th><th>終点 (Gx,Gz)</th><th>液体</th><th>操作</th></tr></thead><tbody>`;
-    pipes.forEach(([key, val], i) => {
-        const [from,to] = key.split(':');
-        html += `<tr>
-            <td style="color:#888;">${i}</td>
-            <td>${from}</td><td>${to}</td>
-            <td style="color:#aaa;">${val.liquidType||'-'}</td>
-            <td><button class="ed-btn ed-btn-del" onclick="editorDeletePipe('${key}')">削除</button></td></tr>`;
-    });
-    el.innerHTML = html + '</tbody></table>';
-}
-
-function editorDeletePipe(ek) {
-    const e = pipeEdges.get(ek);
-    if (e) { scene.remove(e.mesh); pipeEdges.delete(ek); }
-    const [nk1,nk2] = ek.split(':');
-    if (pipeNodeConns.has(nk1)) pipeNodeConns.get(nk1).delete(nk2);
-    if (pipeNodeConns.has(nk2)) pipeNodeConns.get(nk2).delete(nk1);
-    const p1=parseNodeKey(nk1), p2=parseNodeKey(nk2);
-    updateNodeJoint(p1.gx,p1.gz); updateNodeJoint(p2.gx,p2.gz);
-    renderEditorContent();
-}
-
-function renderJunctionTable(el) {
-    const juncs = [...junctionNodes.entries()];
-    if (!juncs.length) { el.innerHTML = '<div class="editor-empty">ジャンクションなし</div>'; return; }
-    let html = `<table class="editor-table"><thead><tr>
-        <th>#</th><th>Gx</th><th>Gz</th><th>種別</th><th>操作</th></tr></thead><tbody>`;
-    juncs.forEach(([key, junc], i) => {
-        const {gx,gz} = parseNodeKey(key);
-        html += `<tr>
-            <td style="color:#888;">${i}</td>
-            <td>${gx}</td><td>${gz}</td>
-            <td style="color:#aaa;">${junc.type||'-'}</td>
-            <td>
-                <button class="ed-btn ed-btn-goto" onclick="editorGoto(${gx*GRID_SNAP},${gz*GRID_SNAP})">移動</button>
-                <button class="ed-btn ed-btn-del"  onclick="editorDeleteJunction('${key}')">削除</button>
-            </td></tr>`;
-    });
-    el.innerHTML = html + '</tbody></table>';
-}
-
-function editorDeleteJunction(nk) {
-    const j = junctionNodes.get(nk);
-    if (j) { scene.remove(j.mesh); junctionNodes.delete(nk); }
-    const {gx,gz} = parseNodeKey(nk);
-    updateNodeJoint(gx,gz);
-    renderEditorContent();
-}
-
-function renderOilSpringTable(el) {
-    if (!oilSprings.length) { el.innerHTML = '<div class="editor-empty">油田なし</div>'; return; }
-    let html = `<table class="editor-table"><thead><tr>
-        <th>#</th><th>Gx</th><th>Gz</th><th>World X</th><th>World Z</th><th>採掘機 #</th><th>操作</th></tr></thead><tbody>`;
-    oilSprings.forEach((sp, i) => {
-        const hasPJ = sp.pumpJackIdx >= 0;
-        html += `<tr>
-            <td style="color:#888;">${i}</td>
-            <td>${sp.gx}</td><td>${sp.gz}</td>
-            <td>${sp.gx*GRID_SNAP}</td><td>${sp.gz*GRID_SNAP}</td>
-            <td style="color:${hasPJ?'#4CAF50':'#555'}">${hasPJ?sp.pumpJackIdx:'-'}</td>
-            <td><button class="ed-btn ed-btn-goto" onclick="editorGoto(${sp.gx*GRID_SNAP},${sp.gz*GRID_SNAP})">移動</button></td></tr>`;
-    });
-    el.innerHTML = html + '</tbody></table>';
-}
-
-function editorExportJSON() {
-    const layout = {
-        oilSprings: oilSprings.map(s=>({gx:s.gx, gz:s.gz})),
-        pumpJacks:  pumpJackObjs.map(pj=>({x:pj.x, z:pj.z, rot:Math.round(((pj.rot||0)*180/Math.PI+360)%360)})),
-        storageTanks: storageTankObjs.map(st=>({x:st.x, z:st.z, rot:Math.round(((st.rot||0)*180/Math.PI+360)%360)})),
-        refineries: refineryObjs.map(rf=>({x:rf.x, z:rf.z, rot:Math.round(((rf.rot||0)*180/Math.PI+360)%360)})),
-        pipes: [...pipeEdges.entries()].map(([k,v])=>{
-            const [nk1,nk2]=k.split(':');
-            const p1=parseNodeKey(nk1), p2=parseNodeKey(nk2);
-            return {gx1:p1.gx,gz1:p1.gz,gx2:p2.gx,gz2:p2.gz,liquidType:v.liquidType||null};
-        }),
-        junctions: [...junctionNodes.entries()].map(([k,j])=>{
-            const {gx,gz}=parseNodeKey(k);
-            return {gx,gz,type:j.type,rot:Math.round(((j.rot||0)*180/Math.PI+360)%360)};
-        })
-    };
-    document.getElementById('editor-json-area').value = JSON.stringify(layout, null, 2);
-}
-
-function editorImportJSON() {
-    const json = document.getElementById('editor-json-area').value.trim();
+function feImport() {
+    const json = document.getElementById('fe-json').value.trim();
     if (!json) { alert('JSONが空です'); return; }
-    let layout;
-    try { layout = JSON.parse(json); } catch(e) { alert('JSONエラー: ' + e.message); return; }
-    if (!confirm('現在の全施設・パイプを消去してインポートします。続けますか?')) return;
-    clearPumpJackObjs(); clearStorageTankObjs(); clearRefineryObjs(); clearPipeObjs();
-    (layout.pumpJacks||[]).forEach(pj=>restorePumpJack(pj.x,pj.z,0,0,0,(pj.rot||0)*Math.PI/180));
-    (layout.storageTanks||[]).forEach(st=>restoreStorageTank(st.x,st.z,0,(st.rot||0)*Math.PI/180,null));
-    (layout.refineries||[]).forEach(rf=>restoreRefinery(rf.x,rf.z,(rf.rot||0)*Math.PI/180,true,{gas:0,diesel:0,kerosene:0,naphtha:0,lpg:0,heavyoil:0},0,0));
-    (layout.pipes||[]).forEach(p=>restorePipe(p.gx1,p.gz1,p.gx2,p.gz2,p.liquidType||null));
-    (layout.junctions||[]).forEach(j=>restoreJunction(j.gx,j.gz,j.type,(j.rot||0)*Math.PI/180));
-    pipeNodeConns.forEach((_,nk)=>{ const {gx,gz}=parseNodeKey(nk); updateNodeJoint(gx,gz); });
-    renderEditorContent();
-    showNotification('レイアウトをインポートしました');
+    let data; try { data=JSON.parse(json); } catch(e) { alert('JSONエラー: '+e.message); return; }
+    if (!confirm('既存フィールドオブジェクトを消去してインポートしますか?')) return;
+    // Remove all existing tracked field objects
+    fieldObjects.forEach(o=>{ if(!o.deleted){ scene.remove(o.group); o.deleted=true; } });
+    fieldObjects.length=0; fieldMeshToId.clear();
+    data.forEach(d=>feSpawnType(d.type, d.x, d.z, (d.rot||0)*Math.PI/180));
+    feRefreshList(); feRenderProps();
+    showNotification('フィールドをインポートしました');
 }
 
 // ===== 初期化 =====
 window.addEventListener('DOMContentLoaded',()=>{
+    document.getElementById('fe-kbd').style.display = 'block';
     preloadRock(function() {
         preloadTruckGLB(function() {
             initThree();
