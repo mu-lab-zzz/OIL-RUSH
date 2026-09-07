@@ -201,6 +201,7 @@
                         <option value="toolShop">道具屋</option>
                         <option value="shippingDepot">荷物デポ</option>
                         <option value="vehicleLot">車両展示場</option>
+                        <option value="shopDisplay">商品展示倉庫</option>
                         <option value="giantDepot">大型デポ</option>
                         <option value="texturePatch">── テクスチャパッチ ──</option>
                     </select>
@@ -2522,6 +2523,7 @@ function createDerrick(x,z) {
 function createTown() {
     createShippingDepot(58,-18);
     createToolShop(56,22);
+    createShopDisplay(62, 42, -Math.PI/2);
     createGasStation(30,-30);
     createVehicleLot(10, -52);
     createGiantDepot(308, 0);
@@ -2553,30 +2555,31 @@ function createVehicleLot(x, z) {
     ];
 
     spots.forEach(({type, price, wx, wz}) => {
+        const lx = wx - x, lz = wz - z;
         // 台座
         const ped = bx(3.0,0.15,6.5,0x757575,0.9);
-        ped.position.set(wx-x, 0.08, wz-z); g.add(ped);
+        ped.position.set(lx, 0.08, lz); g.add(ped);
         // 価格プレート
         const plac = bx(1.5,0.4,0.1,0xfff9c4,0.7);
-        plac.position.set(wx-x, 1.0, wz-z+3.4); g.add(plac);
+        plac.position.set(lx, 1.0, lz+3.4); g.add(plac);
 
         let mesh;
         if (type==='towVehicle') {
             mesh = createTowVehicleMesh();
             mesh.scale.setScalar(0.85);
-            mesh.position.set(wx, 0.15, wz);
+            mesh.position.set(lx, 0.15, lz);
             mesh.rotation.y = Math.PI;
         } else {
             const cap = TOW_TANK_CAPS[type];
             mesh = createTowTankMesh(cap, 0, null);
             mesh.scale.setScalar(0.6);
-            mesh.position.set(wx, 0.15, wz);
+            mesh.position.set(lx, 0.15, lz);
         }
-        scene.add(mesh);
+        g.add(mesh);
 
         const idx = vehicleLotItems.length;
         mesh.traverse(m=>{ if(m.isMesh) vehicleLotMeshToIdx.set(m.uuid, idx); });
-        vehicleLotItems.push({type, price, mesh, dropX:wx, dropZ:wz+6});
+        vehicleLotItems.push({type, price, mesh, group:g, localDropX:lx, localDropZ:lz+6});
     });
 }
 
@@ -2731,10 +2734,6 @@ function createToolShop(x,z) {
         const b=createBarrelMesh(); b.position.set(3.2+i*0.85,0.45,2.8); b.scale.setScalar(0.55); g.add(b);
     }
     scene.add(g); feTrack('toolShop', g, x, z);
-
-    // 道具屋の右横に大型展示倉庫 (handcartは内部で生成)
-    // 展示倉庫: 分岐道路東側に入口を道路側(西)に向けて配置
-    createShopDisplay(x + 6, z + 20, -Math.PI/2);
 }
 
 // ===== 商品展示倉庫 =====
@@ -2787,23 +2786,7 @@ function createShopDisplay(x, z, rotY=0) {
     sigF.position.set(0, H+1.05, hd+0.06); g.add(sigF);
 
     scene.add(g);
-
-    // コリジョン: 回転後のワールド座標で奥壁・左右壁を登録
-    const [bwx,bwz] = wld(0, -hd);
-    const [lwx,lwz] = wld(-hw, -hd+sideLen/2);
-    const [rwx,rwz] = wld( hw, -hd+sideLen/2);
-    const is90 = Math.abs(Math.abs(rotY) - Math.PI/2) < 0.01;
-    if (is90) {
-        // ±90°: 奥壁は z 方向に広がる、側壁は x 方向に広がる
-        collisionBoxes.push({x:bwx, z:bwz, hw:0.35,      hd:hw});
-        collisionBoxes.push({x:lwx, z:lwz, hw:sideLen/2,  hd:0.35});
-        collisionBoxes.push({x:rwx, z:rwz, hw:sideLen/2,  hd:0.35});
-    } else {
-        // 0°/180°: 奥壁は x 方向に広がる、側壁は z 方向に広がる
-        collisionBoxes.push({x:bwx, z:bwz, hw:hw,         hd:0.35});
-        collisionBoxes.push({x:lwx, z:lwz, hw:0.35,        hd:sideLen/2});
-        collisionBoxes.push({x:rwx, z:rwz, hw:0.35,        hd:sideLen/2});
-    }
+    feTrack('shopDisplay', g, x, z, rotY);
 
     // --- 商品台座 (3列 × 4行) ---
     const COLS = [-8, 0, 8];
@@ -2873,9 +2856,7 @@ function createShopDisplay(x, z, rotY=0) {
 
         const idx = shopDisplayItems.length;
         m.traverse(child => { if (child.isMesh) shopMeshToIdx.set(child.uuid, idx); });
-        // ドロップ位置: 入口の外 (回転考慮)
-        const [dropX, dropZ] = wld(lx, hd+2);
-        shopDisplayItems.push({ type, price, mesh:m, dropX, dropZ });
+        shopDisplayItems.push({ type, price, mesh:m, group:g, localDropX:lx, localDropZ:hd+2 });
     });
 
     // --- リヤカー ---
@@ -2883,10 +2864,10 @@ function createShopDisplay(x, z, rotY=0) {
     const cartMark = bx(3.5, 0.06, 6.0, 0x8d6e63, 0.92);
     cartMark.position.set(cLX, 0.03, cLZ); g.add(cartMark);
     const [cartWX, cartWZ] = wld(cLX, cLZ);
-    createHandcart(cartWX, cartWZ);
+    createHandcart(cartWX, cartWZ, g, cLX, cLZ + 6);
 }
 
-function createHandcart(x, z) {
+function createHandcart(x, z, shopGroup=null, localDropX=0, localDropZ=0) {
     const g = new THREE.Group();
     const metalMat = new THREE.MeshStandardMaterial({color:0x607d8b,roughness:0.4,metalness:0.7});
     const woodMat  = new THREE.MeshStandardMaterial({color:0x8d6e63,roughness:0.85});
@@ -2954,7 +2935,11 @@ function createHandcart(x, z) {
     } else {
         const idx = shopDisplayItems.length;
         g.traverse(m => { if(m.isMesh) shopMeshToIdx.set(m.uuid, idx); });
-        shopDisplayItems.push({ type:'handcart', price:80, mesh:g, dropX:x, dropZ:z });
+        if (shopGroup) {
+            shopDisplayItems.push({ type:'handcart', price:80, mesh:g, group:shopGroup, localDropX, localDropZ });
+        } else {
+            shopDisplayItems.push({ type:'handcart', price:80, mesh:g, dropX:x, dropZ:z });
+        }
     }
 }
 
@@ -3761,7 +3746,15 @@ function doBuyItem(idx) {
         return;
     }
 
-    spawnWorldItem(si.type, si.dropX, si.dropZ, false, 0, 0.04);
+    let dropX = si.dropX || 0, dropZ = si.dropZ || 0;
+    if (si.group) {
+        const gr = si.group, rot = gr.rotation.y;
+        const c = Math.cos(rot), s = Math.sin(rot);
+        const ldx = si.localDropX || 0, ldz = si.localDropZ || 0;
+        dropX = gr.position.x + c*ldx - s*ldz;
+        dropZ = gr.position.z + s*ldx + c*ldz;
+    }
+    spawnWorldItem(si.type, dropX, dropZ, false, 0, 0.04);
     updateUI();
     const name = si.type==='ladle' ? L.nameLadle : si.type==='handPump' ? L.nameHandPump
         : si.type==='drum' ? L.nameDrum : si.type==='enginePump' ? L.nameEnginePump
@@ -4180,13 +4173,20 @@ function doBuyVehicleLotItem(idx) {
     if (!debugMode && gameState.money<vi.price) { showNotification(L.msgNoMoney); return; }
     if (!debugMode) gameState.money-=vi.price;
 
+    let vDropX = vi.dropX || 0, vDropZ = vi.dropZ || 0;
+    if (vi.group) {
+        const vg = vi.group, vrot = vg.rotation.y;
+        const vc = Math.cos(vrot), vs = Math.sin(vrot);
+        vDropX = vg.position.x + vc*vi.localDropX - vs*vi.localDropZ;
+        vDropZ = vg.position.z + vs*vi.localDropX + vc*vi.localDropZ;
+    }
     if (vi.type==='towVehicle') {
         if (towVehiclePurchased) return; // 既に所有
         const g=createTowVehicleMesh();
-        g.position.set(vi.dropX, 0, vi.dropZ);
+        g.position.set(vDropX, 0, vDropZ);
         g.rotation.y = Math.PI;
         scene.add(g);
-        towVehicle={group:g, x:vi.dropX, z:vi.dropZ, rot:Math.PI, inVehicle:false, hitchedTankIdx:-1};
+        towVehicle={group:g, x:vDropX, z:vDropZ, rot:Math.PI, inVehicle:false, hitchedTankIdx:-1};
         g.traverse(m=>{ if(m.isMesh) towVehicleMeshUUIDs.add(m.uuid); });
         towVehiclePurchased=true;
         showNotification(L.msgBought(L.nameTowVehicle, vi.price));
@@ -4194,11 +4194,11 @@ function doBuyVehicleLotItem(idx) {
         const cap=TOW_TANK_CAPS[vi.type];
         if (!cap) return;
         const g=createTowTankMesh(cap,0,null);
-        g.position.set(vi.dropX, 0, vi.dropZ);
+        g.position.set(vDropX, 0, vDropZ);
         scene.add(g);
         const tankIdx=towTanks.length;
         g.traverse(m=>{ if(m.isMesh) towTankMeshToIdx.set(m.uuid, tankIdx); });
-        towTanks.push({group:g, x:vi.dropX, z:vi.dropZ, capacity:cap, fill:0, contentType:null});
+        towTanks.push({group:g, x:vDropX, z:vDropZ, capacity:cap, fill:0, contentType:null});
         const n=vi.type==='towTank500'?L.nameTowTank500:vi.type==='towTank1500'?L.nameTowTank1500:L.nameTowTank3000;
         showNotification(L.msgBought(n, vi.price));
     }
@@ -5731,6 +5731,7 @@ const FE_GHOST_SIZE = {
     giantDepot:    [30, 7, 40],
     toolShop:      [8, 4, 6],
     gasStation:    [12, 4, 10],
+    shopDisplay:   [24, 6, 40],
     streetLight:   [0.4, 5, 0.4],
     roadSign:      [2.6, 3, 0.4],
     junkPile:      [3, 1.5, 3],
@@ -5740,18 +5741,24 @@ const FE_GHOST_SIZE = {
 
 const FE_TYPE_LABELS = {
     shippingDepot:'荷物デポ', toolShop:'道具屋', gasStation:'ガスステーション',
-    vehicleLot:'車両展示場', giantDepot:'大型デポ',
+    vehicleLot:'車両展示場', shopDisplay:'商品展示倉庫', giantDepot:'大型デポ',
     streetLight:'街灯', roadSign:'道路標識', junkPile:'ジャンク', rock:'岩',
     texturePatch:'テクスチャパッチ',
 };
 
 // Per-type collision box offsets in local space (dx,dz relative to object origin)
+// hw/hd are half-widths for rot=0; feTrack/feUpdateCollisions compute AABB for any rotation
 const FE_COL_LOCAL = {
     vehicleLot:    [{dx:0,    dz:-7,  hw:14,  hd:0.2}],
     shippingDepot: [{dx:0,    dz:0,   hw:9,   hd:6  }, {dx:0, dz:9.3, hw:5, hd:2}],
     giantDepot:    [{dx:0,    dz:-5,  hw:15,  hd:10 }],
     toolShop:      [{dx:0,    dz:0,   hw:4,   hd:3  }],
     gasStation:    [{dx:-3.5, dz:0,   hw:2.5, hd:2  }],
+    shopDisplay:   [
+        {dx:0,   dz:-20, hw:12,   hd:0.35},
+        {dx:-12, dz:-2,  hw:0.35, hd:18  },
+        {dx:12,  dz:-2,  hw:0.35, hd:18  },
+    ],
 };
 
 function feTrack(type, group, x, z, rot=0) {
@@ -5759,10 +5766,10 @@ function feTrack(type, group, x, z, rot=0) {
     const label = (FE_TYPE_LABELS[type] || type) + ` #${id}`;
     const colOffsets = FE_COL_LOCAL[type] || [];
     const colStart = collisionBoxes.length;
-    const c = Math.cos(rot), s = Math.sin(rot);
+    const c = Math.cos(rot), s = Math.sin(rot), ac = Math.abs(c), as = Math.abs(s);
     colOffsets.forEach(({dx, dz, hw, hd}) => {
         const rx = c*dx - s*dz, rz = s*dx + c*dz;
-        collisionBoxes.push({ x: x+rx, z: z+rz, hw, hd });
+        collisionBoxes.push({ x: x+rx, z: z+rz, hw: ac*hw + as*hd, hd: as*hw + ac*hd });
     });
     fieldObjects.push({ id, type, label, group, x, z, rot, colStart, colCount: colOffsets.length });
     group.traverse(m => { if (m.isMesh) fieldMeshToId.set(m.uuid, id); });
@@ -5772,11 +5779,12 @@ function feTrack(type, group, x, z, rot=0) {
 function feUpdateCollisions(obj) {
     if (!obj.colCount) return;
     const offsets = FE_COL_LOCAL[obj.type] || [];
-    const c = Math.cos(obj.rot||0), s = Math.sin(obj.rot||0);
+    const rot = obj.rot || 0;
+    const c = Math.cos(rot), s = Math.sin(rot), ac = Math.abs(c), as = Math.abs(s);
     offsets.forEach(({dx, dz, hw, hd}, i) => {
         const rx = c*dx - s*dz, rz = s*dx + c*dz;
         const b = collisionBoxes[obj.colStart + i];
-        if (b) { b.x = obj.x + rx; b.z = obj.z + rz; b.hw = hw; b.hd = hd; }
+        if (b) { b.x = obj.x + rx; b.z = obj.z + rz; b.hw = ac*hw + as*hd; b.hd = as*hw + ac*hd; }
     });
 }
 
@@ -6159,6 +6167,7 @@ function feSpawnType(type, x, z, rot=0) {
     else if (type === 'toolShop')      createToolShop(x, z);
     else if (type === 'shippingDepot') createShippingDepot(x, z);
     else if (type === 'vehicleLot')    createVehicleLot(x, z);
+    else if (type === 'shopDisplay')   createShopDisplay(x, z, rot);
     else if (type === 'giantDepot')    createGiantDepot(x, z);
     feRefreshList();
     showNotification(`${type} を配置しました (${x}, ${z})`);
@@ -6222,6 +6231,7 @@ function feGenCode() {
             case 'toolShop':      return `createToolShop(${x}, ${z});`;
             case 'shippingDepot': return `createShippingDepot(${x}, ${z});`;
             case 'vehicleLot':    return `createVehicleLot(${x}, ${z});`;
+            case 'shopDisplay':   return `createShopDisplay(${x}, ${z}${hasRot ? ', '+rotExpr(rot) : ''});`;
             case 'giantDepot':    return `createGiantDepot(${x}, ${z});`;
             case 'rock':          return `createRock(${x}, ${z}, 0.8);`;
             case 'texturePatch':  return `createTexPatch(${x}, ${z}, '${o.texType||'asphalt'}', ${o.patchW||8}, ${o.patchD||8}${hasRot ? ', '+rotExpr(rot) : ''});`;
@@ -6230,7 +6240,7 @@ function feGenCode() {
     }
     const live = fieldObjects.filter(o=>!o.deleted);
     // Group by type for readability
-    const order = ['shippingDepot','giantDepot','toolShop','gasStation','vehicleLot',
+    const order = ['shippingDepot','giantDepot','toolShop','gasStation','vehicleLot','shopDisplay',
                    'roadSign','streetLight','junkPile','rock','texturePatch'];
     const byType = {};
     live.forEach(o => { (byType[o.type]=byType[o.type]||[]).push(o); });
