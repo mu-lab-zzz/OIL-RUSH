@@ -5768,7 +5768,7 @@ function feTrack(type, group, x, z, rot=0) {
     const colStart = collisionBoxes.length;
     const c = Math.cos(rot), s = Math.sin(rot), ac = Math.abs(c), as = Math.abs(s);
     colOffsets.forEach(({dx, dz, hw, hd}) => {
-        const rx = c*dx - s*dz, rz = s*dx + c*dz;
+        const rx = c*dx + s*dz, rz = -s*dx + c*dz;
         collisionBoxes.push({ x: x+rx, z: z+rz, hw: ac*hw + as*hd, hd: as*hw + ac*hd });
     });
     fieldObjects.push({ id, type, label, group, x, z, rot, colStart, colCount: colOffsets.length });
@@ -5782,7 +5782,7 @@ function feUpdateCollisions(obj) {
     const rot = obj.rot || 0;
     const c = Math.cos(rot), s = Math.sin(rot), ac = Math.abs(c), as = Math.abs(s);
     offsets.forEach(({dx, dz, hw, hd}, i) => {
-        const rx = c*dx - s*dz, rz = s*dx + c*dz;
+        const rx = c*dx + s*dz, rz = -s*dx + c*dz;
         const b = collisionBoxes[obj.colStart + i];
         if (b) { b.x = obj.x + rx; b.z = obj.z + rz; b.hw = ac*hw + as*hd; b.hd = as*hw + ac*hd; }
     });
