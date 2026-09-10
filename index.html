@@ -822,6 +822,22 @@ const vehicleLotMeshToIdx = new Map();
 let raycastVehicleLotIdx      = -1;
 let highlightedVehicleLotIdx  = -1;
 
+// ===== パフォーマンス最適化: キャッシュ =====
+let _promptEl = null, _crosshairEl = null;          // DOM要素キャッシュ
+let _shadowPX = 1e9, _shadowPZ = 1e9;               // 影更新スロットル
+// レイキャスト用フラットメッシュ配列キャッシュ (カウント変化時のみ再構築)
+let _rcWorldMeshes = [], _rcWorldCount = -1, _rcWorldMeshToIdx = new Map();
+let _rcShopMeshes  = [], _rcShopCount  = -1;
+let _rcPumpMeshes  = [], _rcPumpCount  = -1;
+let _rcEpMeshes    = [], _rcEpCount    = -1;
+let _rcTtMeshes    = [], _rcTtCount    = -1;
+let _rcVlMeshes    = [], _rcVlCount    = -1;
+let _rcPjMeshes    = [], _rcPjCount    = -1;
+let _rcStMeshes    = [], _rcStCount    = -1;
+let _rcRfMeshes    = [], _rcRfCount    = -1;
+const _dedupSet = new Set();                        // dedup用Set (毎回clearして再利用)
+const _emptyPipeSet = new Set();                    // 空のpipeNodeConns fallback用
+
 // ===== 空 =====
 let skyDome = null;
 const clouds = [];
@@ -1878,7 +1894,7 @@ function findConnectedSources(startKey, liquidType) {
                 if (p.portType==='out' && (p.liquidType===liquidType||p.liquidType===null)) sources.push(p);
             }
         }
-        const conns=pipeNodeConns.get(key)||new Set();
+        const conns=pipeNodeConns.get(key)||_emptyPipeSet;
         for (const nk of conns) {
             if (!visited.has(nk)) { visited.add(nk); queue.push(nk); }
         }
@@ -1896,7 +1912,7 @@ function findConnectedSinks(startKey, liquidType) {
                 if (p.portType==='in' && (p.liquidType===liquidType||p.liquidType===null)) sinks.push(p);
             }
         }
-        const conns=pipeNodeConns.get(key)||new Set();
+        const conns=pipeNodeConns.get(key)||_emptyPipeSet;
         const numConns=conns.size;
         // 3本以上の場合は分岐パイプが必要
         if (numConns>=3) {
@@ -1914,8 +1930,8 @@ function findConnectedSinks(startKey, liquidType) {
 function simulatePipeFlow(delta) {
     // 共通: シンクを重複除去して返す
     function dedup(arr) {
-        const seen=new Set();
-        return arr.filter(s=>{ const k=`${s.facilityType}:${s.idx}`; if(seen.has(k))return false; seen.add(k);return true; });
+        _dedupSet.clear();
+        return arr.filter(s=>{ const k=`${s.facilityType}:${s.idx}`; if(_dedupSet.has(k))return false; _dedupSet.add(k);return true; });
     }
 
     // 採掘機 → タンク/精製施設 (原油)
@@ -2384,6 +2400,9 @@ function initThree() {
         camera.updateProjectionMatrix();
         renderer.setSize(innerWidth, innerHeight);
     });
+
+    _promptEl    = document.getElementById('interaction-prompt');
+    _crosshairEl = document.getElementById('crosshair');
 }
 
 // ===== プレイヤー =====
@@ -4721,9 +4740,15 @@ function updateGame() {
         camera.rotation.y=gameState.cameraYaw;
         camera.rotation.x=gameState.cameraPitch;
 
-        dirLight.position.set(playerGroup.position.x+30,40,playerGroup.position.z+20);
-        dirLight.target.position.copy(playerGroup.position);
-        dirLight.target.updateMatrixWorld();
+        {
+            const _spx=playerGroup.position.x, _spz=playerGroup.position.z;
+            if (Math.abs(_spx-_shadowPX)>2 || Math.abs(_spz-_shadowPZ)>2) {
+                _shadowPX=_spx; _shadowPZ=_spz;
+                dirLight.position.set(_spx+30,40,_spz+20);
+                dirLight.target.position.set(_spx,0,_spz);
+                dirLight.target.updateMatrixWorld();
+            }
+        }
 
         if (_gridHelper && gridOverlayVisible) {
             _gridHelper.position.set(
@@ -4744,13 +4769,13 @@ function updateGame() {
 
         // レイキャスト：ワールドアイテム + カートアイテム
         raycaster.setFromCamera({x:0,y:0}, camera);
-        const itemMeshes = [];
-        const meshToIdx = new Map();
-        worldItems.forEach((item,idx)=>{
-            item.group.traverse(m=>{ if(m.isMesh){itemMeshes.push(m);meshToIdx.set(m.uuid,idx);} });
-        });
-        const hits = raycaster.intersectObjects(itemMeshes, false);
-        raycastTargetIdx = (hits.length>0) ? (meshToIdx.get(hits[0].object.uuid)??-1) : -1;
+        if (worldItems.length !== _rcWorldCount) {
+            _rcWorldMeshes = []; _rcWorldMeshToIdx = new Map();
+            worldItems.forEach((item,idx)=>{ item.group.traverse(m=>{ if(m.isMesh){_rcWorldMeshes.push(m);_rcWorldMeshToIdx.set(m.uuid,idx);} }); });
+            _rcWorldCount = worldItems.length;
+        }
+        const hits = raycaster.intersectObjects(_rcWorldMeshes, false);
+        raycastTargetIdx = (hits.length>0) ? (_rcWorldMeshToIdx.get(hits[0].object.uuid)??-1) : -1;
         // 近接フォールバック（ワールドアイテム）
         if (proximitySelectEnabled && raycastTargetIdx<0 && worldItems.length>0) {
             const _px=playerGroup.position.x, _pz=playerGroup.position.z;
@@ -4777,9 +4802,12 @@ function updateGame() {
         // ショップ展示品レイキャスト（近接なし: 列選択が必要）
         raycastShopItemIdx = -1;
         if (shopDisplayItems.length > 0) {
-            const shopMeshes = [];
-            shopDisplayItems.forEach(si => { si.mesh.traverse(m=>{ if(m.isMesh) shopMeshes.push(m); }); });
-            const shopHits = raycaster.intersectObjects(shopMeshes, false);
+            if (shopDisplayItems.length !== _rcShopCount) {
+                _rcShopMeshes = [];
+                shopDisplayItems.forEach(si => { si.mesh.traverse(m=>{ if(m.isMesh) _rcShopMeshes.push(m); }); });
+                _rcShopCount = shopDisplayItems.length;
+            }
+            const shopHits = raycaster.intersectObjects(_rcShopMeshes, false);
             if (shopHits.length > 0) {
                 const idx = shopMeshToIdx.get(shopHits[0].object.uuid);
                 if (idx !== undefined) raycastShopItemIdx = idx;
@@ -4789,9 +4817,12 @@ function updateGame() {
         // 設置済みポンプレイキャスト
         raycastPumpIdx = -1;
         if (pumpObjs.length > 0) {
-            const pumpMeshes = [];
-            pumpObjs.forEach(po => { po.group.traverse(m=>{ if(m.isMesh) pumpMeshes.push(m); }); });
-            const pumpHits = raycaster.intersectObjects(pumpMeshes, false);
+            if (pumpObjs.length !== _rcPumpCount) {
+                _rcPumpMeshes = [];
+                pumpObjs.forEach(po => { po.group.traverse(m=>{ if(m.isMesh) _rcPumpMeshes.push(m); }); });
+                _rcPumpCount = pumpObjs.length;
+            }
+            const pumpHits = raycaster.intersectObjects(_rcPumpMeshes, false);
             if (pumpHits.length > 0) {
                 const idx = pumpMeshToIdx.get(pumpHits[0].object.uuid);
                 if (idx !== undefined) raycastPumpIdx = idx;
@@ -4811,9 +4842,12 @@ function updateGame() {
         // エンジンポンプレイキャスト（ノズル非保持時のみ）
         raycastEnginePumpIdx = -1;
         if (enginePumpObjs.length > 0 && !(heldItem && heldItem.type==='engineNozzle')) {
-            const epMeshes = [];
-            enginePumpObjs.forEach(ep => { ep.group.traverse(m=>{ if(m.isMesh) epMeshes.push(m); }); });
-            const epHits = raycaster.intersectObjects(epMeshes, false);
+            if (enginePumpObjs.length !== _rcEpCount) {
+                _rcEpMeshes = [];
+                enginePumpObjs.forEach(ep => { ep.group.traverse(m=>{ if(m.isMesh) _rcEpMeshes.push(m); }); });
+                _rcEpCount = enginePumpObjs.length;
+            }
+            const epHits = raycaster.intersectObjects(_rcEpMeshes, false);
             if (epHits.length > 0) {
                 const idx = enginePumpMeshToIdx.get(epHits[0].object.uuid);
                 if (idx !== undefined) raycastEnginePumpIdx = idx;
@@ -4858,9 +4892,12 @@ function updateGame() {
         // 牽引タンクレイキャスト
         raycastTowTankIdx = -1;
         if (towTanks.length > 0) {
-            const ttMeshes=[];
-            towTanks.forEach(tt=>{ tt.group.traverse(m=>{ if(m.isMesh) ttMeshes.push(m); }); });
-            const ttHits=raycaster.intersectObjects(ttMeshes,false);
+            if (towTanks.length !== _rcTtCount) {
+                _rcTtMeshes = [];
+                towTanks.forEach(tt=>{ tt.group.traverse(m=>{ if(m.isMesh) _rcTtMeshes.push(m); }); });
+                _rcTtCount = towTanks.length;
+            }
+            const ttHits=raycaster.intersectObjects(_rcTtMeshes,false);
             if (ttHits.length>0) {
                 const idx=towTankMeshToIdx.get(ttHits[0].object.uuid);
                 if (idx!==undefined) raycastTowTankIdx=idx;
@@ -4881,9 +4918,12 @@ function updateGame() {
         // 車両ロットレイキャスト（近接なし: 個別選択が必要）
         raycastVehicleLotIdx = -1;
         if (vehicleLotItems.length > 0) {
-            const vlMeshes=[];
-            vehicleLotItems.forEach(vi=>{ vi.mesh.traverse(m=>{ if(m.isMesh) vlMeshes.push(m); }); });
-            const vlHits=raycaster.intersectObjects(vlMeshes,false);
+            if (vehicleLotItems.length !== _rcVlCount) {
+                _rcVlMeshes = [];
+                vehicleLotItems.forEach(vi=>{ vi.mesh.traverse(m=>{ if(m.isMesh) _rcVlMeshes.push(m); }); });
+                _rcVlCount = vehicleLotItems.length;
+            }
+            const vlHits=raycaster.intersectObjects(_rcVlMeshes,false);
             if (vlHits.length>0) {
                 const idx=vehicleLotMeshToIdx.get(vlHits[0].object.uuid);
                 if (idx!==undefined) raycastVehicleLotIdx=idx;
@@ -4893,9 +4933,12 @@ function updateGame() {
         // 採掘機レイキャスト
         raycastPumpJackIdx = -1;
         if (pumpJackObjs.length > 0) {
-            const pjMeshes=[];
-            pumpJackObjs.forEach(pj=>{ pj.group.traverse(m=>{ if(m.isMesh) pjMeshes.push(m); }); });
-            const pjHits=raycaster.intersectObjects(pjMeshes,false);
+            if (pumpJackObjs.length !== _rcPjCount) {
+                _rcPjMeshes = [];
+                pumpJackObjs.forEach(pj=>{ pj.group.traverse(m=>{ if(m.isMesh) _rcPjMeshes.push(m); }); });
+                _rcPjCount = pumpJackObjs.length;
+            }
+            const pjHits=raycaster.intersectObjects(_rcPjMeshes,false);
             if (pjHits.length>0) {
                 const idx=pumpJackMeshToIdx.get(pjHits[0].object.uuid);
                 if (idx!==undefined) raycastPumpJackIdx=idx;
@@ -4915,9 +4958,12 @@ function updateGame() {
         // 貯蔵タンクレイキャスト
         raycastStorageTankIdx = -1;
         if (storageTankObjs.length > 0) {
-            const stMeshes=[];
-            storageTankObjs.forEach(st=>{ st.group.traverse(m=>{ if(m.isMesh) stMeshes.push(m); }); });
-            const stHits=raycaster.intersectObjects(stMeshes,false);
+            if (storageTankObjs.length !== _rcStCount) {
+                _rcStMeshes = [];
+                storageTankObjs.forEach(st=>{ st.group.traverse(m=>{ if(m.isMesh) _rcStMeshes.push(m); }); });
+                _rcStCount = storageTankObjs.length;
+            }
+            const stHits=raycaster.intersectObjects(_rcStMeshes,false);
             if (stHits.length>0) {
                 const idx=storageTankMeshToIdx.get(stHits[0].object.uuid);
                 if (idx!==undefined) raycastStorageTankIdx=idx;
@@ -4937,9 +4983,12 @@ function updateGame() {
         // 精製施設レイキャスト
         raycastRefineryIdx = -1;
         if (refineryObjs.length > 0) {
-            const rfMeshes=[];
-            refineryObjs.forEach(rf=>{ rf.group.traverse(m=>{ if(m.isMesh) rfMeshes.push(m); }); });
-            const rfHits=raycaster.intersectObjects(rfMeshes,false);
+            if (refineryObjs.length !== _rcRfCount) {
+                _rcRfMeshes = [];
+                refineryObjs.forEach(rf=>{ rf.group.traverse(m=>{ if(m.isMesh) _rcRfMeshes.push(m); }); });
+                _rcRfCount = refineryObjs.length;
+            }
+            const rfHits=raycaster.intersectObjects(_rcRfMeshes,false);
             if (rfHits.length>0) {
                 const idx=refineryMeshToIdx.get(rfHits[0].object.uuid);
                 if (idx!==undefined) raycastRefineryIdx=idx;
@@ -5035,8 +5084,8 @@ function updateGame() {
             towTankDrainAccum = 0;
         }
 
-        const prompt=document.getElementById('interaction-prompt');
-        const crosshairEl=document.getElementById('crosshair');
+        const prompt=_promptEl;
+        const crosshairEl=_crosshairEl;
         if (currentAction) { prompt.style.display='block'; prompt.innerText=currentAction.label; }
         else { prompt.style.display='none'; }
 
@@ -5062,7 +5111,7 @@ function updateGame() {
             const g = actionable ? 0.9*blink  : 0.3*blink;
             const b = actionable ? 0.1*blink  : 0.3*blink;
             worldItems[highlightedItemIdx].group.traverse(m=>{
-                if (m.isMesh&&m.material&&m.material.emissive) m.material.emissive.set(new THREE.Color(r,g,b));
+                if (m.isMesh&&m.material&&m.material.emissive) m.material.emissive.setRGB(r,g,b);
             });
         }
 
@@ -5080,7 +5129,7 @@ function updateGame() {
             const blink2 = 0.45+0.45*Math.abs(Math.sin(now*0.005));
             cartObj.slots[highlightedCartSlotIdx].mesh.traverse(m=>{
                 if(m.isMesh&&m.material&&m.material.emissive)
-                    m.material.emissive.set(new THREE.Color(0.05*blink2,0.9*blink2,0.1*blink2));
+                    m.material.emissive.setRGB(0.05*blink2,0.9*blink2,0.1*blink2);
             });
         }
 
@@ -5098,7 +5147,7 @@ function updateGame() {
             const blink3 = 0.45+0.45*Math.abs(Math.sin(now*0.005));
             shopDisplayItems[highlightedShopItemIdx].mesh.traverse(m=>{
                 if(m.isMesh&&m.material&&m.material.emissive)
-                    m.material.emissive.set(new THREE.Color(0.9*blink3, 0.6*blink3, 0.0));
+                    m.material.emissive.setRGB(0.9*blink3, 0.6*blink3, 0.0);
             });
         }
 
@@ -5116,7 +5165,7 @@ function updateGame() {
             const blink4 = 0.4+0.4*Math.abs(Math.sin(now*0.005));
             pumpObjs[highlightedPumpIdx].group.traverse(m=>{
                 if(m.isMesh&&m.material&&m.material.emissive)
-                    m.material.emissive.set(new THREE.Color(0.0, 0.7*blink4, 0.9*blink4));
+                    m.material.emissive.setRGB(0.0, 0.7*blink4, 0.9*blink4);
             });
         }
 
@@ -5134,7 +5183,7 @@ function updateGame() {
             const blinkE = 0.4+0.4*Math.abs(Math.sin(now*0.005));
             enginePumpObjs[highlightedEnginePumpIdx].group.traverse(m=>{
                 if(m.isMesh&&m.material&&m.material.emissive)
-                    m.material.emissive.set(new THREE.Color(0.9*blinkE, 0.4*blinkE, 0.0));
+                    m.material.emissive.setRGB(0.9*blinkE, 0.4*blinkE, 0.0);
             });
         }
 
@@ -5152,7 +5201,7 @@ function updateGame() {
             const blinkG = 0.4+0.4*Math.abs(Math.sin(now*0.005));
             gasStationObjs[highlightedGasNozzleIdx].nozzleMesh.traverse(m=>{
                 if(m.isMesh&&m.material&&m.material.emissive)
-                    m.material.emissive.set(new THREE.Color(0.9*blinkG, 0.8*blinkG, 0.0));
+                    m.material.emissive.setRGB(0.9*blinkG, 0.8*blinkG, 0.0);
             });
         }
 
@@ -5165,7 +5214,7 @@ function updateGame() {
         }
         if (highlightedTowTankIdx>=0&&towTanks[highlightedTowTankIdx]) {
             const blinkTT=0.4+0.4*Math.abs(Math.sin(now*0.005));
-            towTanks[highlightedTowTankIdx].group.traverse(m=>{ if(m.isMesh&&m.material&&m.material.emissive) m.material.emissive.set(new THREE.Color(0,0.8*blinkTT,0.2*blinkTT)); });
+            towTanks[highlightedTowTankIdx].group.traverse(m=>{ if(m.isMesh&&m.material&&m.material.emissive) m.material.emissive.setRGB(0,0.8*blinkTT,0.2*blinkTT); });
         }
 
         // 車両ロットハイライト（金色点滅）
@@ -5177,7 +5226,7 @@ function updateGame() {
         }
         if (highlightedVehicleLotIdx>=0&&vehicleLotItems[highlightedVehicleLotIdx]) {
             const blinkVL=0.45+0.45*Math.abs(Math.sin(now*0.005));
-            vehicleLotItems[highlightedVehicleLotIdx].mesh.traverse(m=>{ if(m.isMesh&&m.material&&m.material.emissive) m.material.emissive.set(new THREE.Color(0.9*blinkVL,0.6*blinkVL,0)); });
+            vehicleLotItems[highlightedVehicleLotIdx].mesh.traverse(m=>{ if(m.isMesh&&m.material&&m.material.emissive) m.material.emissive.setRGB(0.9*blinkVL,0.6*blinkVL,0); });
         }
 
         // 採掘機ハイライト（紫点滅）
@@ -5189,7 +5238,7 @@ function updateGame() {
         }
         if (highlightedPumpJackIdx>=0&&pumpJackObjs[highlightedPumpJackIdx]) {
             const blinkPJ=0.4+0.4*Math.abs(Math.sin(now*0.005));
-            pumpJackObjs[highlightedPumpJackIdx].group.traverse(m=>{ if(m.isMesh&&m.material&&m.material.emissive) m.material.emissive.set(new THREE.Color(0.6*blinkPJ,0,0.9*blinkPJ)); });
+            pumpJackObjs[highlightedPumpJackIdx].group.traverse(m=>{ if(m.isMesh&&m.material&&m.material.emissive) m.material.emissive.setRGB(0.6*blinkPJ,0,0.9*blinkPJ); });
         }
 
         // 貯蔵タンクハイライト（水色点滅）
@@ -5201,7 +5250,7 @@ function updateGame() {
         }
         if (highlightedStorageTankIdx>=0&&storageTankObjs[highlightedStorageTankIdx]) {
             const blinkST=0.4+0.4*Math.abs(Math.sin(now*0.005));
-            storageTankObjs[highlightedStorageTankIdx].group.traverse(m=>{ if(m.isMesh&&m.material&&m.material.emissive) m.material.emissive.set(new THREE.Color(0,0.7*blinkST,0.9*blinkST)); });
+            storageTankObjs[highlightedStorageTankIdx].group.traverse(m=>{ if(m.isMesh&&m.material&&m.material.emissive) m.material.emissive.setRGB(0,0.7*blinkST,0.9*blinkST); });
         }
 
         autoSaveTimer+=delta;
