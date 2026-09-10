@@ -295,6 +295,7 @@ const I18N = {
         promptPickupLadle: "[SPACE] ひしゃくを拾う",
         promptPickupCan: (f, ct) => ct==='gas' ? (f>0?`[SPACE] ジェリ缶を拾う (ガス ${f}L/10L)`:"[SPACE] ジェリ缶を拾う (空)") : (f>0?`[SPACE] ジェリ缶を拾う (原油 ${f}L/10L)`:"[SPACE] ジェリ缶を拾う (空)"),
         promptPickupDrum: (f, ct) => ct==='gas' ? (f>0?`[SPACE] ドラム缶を拾う (ガス ${f}L/100L)`:"[SPACE] ドラム缶を拾う (空)") : (f>0?`[SPACE] ドラム缶を拾う (原油 ${f}L/100L)`:"[SPACE] ドラム缶を拾う (空)"),
+        promptPickup: name => `[SPACE] ${name}を拾う`,
         promptScoop: "[SPACE] 原油を掬う",
         promptPour: (f) => `[SPACE] ジェリ缶に注ぐ (${f}L/10L)`,
         promptPourDrum: (f) => `[SPACE] ドラム缶に注ぐ (${f}L/100L)`,
@@ -454,6 +455,7 @@ const I18N = {
         promptPickupLadle: "[SPACE] Pick up ladle",
         promptPickupCan: (f, ct) => ct==='gas' ? (f>0?`[SPACE] Pick up can (gas ${f}L/10L)`:"[SPACE] Pick up can (empty)") : (f>0?`[SPACE] Pick up can (oil ${f}L/10L)`:"[SPACE] Pick up can (empty)"),
         promptPickupDrum: (f, ct) => ct==='gas' ? (f>0?`[SPACE] Pick up drum (gas ${f}L/100L)`:"[SPACE] Pick up drum (empty)") : (f>0?`[SPACE] Pick up drum (oil ${f}L/100L)`:"[SPACE] Pick up drum (empty)"),
+        promptPickup: name => `[SPACE] Pick up ${name}`,
         promptScoop: "[SPACE] Scoop oil",
         promptPour: (f) => `[SPACE] Pour into can (${f}L/10L)`,
         promptPourDrum: (f) => `[SPACE] Pour into drum (${f}L/100L)`,
@@ -3219,6 +3221,21 @@ function updateJoystick(touch) {
 }
 
 // ===== アクション検出 =====
+function getItemName(type, L) {
+    return type==='ladle'        ? L.nameLadle
+         : type==='jerryCan'     ? L.nameCan
+         : type==='drum'         ? L.nameDrum
+         : type==='handPump'     ? L.nameHandPump
+         : type==='enginePump'   ? L.nameEnginePump
+         : type==='pumpJack'     ? L.namePumpJack
+         : type==='storageTank'  ? L.nameStorageTank
+         : type==='pipe'         ? L.namePipe
+         : type==='junctionT'    ? L.nameJunctionT
+         : type==='junctionCross'? L.nameJunctionCross
+         : type==='refinery'     ? L.nameRefinery
+         : L.nameCan;
+}
+
 function computeCurrentAction() {
     const px=playerGroup.position.x, pz=playerGroup.position.z;
     const L=I18N[currentLang];
@@ -3546,9 +3563,9 @@ function computeCurrentAction() {
         // ワールドアイテムに照準 → 拾う
         if (aimItem) {
             let label;
-            if (aimItem.type==='ladle') label=L.promptPickupLadle;
-            else if (aimItem.type==='drum') label=L.promptPickupDrum(aimItem.fill, aimItem.contentType);
-            else label=L.promptPickupCan(aimItem.fill, aimItem.contentType);
+            if (aimItem.type==='drum')         label=L.promptPickupDrum(aimItem.fill, aimItem.contentType);
+            else if (aimItem.type==='jerryCan') label=L.promptPickupCan(aimItem.fill, aimItem.contentType);
+            else                                label=L.promptPickup(getItemName(aimItem.type, L));
             return { type:'pickup', label, itemIdx:aimIdx };
         }
         // 分岐パイプ撤去（グリッドスナップ位置に分岐パイプがある場合）
@@ -3779,11 +3796,7 @@ function doBuyItem(idx) {
     }
     spawnWorldItem(si.type, dropX, dropZ, false, 0, 0.04);
     updateUI();
-    const name = si.type==='ladle' ? L.nameLadle : si.type==='handPump' ? L.nameHandPump
-        : si.type==='drum' ? L.nameDrum : si.type==='enginePump' ? L.nameEnginePump
-        : si.type==='pumpJack' ? L.namePumpJack : si.type==='storageTank' ? L.nameStorageTank
-        : si.type==='refinery' ? L.nameRefinery : L.nameCan;
-    showNotification(L.msgBought(name, si.price));
+    showNotification(L.msgBought(getItemName(si.type, L), si.price));
 }
 
 // ===== 採掘機アクション =====
@@ -4475,11 +4488,7 @@ function doPickup(idx) {
     updateHeldMesh();
     updateUI();
     const L=I18N[currentLang];
-    const name=item.type==='ladle'?L.nameLadle:item.type==='drum'?L.nameDrum
-        :item.type==='enginePump'?L.nameEnginePump:item.type==='handPump'?L.nameHandPump
-        :item.type==='pumpJack'?L.namePumpJack:item.type==='storageTank'?L.nameStorageTank
-        :item.type==='refinery'?L.nameRefinery:L.nameCan;
-    showNotification(L.msgPickedUp(name));
+    showNotification(L.msgPickedUp(getItemName(item.type, L)));
 }
 
 function doScoop() {
