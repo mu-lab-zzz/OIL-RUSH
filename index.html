@@ -92,12 +92,35 @@
         #fe-mode-status { background:#1a0d00; color:#ffb300; font-size:11px; font-weight:bold; padding:6px 8px; border-bottom:1px solid #e67e22; display:none; text-align:center; }
         #fe-mode-status.active { display:block; }
         #fe-mode-hint { color:#888; font-size:10px; margin-top:2px; font-weight:normal; }
+        /* ===== Loading Screen ===== */
+        #loading-screen { position:fixed; inset:0; background:#0a0e14; z-index:9999; display:flex; align-items:center; justify-content:center; transition:opacity 0.55s ease; }
+        #loading-screen.fade-out { opacity:0; pointer-events:none; }
+        #loading-content { display:flex; flex-direction:column; align-items:center; gap:0; }
+        #loading-icon { font-size:56px; line-height:1; animation:ld-bob 1.4s ease-in-out infinite; }
+        @keyframes ld-bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+        #loading-title { font-size:38px; font-weight:900; color:#e67e22; letter-spacing:6px; margin:14px 0 6px; text-shadow:0 0 24px rgba(230,126,34,0.5); }
+        #loading-sub { font-size:12px; color:#4a5568; letter-spacing:2px; margin-bottom:32px; }
+        #loading-bar-wrap { width:240px; height:6px; background:#1a2030; border-radius:3px; overflow:hidden; border:1px solid #2a3040; margin-bottom:14px; }
+        #loading-bar { height:100%; width:0%; background:linear-gradient(90deg,#c0392b,#e67e22,#f1c40f); background-size:200% 100%; border-radius:3px; transition:width 0.45s cubic-bezier(0.4,0,0.2,1); animation:ld-shimmer 1.8s linear infinite; }
+        @keyframes ld-shimmer { 0%{background-position:100% 0} 100%{background-position:-100% 0} }
+        #loading-msg { font-size:12px; color:#5a6a7a; min-height:18px; letter-spacing:0.5px; }
+        #loading-pct { font-size:11px; color:#e67e22; margin-top:4px; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 </head>
 <body>
+<div id="loading-screen">
+    <div id="loading-content">
+        <div id="loading-icon">⛽</div>
+        <div id="loading-title">OIL RUSH</div>
+        <div id="loading-sub">3D SIMULATOR</div>
+        <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
+        <div id="loading-msg">初期化中...</div>
+        <div id="loading-pct">0%</div>
+    </div>
+</div>
 <div id="canvas-container"></div>
 <div id="ui-layer">
     <div id="header">
@@ -6274,11 +6297,30 @@ function feImport() {
     showNotification('フィールドをインポートしました');
 }
 
+// ===== ローディング画面 =====
+function ldProgress(pct, msg) {
+    const bar = document.getElementById('loading-bar');
+    const msgEl = document.getElementById('loading-msg');
+    const pctEl = document.getElementById('loading-pct');
+    if (bar)   bar.style.width = pct + '%';
+    if (msgEl) msgEl.textContent = msg;
+    if (pctEl) pctEl.textContent = pct + '%';
+}
+function ldHide() {
+    const ls = document.getElementById('loading-screen');
+    if (!ls) return;
+    ls.classList.add('fade-out');
+    setTimeout(() => { if (ls.parentNode) ls.parentNode.removeChild(ls); }, 620);
+}
+
 // ===== 初期化 =====
 window.addEventListener('DOMContentLoaded',()=>{
     document.getElementById('fe-kbd').style.display = 'block';
+    ldProgress(5, '地形データを読み込み中...');
     preloadRock(function() {
+        ldProgress(40, '車両モデルを読み込み中...');
         preloadTruckGLB(function() {
+            ldProgress(70, 'ワールドを生成中...');
             initThree();
             const hasSave=!!localStorage.getItem('oil_rush_save');
             if (hasSave) {
@@ -6287,7 +6329,9 @@ window.addEventListener('DOMContentLoaded',()=>{
                 initWorldItemsDefault();
                 updateUI();
             }
+            ldProgress(100, '完了！');
             requestAnimationFrame(updateGame);
+            setTimeout(ldHide, 250);
         });
     });
 });
