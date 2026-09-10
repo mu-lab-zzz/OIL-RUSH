@@ -1026,10 +1026,10 @@ function createJerryCanMesh(fill=0) {
     });
 
     if (fill>0) {
-        const fh=(fill/5)*0.44;
+        const fh=(fill/JERRY_CAN_CAP)*0.50;
         const oilMat=new THREE.MeshStandardMaterial({color:0x080808,roughness:0.05,metalness:0.9});
-        const oilFill=new THREE.Mesh(new THREE.BoxGeometry(0.30,fh,0.16),oilMat);
-        oilFill.position.y=fh/2-0.26; g.add(oilFill);
+        const oilFill=new THREE.Mesh(new THREE.BoxGeometry(0.28,fh,0.14),oilMat);
+        oilFill.position.y=fh/2-0.25; g.add(oilFill);
     }
     return g;
 }
@@ -1599,6 +1599,7 @@ function removeWorldItem(idx) {
 
 function refreshWorldItemMesh(idx) {
     if (highlightedItemIdx === idx) highlightedItemIdx = -1; // グループ差し替え前にリセット
+    _rcWorldCount = -1; // レイキャストキャッシュ無効化
     const item = worldItems[idx];
     const oldG = item.group;
     const pos = oldG.position.clone();
