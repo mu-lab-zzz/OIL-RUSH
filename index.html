@@ -442,7 +442,20 @@ const I18N = {
         msgRefineryOff: "精製施設をOFFにした",
         msgRefineryBlocked: "出力バッファが満杯 — 搬出してください",
         msgStorageTankSold: (earn) => `タンク内容物を売却した (+$${earn})`,
-        msgStorageTankEmpty2: "タンクが空です"
+        msgStorageTankEmpty2: "タンクが空です",
+        nameSimpleRefinery: "簡易精製機",
+        promptInstallSimpleRefinery: "[SPACE] 簡易精製機を設置",
+        promptRemoveSimpleRefinery: "[SPACE] 簡易精製機を回収",
+        promptFeedSimpleRefinery: (oil,oilCap,gas,gasCap) => `[SPACE] 原油投入 (原油${oil}/${oilCap}L・ガス${gas}/${gasCap}L)`,
+        promptTakeGasSimpleRefinery: (gas,gasCap) => `[SPACE] ガスを取り出す (${gas}/${gasCap}L)`,
+        msgSimpleRefineryInstalled: "簡易精製機を設置した",
+        msgSimpleRefineryRemoved: "簡易精製機を回収した",
+        msgSimpleRefineryOilAdded: (n,total) => `原油 ${n}L 投入 (合計 ${total}L)`,
+        msgSimpleRefineryGasFull: "ガソリンがいっぱいです。先に取り出してください",
+        msgSimpleRefineryOilFull: "原油タンクが満杯です",
+        msgSimpleRefineryGasTaken: (n) => `ガス ${n}L を取り出した`,
+        msgSimpleRefineryEmpty: "ガソリンがありません",
+        msgSimpleRefineryCanFull: "ジェリ缶が満タンです"
     },
     en: {
         money: "Money: $",
@@ -602,7 +615,20 @@ const I18N = {
         msgRefineryOff: "Refinery turned OFF",
         msgRefineryBlocked: "Output buffer full — clear outputs",
         msgStorageTankSold: (earn) => `Tank contents sold (+$${earn})`,
-        msgStorageTankEmpty2: "Tank is empty"
+        msgStorageTankEmpty2: "Tank is empty",
+        nameSimpleRefinery: "Simple Refinery",
+        promptInstallSimpleRefinery: "[SPACE] Install simple refinery",
+        promptRemoveSimpleRefinery: "[SPACE] Retrieve simple refinery",
+        promptFeedSimpleRefinery: (oil,oilCap,gas,gasCap) => `[SPACE] Feed oil (oil ${oil}/${oilCap}L · gas ${gas}/${gasCap}L)`,
+        promptTakeGasSimpleRefinery: (gas,gasCap) => `[SPACE] Take out gas (${gas}/${gasCap}L)`,
+        msgSimpleRefineryInstalled: "Simple refinery installed",
+        msgSimpleRefineryRemoved: "Simple refinery retrieved",
+        msgSimpleRefineryOilAdded: (n,total) => `Added ${n}L oil (total ${total}L)`,
+        msgSimpleRefineryGasFull: "Gas tank full — take out gas first",
+        msgSimpleRefineryOilFull: "Oil tank full",
+        msgSimpleRefineryGasTaken: (n) => `Took out ${n}L gas`,
+        msgSimpleRefineryEmpty: "No gas available",
+        msgSimpleRefineryCanFull: "Jerry can is full"
     }
 };
 let currentLang = 'ja';
@@ -790,6 +816,16 @@ const REFINERY_FUEL_BUF_CAP  = 500;   // 燃料バッファ
 const REFINERY_PRODUCT_CAP   = 2000;  // 各精製物バッファ
 const REFINERY_YIELDS        = {gas:0.25,diesel:0.30,kerosene:0.15,naphtha:0.15,lpg:0.07,heavyoil:0.08};
 
+// ===== 簡易精製機 =====
+const SIMPLE_REFINERY_PRICE   = 200;
+const SIMPLE_REFINERY_OIL_CAP = 10;
+const SIMPLE_REFINERY_GAS_CAP = 10;
+const SIMPLE_REFINERY_RATE    = 0.1; // L/秒 (1L/10s)
+const simpleRefineryObjs = []; // { group, x, z, oilBuf, gasBuf, oilFillMesh, gasFillMesh }
+const simpleRefineryMeshToIdx = new Map();
+let raycastSimpleRefineryIdx = -1;
+let highlightedSimpleRefineryIdx = -1;
+
 // ===== ガソリンスタンド ノズル =====
 const gasStationObjs = []; // { group, x, z, nozzleMesh }
 const gasNozzleMeshToIdx = new Map();
@@ -835,6 +871,7 @@ let _rcVlMeshes    = [], _rcVlCount    = -1;
 let _rcPjMeshes    = [], _rcPjCount    = -1;
 let _rcStMeshes    = [], _rcStCount    = -1;
 let _rcRfMeshes    = [], _rcRfCount    = -1;
+let _rcSrMeshes    = [], _rcSrCount    = -1;
 const _dedupSet = new Set();                        // dedup用Set (毎回clearして再利用)
 const _emptyPipeSet = new Set();                    // 空のpipeNodeConns fallback用
 
@@ -1578,6 +1615,9 @@ function spawnWorldItem(type, x, z, hasOil=false, fill=0, yPos=0, contentType=nu
     } else if (type === 'refinery') {
         mesh = createRefineryMesh().group;
         mesh.scale.setScalar(0.6);
+    } else if (type === 'simpleRefinery') {
+        mesh = createSimpleRefineryMesh().group;
+        mesh.scale.setScalar(1.0);
     } else {
         mesh = createJerryCanMesh(fill);
         mesh.scale.setScalar(1.3);
@@ -2045,6 +2085,65 @@ function simulatePipeFlow(delta) {
         });
     });
 }
+// ===== 簡易精製機メッシュ =====
+function createSimpleRefineryMesh() {
+    const g = new THREE.Group();
+    // 本体フレーム（灰色金属）
+    const body = bx(0.8, 1.2, 0.8, 0x607d8b, 0.5, 0.4);
+    body.position.set(0, 0.6, 0); g.add(body);
+    // 上部カバー（濃い灰色）
+    const top = bx(0.85, 0.08, 0.85, 0x455a64, 0.6, 0.3);
+    top.position.set(0, 1.24, 0); g.add(top);
+    // 煙突
+    const chimney = bx(0.12, 0.5, 0.12, 0x37474f, 0.7, 0.2);
+    chimney.position.set(0.25, 1.49, 0.15); g.add(chimney);
+    const chimneyTop = bx(0.18, 0.05, 0.18, 0x263238, 0.8, 0.1);
+    chimneyTop.position.set(0.25, 1.77, 0.15); g.add(chimneyTop);
+    // 底部台座
+    const base = bx(0.9, 0.08, 0.9, 0x546e7a, 0.9, 0.1);
+    base.position.set(0, 0.04, 0); g.add(base);
+    // 原油投入口（左側・黒）
+    const oilPort = bx(0.16, 0.16, 0.16, 0x1a1a1a, 0.9);
+    oilPort.position.set(-0.48, 0.9, 0.1); g.add(oilPort);
+    // ガス出口（右側・赤オレンジ）
+    const gasPort = bx(0.16, 0.16, 0.16, 0xbf360c, 0.7, 0.2);
+    gasPort.position.set(0.48, 0.9, 0.1); g.add(gasPort);
+    // 原油レベルゲージ背景（左前面）
+    const oilGaugeBg = bx(0.1, 0.7, 0.04, 0x212121, 0.9);
+    oilGaugeBg.position.set(-0.28, 0.7, 0.42); g.add(oilGaugeBg);
+    // 原油レベルメーター（黒→暗赤: fill表示）
+    const oilFillMat = new THREE.MeshStandardMaterial({color:0x4e342e, roughness:0.8, emissive:0x1a0000});
+    const oilFillMesh = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.001, 0.03), oilFillMat);
+    oilFillMesh.castShadow = false;
+    oilFillMesh.position.set(-0.28, 0.36, 0.42); g.add(oilFillMesh);
+    // ガスレベルゲージ背景（右前面）
+    const gasGaugeBg = bx(0.1, 0.7, 0.04, 0x212121, 0.9);
+    gasGaugeBg.position.set(0.28, 0.7, 0.42); g.add(gasGaugeBg);
+    // ガスレベルメーター（黄色）
+    const gasFillMat = new THREE.MeshStandardMaterial({color:0xf9a825, roughness:0.7, emissive:0x332200});
+    const gasFillMesh = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.001, 0.03), gasFillMat);
+    gasFillMesh.castShadow = false;
+    gasFillMesh.position.set(0.28, 0.36, 0.42); g.add(gasFillMesh);
+    // パイプ接続（本体左下）
+    const pipe1 = bx(0.08, 0.08, 0.3, 0x78909c, 0.4, 0.5);
+    pipe1.position.set(-0.34, 0.5, -0.42); g.add(pipe1);
+    // パイプ接続（本体右下）
+    const pipe2 = bx(0.08, 0.08, 0.3, 0x78909c, 0.4, 0.5);
+    pipe2.position.set(0.34, 0.5, -0.42); g.add(pipe2);
+    return { group: g, oilFillMesh, gasFillMesh };
+}
+
+function updateSimpleRefineryGauges(sr) {
+    if (!sr.oilFillMesh || !sr.gasFillMesh) return;
+    const oilRatio = Math.max(0, Math.min(1, sr.oilBuf / SIMPLE_REFINERY_OIL_CAP));
+    const gasRatio = Math.max(0, Math.min(1, sr.gasBuf / SIMPLE_REFINERY_GAS_CAP));
+    const maxH = 0.68;
+    sr.oilFillMesh.scale.y = Math.max(0.001, oilRatio * maxH / 0.001);
+    sr.oilFillMesh.position.y = 0.36 + (oilRatio * maxH - 0.001) * 0.5;
+    sr.gasFillMesh.scale.y = Math.max(0.001, gasRatio * maxH / 0.001);
+    sr.gasFillMesh.position.y = 0.36 + (gasRatio * maxH - 0.001) * 0.5;
+}
+
 // 精製施設シミュレーション
 let refineryBlinkTimer = 0;
 function simulateRefinery(delta) {
@@ -2083,6 +2182,19 @@ function simulateRefinery(delta) {
             const produced = oilUsed * REFINERY_YIELDS[product];
             rf.products[product] = Math.min(REFINERY_PRODUCT_CAP, (rf.products[product]||0) + produced);
         });
+    });
+}
+
+// 簡易精製機シミュレーション
+function simulateSimpleRefinery(delta) {
+    simpleRefineryObjs.forEach(sr => {
+        if (sr.oilBuf <= 0) return;
+        if (sr.gasBuf >= SIMPLE_REFINERY_GAS_CAP) return;
+        const produced = Math.min(SIMPLE_REFINERY_RATE * delta, sr.oilBuf, SIMPLE_REFINERY_GAS_CAP - sr.gasBuf);
+        if (produced <= 0) return;
+        sr.oilBuf  = Math.max(0, sr.oilBuf  - produced);
+        sr.gasBuf  = Math.min(SIMPLE_REFINERY_GAS_CAP, sr.gasBuf + produced);
+        updateSimpleRefineryGauges(sr);
     });
 }
 
@@ -2849,6 +2961,7 @@ function createShopDisplay(x, z, rotY=0) {
         {type:'junctionT',     price:80,   col:2, row:2},
         {type:'junctionCross', price:150,  col:0, row:3},
         {type:'refinery',      price:REFINERY_PRICE, col:1, row:3},
+        {type:'simpleRefinery',price:SIMPLE_REFINERY_PRICE, col:2, row:3},
     ];
 
     CATALOG.forEach(({type, price, col, row}) => {
@@ -2892,6 +3005,9 @@ function createShopDisplay(x, z, rotY=0) {
             m.position.set(lx, baseY, lz);
         } else if (type === 'refinery') {
             m = createRefineryMesh().group; m.scale.setScalar(0.18);
+            m.position.set(lx, baseY, lz);
+        } else if (type === 'simpleRefinery') {
+            m = createSimpleRefineryMesh().group; m.scale.setScalar(0.55);
             m.position.set(lx, baseY, lz);
         } else {
             m = createJerryCanMesh(0); m.scale.setScalar(2.0);
@@ -3253,6 +3369,7 @@ function getItemName(type, L) {
          : type==='junctionT'    ? L.nameJunctionT
          : type==='junctionCross'? L.nameJunctionCross
          : type==='refinery'     ? L.nameRefinery
+         : type==='simpleRefinery' ? L.nameSimpleRefinery
          : L.nameCan;
 }
 
@@ -3417,6 +3534,18 @@ function computeCurrentAction() {
         if (nearCart && cartCapacityUsed()+1<=10) return { type:'loadCart', label:L.promptLoadCart };
         if (nearGasStation && heldItem.contentType!=='oil' && heldItem.fill<JERRY_CAN_CAP)
             return { type:'fillGas', label:L.promptFillGas(GAS_FILL_COST*(JERRY_CAN_CAP-heldItem.fill)) };
+        // 簡易精製機: 原油投入
+        if (heldItem.contentType!=='gas' && heldItem.fill>0 && raycastSimpleRefineryIdx>=0) {
+            const sr=simpleRefineryObjs[raycastSimpleRefineryIdx];
+            if (sr && sr.oilBuf<SIMPLE_REFINERY_OIL_CAP && sr.gasBuf<SIMPLE_REFINERY_GAS_CAP)
+                return { type:'feedSimpleRefinery', label:L.promptFeedSimpleRefinery(Math.floor(sr.oilBuf),SIMPLE_REFINERY_OIL_CAP,Math.floor(sr.gasBuf),SIMPLE_REFINERY_GAS_CAP), srIdx:raycastSimpleRefineryIdx };
+        }
+        // 簡易精製機: ガス取り出し（空か油ジェリ缶）
+        if (heldItem.contentType!=='oil' && heldItem.fill<JERRY_CAN_CAP && raycastSimpleRefineryIdx>=0) {
+            const sr=simpleRefineryObjs[raycastSimpleRefineryIdx];
+            if (sr && sr.gasBuf>=1)
+                return { type:'takeGasSimpleRefinery', label:L.promptTakeGasSimpleRefinery(Math.floor(sr.gasBuf),SIMPLE_REFINERY_GAS_CAP), srIdx:raycastSimpleRefineryIdx };
+        }
         return { type:'putDown', label:L.promptPutDown };
     }
 
@@ -3476,6 +3605,11 @@ function computeCurrentAction() {
     // --- 精製施設持ち ---
     if (heldItem && heldItem.type==='refinery') {
         return { type:'installRefinery', label:L.promptInstallRefinery };
+    }
+
+    // --- 簡易精製機持ち ---
+    if (heldItem && heldItem.type==='simpleRefinery') {
+        return { type:'installSimpleRefinery', label:L.promptInstallSimpleRefinery };
     }
 
     // --- ジェリ缶持ち（追加: 採掘機・貯蔵タンク） ---
@@ -3554,6 +3688,11 @@ function computeCurrentAction() {
                 return { type:'toggleRefinery', label:L.promptToggleRefineryOn, rfIdx:raycastRefineryIdx };
             }
         }
+        // 簡易精製機に照準 → 回収
+        if (raycastSimpleRefineryIdx>=0) {
+            const sr=simpleRefineryObjs[raycastSimpleRefineryIdx];
+            if (sr) return { type:'removeSimpleRefinery', label:L.promptRemoveSimpleRefinery, srIdx:raycastSimpleRefineryIdx };
+        }
         // 設置済みポンプに照準
         if (raycastPumpIdx>=0) {
             const po = pumpObjs[raycastPumpIdx];
@@ -3575,6 +3714,7 @@ function computeCurrentAction() {
                 : si.type==='pumpJack' ? L.namePumpJack
                 : si.type==='storageTank' ? L.nameStorageTank
                 : si.type==='refinery' ? L.nameRefinery
+                : si.type==='simpleRefinery' ? L.nameSimpleRefinery
                 : L.nameCan;
             return { type:'buyItem', label:L.promptBuy(name, si.price), shopItemIdx:raycastShopItemIdx };
         }
@@ -3782,6 +3922,10 @@ function triggerAction() {
         case 'toggleRefinery':     doToggleRefinery(currentAction.rfIdx); break;
         case 'sellStorageTank':    doSellStorageTank(currentAction.stIdx); break;
         case 'sellRefineryProducts': doSellRefineryProducts(currentAction.rfIdx); break;
+        case 'installSimpleRefinery': doInstallSimpleRefinery(); break;
+        case 'feedSimpleRefinery': doFeedSimpleRefinery(currentAction.srIdx); break;
+        case 'takeGasSimpleRefinery': doTakeGasSimpleRefinery(currentAction.srIdx); break;
+        case 'removeSimpleRefinery': doRemoveSimpleRefinery(currentAction.srIdx); break;
     }
 }
 
@@ -3996,6 +4140,78 @@ function doToggleRefinery(rfIdx) {
     rf.enabled = !rf.enabled;
     updateUI();
     showNotification(rf.enabled ? L.msgRefineryOn : L.msgRefineryOff);
+}
+
+// ===== 簡易精製機アクション =====
+function doInstallSimpleRefinery() {
+    const L = I18N[currentLang];
+    const result = createSimpleRefineryMesh();
+    const g = result.group;
+    g.position.set(playerGroup.position.x, 0, playerGroup.position.z);
+    scene.add(g);
+    const srIdx = simpleRefineryObjs.length;
+    g.traverse(m=>{ if(m.isMesh) simpleRefineryMeshToIdx.set(m.uuid, srIdx); });
+    simpleRefineryObjs.push({
+        group:g, x:playerGroup.position.x, z:playerGroup.position.z,
+        oilBuf:0, gasBuf:0, oilFillMesh:result.oilFillMesh, gasFillMesh:result.gasFillMesh
+    });
+    _rcSrCount = -1;
+    heldItem = null;
+    updateHeldMesh(); updateUI();
+    showNotification(L.msgSimpleRefineryInstalled);
+}
+
+function doFeedSimpleRefinery(srIdx) {
+    const L = I18N[currentLang];
+    const sr = simpleRefineryObjs[srIdx];
+    if (!sr || !heldItem || heldItem.fill <= 0) return;
+    if (sr.gasBuf >= SIMPLE_REFINERY_GAS_CAP) { showNotification(L.msgSimpleRefineryGasFull); return; }
+    if (sr.oilBuf >= SIMPLE_REFINERY_OIL_CAP) { showNotification(L.msgSimpleRefineryOilFull); return; }
+    const space = SIMPLE_REFINERY_OIL_CAP - sr.oilBuf;
+    const pour = Math.min(heldItem.fill, space);
+    if (pour <= 0) { showNotification(L.msgSimpleRefineryOilFull); return; }
+    sr.oilBuf += pour;
+    heldItem.fill -= pour;
+    if (heldItem.fill <= 0) { heldItem.fill = 0; heldItem.contentType = null; }
+    updateSimpleRefineryGauges(sr);
+    updateHeldMesh(); updateUI();
+    showNotification(L.msgSimpleRefineryOilAdded(Math.floor(pour), Math.floor(sr.oilBuf)));
+}
+
+function doTakeGasSimpleRefinery(srIdx) {
+    const L = I18N[currentLang];
+    const sr = simpleRefineryObjs[srIdx];
+    if (!sr || sr.gasBuf < 1) { showNotification(L.msgSimpleRefineryEmpty); return; }
+    if (!heldItem || heldItem.type !== 'jerryCan') return;
+    if (heldItem.fill >= JERRY_CAN_CAP) { showNotification(L.msgSimpleRefineryCanFull); return; }
+    const space = JERRY_CAN_CAP - heldItem.fill;
+    const take = Math.min(Math.floor(sr.gasBuf), space);
+    if (take <= 0) return;
+    sr.gasBuf -= take;
+    heldItem.fill += take;
+    heldItem.contentType = 'gas';
+    updateSimpleRefineryGauges(sr);
+    updateHeldMesh(); updateUI();
+    showNotification(L.msgSimpleRefineryGasTaken(take));
+}
+
+function doRemoveSimpleRefinery(srIdx) {
+    const L = I18N[currentLang];
+    const sr = simpleRefineryObjs[srIdx];
+    if (!sr) return;
+    scene.remove(sr.group);
+    sr.group.traverse(m=>{ if(m.isMesh) simpleRefineryMeshToIdx.delete(m.uuid); });
+    simpleRefineryObjs.splice(srIdx, 1);
+    // インデックス再マッピング
+    simpleRefineryMeshToIdx.clear();
+    simpleRefineryObjs.forEach((s,i)=>{ s.group.traverse(m=>{ if(m.isMesh) simpleRefineryMeshToIdx.set(m.uuid,i); }); });
+    _rcSrCount = -1;
+    if (highlightedSimpleRefineryIdx >= srIdx) highlightedSimpleRefineryIdx = -1;
+    raycastSimpleRefineryIdx = -1;
+    // 回収品をワールドドロップ（空の簡易精製機）
+    spawnWorldItem('simpleRefinery', playerGroup.position.x+0.8, playerGroup.position.z+0.8);
+    updateUI();
+    showNotification(L.msgSimpleRefineryRemoved);
 }
 
 function doFillStorageTank(idx) {
@@ -5006,6 +5222,30 @@ function updateGame() {
             }
         }
 
+        // 簡易精製機レイキャスト
+        raycastSimpleRefineryIdx = -1;
+        if (simpleRefineryObjs.length > 0) {
+            if (simpleRefineryObjs.length !== _rcSrCount) {
+                _rcSrMeshes = [];
+                simpleRefineryObjs.forEach(sr=>{ sr.group.traverse(m=>{ if(m.isMesh) _rcSrMeshes.push(m); }); });
+                _rcSrCount = simpleRefineryObjs.length;
+            }
+            const srHits=raycaster.intersectObjects(_rcSrMeshes,false);
+            if (srHits.length>0) {
+                const idx=simpleRefineryMeshToIdx.get(srHits[0].object.uuid);
+                if (idx!==undefined) raycastSimpleRefineryIdx=idx;
+            }
+            if (proximitySelectEnabled && raycastSimpleRefineryIdx<0) {
+                const _px=playerGroup.position.x, _pz=playerGroup.position.z;
+                let bestD=4.0*4.0, bestI=-1;
+                simpleRefineryObjs.forEach((sr,idx)=>{
+                    const d2=(_px-sr.x)**2+(_pz-sr.z)**2;
+                    if(d2<bestD){bestD=d2;bestI=idx;}
+                });
+                raycastSimpleRefineryIdx=bestI;
+            }
+        }
+
         // pinnedTarget 適用（タップ/クリック選択）
         // クロスヘアが何も取らなかった種別にのみ上書き（クロスヘア優先）
         // 遠くなりすぎたらピン解除（距離8m超）
@@ -5022,6 +5262,7 @@ function updateGame() {
                     case 'towTank':     if(raycastTowTankIdx<0)     raycastTowTankIdx    =pinnedTarget.idx; break;
                     case 'worldItem':   if(raycastTargetIdx<0)      raycastTargetIdx     =pinnedTarget.idx; break;
                     case 'refinery':    if(raycastRefineryIdx<0)    raycastRefineryIdx   =pinnedTarget.idx; break;
+                    case 'simpleRefinery': if(raycastSimpleRefineryIdx<0) raycastSimpleRefineryIdx=pinnedTarget.idx; break;
                 }
             }
         }
@@ -5254,6 +5495,18 @@ function updateGame() {
             storageTankObjs[highlightedStorageTankIdx].group.traverse(m=>{ if(m.isMesh&&m.material&&m.material.emissive) m.material.emissive.setRGB(0,0.7*blinkST,0.9*blinkST); });
         }
 
+        // 簡易精製機ハイライト（オレンジ点滅）
+        const newSRHighlight=raycastSimpleRefineryIdx;
+        if (newSRHighlight!==highlightedSimpleRefineryIdx) {
+            if (highlightedSimpleRefineryIdx>=0&&simpleRefineryObjs[highlightedSimpleRefineryIdx])
+                simpleRefineryObjs[highlightedSimpleRefineryIdx].group.traverse(m=>{ if(m.isMesh&&m.material&&m.material.emissive) m.material.emissive.set(0x000000); });
+            highlightedSimpleRefineryIdx=newSRHighlight;
+        }
+        if (highlightedSimpleRefineryIdx>=0&&simpleRefineryObjs[highlightedSimpleRefineryIdx]) {
+            const blinkSR=0.4+0.4*Math.abs(Math.sin(now*0.005));
+            simpleRefineryObjs[highlightedSimpleRefineryIdx].group.traverse(m=>{ if(m.isMesh&&m.material&&m.material.emissive) m.material.emissive.setRGB(0.9*blinkSR,0.4*blinkSR,0); });
+        }
+
         autoSaveTimer+=delta;
         if (autoSaveTimer>=10) { autoSaveTimer=0; saveGame(true); }
 
@@ -5264,6 +5517,7 @@ function updateGame() {
         // パイプライン流体転送
         simulatePipeFlow(delta);
         simulateRefinery(delta);
+        simulateSimpleRefinery(delta);
 
         // スカイドームをカメラ位置に追従（端が見えないよう）
         if (skyDome) skyDome.position.copy(camera.position);
@@ -5398,6 +5652,7 @@ function saveGame(isAuto=false) {
     gameState.savedPumpJacks=pumpJackObjs.map(pj=>({x:pj.x,z:pj.z,fuelLevel:pj.fuelLevel,oilBuffer:pj.oilBuffer,nearSpringIdx:pj.nearSpringIdx,rot:pj.rot||0}));
     gameState.savedStorageTanks=storageTankObjs.map(st=>({x:st.x,z:st.z,level:st.level,liquidType:st.liquidType||null,rot:st.rot||0}));
     gameState.savedRefineries=refineryObjs.map(rf=>({x:rf.x,z:rf.z,rot:rf.rot||0,enabled:rf.enabled,products:{...rf.products},oilBuf:rf.oilBuf,fuelBuf:rf.fuelBuf}));
+    gameState.savedSimpleRefineries=simpleRefineryObjs.map(sr=>({x:sr.x,z:sr.z,oilBuf:sr.oilBuf,gasBuf:sr.gasBuf}));
     gameState.savedPipes=[...pipeEdges.entries()].map(([ek,v])=>{
         const parts=ek.split(':');
         const [gx1,gz1]=parts[0].split(',').map(Number);
@@ -5512,6 +5767,10 @@ function loadGame() {
         clearRefineryObjs();
         (gameState.savedRefineries||[]).forEach(rf=>restoreRefinery(rf.x,rf.z,rf.rot||0,rf.enabled!==false,rf.products||{},rf.oilBuf||0,rf.fuelBuf||0));
 
+        // 簡易精製機復元
+        clearSimpleRefineryObjs();
+        (gameState.savedSimpleRefineries||[]).forEach(sr=>restoreSimpleRefinery(sr.x,sr.z,sr.oilBuf||0,sr.gasBuf||0));
+
         // パイプ・ジャンクション復元
         clearPipeObjs();
         (gameState.savedPipes||[]).forEach(p=>restorePipe(p.gx1,p.gz1,p.gx2,p.gz2,p.liquidType||null));
@@ -5607,6 +5866,25 @@ function clearRefineryObjs() {
     while(refineryObjs.length>0){ scene.remove(refineryObjs[0].group); refineryObjs.splice(0,1); }
     refineryMeshToIdx.clear();
     raycastRefineryIdx=-1; highlightedRefineryIdx=-1;
+}
+
+function clearSimpleRefineryObjs() {
+    while(simpleRefineryObjs.length>0){ scene.remove(simpleRefineryObjs[0].group); simpleRefineryObjs.splice(0,1); }
+    simpleRefineryMeshToIdx.clear();
+    raycastSimpleRefineryIdx=-1; highlightedSimpleRefineryIdx=-1;
+    _rcSrCount=-1;
+}
+
+function restoreSimpleRefinery(x, z, oilBuf, gasBuf) {
+    const result = createSimpleRefineryMesh();
+    const g = result.group;
+    g.position.set(x, 0, z);
+    scene.add(g);
+    const srIdx = simpleRefineryObjs.length;
+    g.traverse(m=>{ if(m.isMesh) simpleRefineryMeshToIdx.set(m.uuid, srIdx); });
+    const sr = { group:g, x, z, oilBuf:oilBuf||0, gasBuf:gasBuf||0, oilFillMesh:result.oilFillMesh, gasFillMesh:result.gasFillMesh };
+    simpleRefineryObjs.push(sr);
+    updateSimpleRefineryGauges(sr);
 }
 
 function restoreRefinery(x, z, rot, enabled, products, oilBuf, fuelBuf) {
