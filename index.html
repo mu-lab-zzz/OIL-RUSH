@@ -455,7 +455,28 @@ const I18N = {
         msgSimpleRefineryOilFull: "原油タンクが満杯です",
         msgSimpleRefineryGasTaken: (n) => `ガス ${n}L を取り出した`,
         msgSimpleRefineryEmpty: "ガソリンがありません",
-        msgSimpleRefineryCanFull: "ジェリ缶が満タンです"
+        msgSimpleRefineryCanFull: "ジェリ缶が満タンです",
+        namePlasticFactory: "プラスチック工場",
+        promptInstallPlasticFactory: "[SPACE] プラスチック工場を設置",
+        promptRemovePlasticFactory: "[SPACE] プラスチック工場を回収",
+        promptPlasticFactoryStatus: (nap,napCap,ho,hoCap,pl,plCap) => `[SPACE] 工場状況 (ナフサ${nap}/${napCap}L 重油${ho}/${hoCap}L プラ${pl}/${plCap}個)`,
+        promptTakePlastic: (pl,plCap) => `[SPACE] プラスチック取り出し (${pl}/${plCap}個)`,
+        msgPlasticFactoryInstalled: "プラスチック工場を設置した",
+        msgPlasticFactoryRemoved: "プラスチック工場を回収した",
+        msgPlasticTaken: (n) => `プラスチック ${n}個 を取り出した`,
+        msgPlasticNone: "プラスチックがありません",
+        nameConveyor: "ベルトコンベア",
+        promptInstallConveyor: "[SPACE] コンベアを設置",
+        promptRemoveConveyor: "[SPACE] コンベアを撤去",
+        msgConveyorInstalled: "コンベアを設置した",
+        msgConveyorRemoved: "コンベアを撤去した",
+        nameWarehouse: "倉庫",
+        promptInstallWarehouse: "[SPACE] 倉庫を設置",
+        promptRemoveWarehouse: "[SPACE] 倉庫を回収",
+        promptSellPlastic: (n) => `[SPACE] プラスチック売却 (${n}個)`,
+        msgWarehouseInstalled: "倉庫を設置した",
+        msgWarehouseRemoved: "倉庫を回収した",
+        msgPlasticSold: (n, earn) => `プラスチック ${n}個 売却 ($${earn})`
     },
     en: {
         money: "Money: $",
@@ -628,7 +649,28 @@ const I18N = {
         msgSimpleRefineryOilFull: "Oil tank full",
         msgSimpleRefineryGasTaken: (n) => `Took out ${n}L gas`,
         msgSimpleRefineryEmpty: "No gas available",
-        msgSimpleRefineryCanFull: "Jerry can is full"
+        msgSimpleRefineryCanFull: "Jerry can is full",
+        namePlasticFactory: "Plastic Factory",
+        promptInstallPlasticFactory: "[SPACE] Install plastic factory",
+        promptRemovePlasticFactory: "[SPACE] Retrieve plastic factory",
+        promptPlasticFactoryStatus: (nap,napCap,ho,hoCap,pl,plCap) => `[SPACE] Factory (naphtha ${nap}/${napCap}L heavy-oil ${ho}/${hoCap}L plastic ${pl}/${plCap})`,
+        promptTakePlastic: (pl,plCap) => `[SPACE] Take plastic (${pl}/${plCap})`,
+        msgPlasticFactoryInstalled: "Plastic factory installed",
+        msgPlasticFactoryRemoved: "Plastic factory retrieved",
+        msgPlasticTaken: (n) => `Took ${n} plastic`,
+        msgPlasticNone: "No plastic available",
+        nameConveyor: "Belt Conveyor",
+        promptInstallConveyor: "[SPACE] Install conveyor",
+        promptRemoveConveyor: "[SPACE] Remove conveyor",
+        msgConveyorInstalled: "Conveyor installed",
+        msgConveyorRemoved: "Conveyor removed",
+        nameWarehouse: "Warehouse",
+        promptInstallWarehouse: "[SPACE] Install warehouse",
+        promptRemoveWarehouse: "[SPACE] Retrieve warehouse",
+        promptSellPlastic: (n) => `[SPACE] Sell plastic (${n})`,
+        msgWarehouseInstalled: "Warehouse installed",
+        msgWarehouseRemoved: "Warehouse retrieved",
+        msgPlasticSold: (n, earn) => `Sold ${n} plastic ($${earn})`
     }
 };
 let currentLang = 'ja';
@@ -783,7 +825,7 @@ const PUMP_JACK_RANGE     = 12;   // 油田検知距離 m
 const PUMP_JACK_CRANK_SPD = 0.9;  // クランク角速度 rad/秒
 const PUMP_JACK_BEAM_AMP  = 0.26; // ビーム振れ角 rad (~15°)
 const GRID_SNAP      = 2;                                                   // グリッド間隔 m
-const GRID_SNAP_TYPES = ['pumpJack','storageTank','junctionT','junctionCross','refinery']; // グリッド設置が必要な設備種別
+const GRID_SNAP_TYPES = ['pumpJack','storageTank','junctionT','junctionCross','refinery','plasticFactory','warehouse']; // グリッド設置が必要な設備種別
 
 // ===== パイプライン =====
 const pipeEdges       = new Map(); // edgeKey → { liquidType:null|'oil'|'gas', mesh }
@@ -825,6 +867,34 @@ const simpleRefineryObjs = []; // { group, x, z, oilBuf, gasBuf, oilFillMesh, ga
 const simpleRefineryMeshToIdx = new Map();
 let raycastSimpleRefineryIdx = -1;
 let highlightedSimpleRefineryIdx = -1;
+
+// ===== プラスチック工場 =====
+const PLASTIC_FACTORY_PRICE       = 3000;
+const PLASTIC_FACTORY_NAPHTHA_CAP = 500;
+const PLASTIC_FACTORY_HOIL_CAP    = 500;
+const PLASTIC_FACTORY_OUTPUT_CAP  = 100;  // 個
+const PLASTIC_FACTORY_RATE        = 0.05; // 個/秒
+const PLASTIC_FACTORY_NAPHTHA_PER = 5;   // L/個
+const PLASTIC_FACTORY_HOIL_PER    = 5;   // L/個
+const PLASTIC_SELL_PRICE          = 50;  // 売値/個
+const plasticFactoryObjs = []; // { group, x, z, naphthaIn, hoilIn, plasticOut, outMesh }
+const plasticFactoryMeshToIdx = new Map();
+let raycastPlasticFactoryIdx = -1;
+let highlightedPlasticFactoryIdx = -1;
+
+// ===== ベルトコンベア =====
+const CONVEYOR_PRICE = 50;
+const CONVEYOR_SPEED = 2.0; // 個/秒
+const conveyorEdges    = new Map(); // key→{fromKey,toKey,progress,hasItem} directed edge
+const conveyorNodeConns = new Map(); // nodeKey→[{toKey,edgeKey}] outgoing edges
+
+// ===== 倉庫 =====
+const WAREHOUSE_PRICE = 800;
+const WAREHOUSE_CAP   = 500;
+const warehouseObjs = []; // { group, x, z, stock }
+const warehouseMeshToIdx = new Map();
+let raycastWarehouseIdx = -1;
+let highlightedWarehouseIdx = -1;
 
 // ===== ガソリンスタンド ノズル =====
 const gasStationObjs = []; // { group, x, z, nozzleMesh }
@@ -872,6 +942,8 @@ let _rcPjMeshes    = [], _rcPjCount    = -1;
 let _rcStMeshes    = [], _rcStCount    = -1;
 let _rcRfMeshes    = [], _rcRfCount    = -1;
 let _rcSrMeshes    = [], _rcSrCount    = -1;
+let _rcPfMeshes    = [], _rcPfCount    = -1;
+let _rcWhMeshes    = [], _rcWhCount    = -1;
 const _dedupSet = new Set();                        // dedup用Set (毎回clearして再利用)
 const _emptyPipeSet = new Set();                    // 空のpipeNodeConns fallback用
 
@@ -1618,6 +1690,15 @@ function spawnWorldItem(type, x, z, hasOil=false, fill=0, yPos=0, contentType=nu
     } else if (type === 'simpleRefinery') {
         mesh = createSimpleRefineryMesh().group;
         mesh.scale.setScalar(1.0);
+    } else if (type === 'plasticFactory') {
+        mesh = createPlasticFactoryMesh();
+        mesh.scale.setScalar(1.0);
+    } else if (type === 'conveyor') {
+        mesh = createConveyorSegmentMesh();
+        mesh.scale.setScalar(0.8);
+    } else if (type === 'warehouse') {
+        mesh = createWarehouseMesh();
+        mesh.scale.setScalar(1.0);
     } else {
         mesh = createJerryCanMesh(fill);
         mesh.scale.setScalar(1.3);
@@ -1717,6 +1798,21 @@ function updateHeldMesh() {
         heldMesh.position.set(0.35, -0.35, -0.7);
         heldMesh.rotation.set(0.05, 0.3, 0.05);
         heldMesh.scale.setScalar(0.09);
+    } else if (heldItem.type === 'plasticFactory') {
+        heldMesh = createPlasticFactoryMesh();
+        heldMesh.position.set(0.35, -0.38, -0.7);
+        heldMesh.rotation.set(0.05, 0.3, 0.05);
+        heldMesh.scale.setScalar(0.1);
+    } else if (heldItem.type === 'conveyor') {
+        heldMesh = createConveyorSegmentMesh();
+        heldMesh.position.set(0.28, -0.38, -0.6);
+        heldMesh.rotation.set(0.05, 0.3, 0.05);
+        heldMesh.scale.setScalar(0.22);
+    } else if (heldItem.type === 'warehouse') {
+        heldMesh = createWarehouseMesh();
+        heldMesh.position.set(0.35, -0.35, -0.7);
+        heldMesh.rotation.set(0.05, 0.3, 0.05);
+        heldMesh.scale.setScalar(0.09);
     } else if (heldItem.type === 'engineNozzle' || heldItem.type === 'gasNozzle' || heldItem.type === 'towTankNozzle') {
         heldMesh = createNozzleMesh();
         heldMesh.position.set(0.24, -0.28, -0.48);
@@ -1808,6 +1904,46 @@ function getPipeSnapEdge() {
         const gz1 = fz>=0 ? gz0 : gz0-1;
         return {gx1:gx0,gz1,gx2:gx0,gz2:gz1+1,axis:'z'};
     }
+}
+// コンベア設置エッジ取得 (プレイヤー向きに基づいた有向エッジ)
+function getConveyorSnapEdge() {
+    const px=playerGroup.position.x, pz=playerGroup.position.z;
+    const fx=-Math.sin(gameState.cameraYaw), fz=-Math.cos(gameState.cameraYaw);
+    const gx0=Math.round(px/GRID_SNAP), gz0=Math.round(pz/GRID_SNAP);
+    if (Math.abs(fx) >= Math.abs(fz)) {
+        const gx1 = fx>=0 ? gx0 : gx0-1;
+        const gx2=gx1+1;
+        const rotY = fx>=0 ? 0 : Math.PI; // 右向き or 左向き
+        return {gx1,gz1:gz0,gx2,gz2:gz0,axis:'x',rotY};
+    } else {
+        const gz1 = fz>=0 ? gz0 : gz0-1;
+        const gz2=gz1+1;
+        const rotY = fz>=0 ? 0 : Math.PI; // 前向き or 後ろ向き (90°)
+        return {gx1:gx0,gz1,gx2:gx0,gz2,axis:'z',rotY: fz>=0 ? Math.PI/2 : -Math.PI/2};
+    }
+}
+let conveyorGhostMesh = null;
+let conveyorGhostAxis = null;
+function updateConveyorGhostMesh() {
+    if (!heldItem||heldItem.type!=='conveyor') {
+        if (conveyorGhostMesh) { scene.remove(conveyorGhostMesh); conveyorGhostMesh=null; conveyorGhostAxis=null; }
+        return;
+    }
+    const edge=getConveyorSnapEdge();
+    const ek=conveyorEdgeKey(edge.gx1,edge.gz1,edge.gx2,edge.gz2);
+    const occupied=conveyorEdges.has(ek);
+    if (!conveyorGhostMesh||conveyorGhostAxis!==edge.axis) {
+        if (conveyorGhostMesh) scene.remove(conveyorGhostMesh);
+        conveyorGhostMesh=createConveyorSegmentMesh(0x44aaff);
+        conveyorGhostMesh.traverse(ch=>{ if(ch.isMesh){ ch.material=ch.material.clone(); ch.material.transparent=true; ch.material.opacity=0.4; ch.material.depthWrite=false; } });
+        scene.add(conveyorGhostMesh);
+        conveyorGhostAxis=edge.axis;
+    }
+    const x=(edge.gx1+edge.gx2)/2*GRID_SNAP, z=(edge.gz1+edge.gz2)/2*GRID_SNAP;
+    conveyorGhostMesh.position.set(x,0,z);
+    conveyorGhostMesh.rotation.y=edge.rotY;
+    const col=occupied?0xff4444:0x44aaff;
+    conveyorGhostMesh.traverse(ch=>{ if(ch.isMesh&&ch.material) ch.material.color.set(col); });
 }
 // ネットワーク内の液体種別を調べる
 function getNetworkLiquidType(startKey) {
@@ -1908,6 +2044,9 @@ function registerFacilityPorts(facilityType, idx, gx, gz, rotY) {
         addPort( 2, 1,'out','naphtha');  // 右後 → ナフサ排出口
         addPort( 2, 0,'out','lpg');      // 右中 → LPG排出口
         addPort( 2,-1,'out','heavyoil'); // 右前 → 重油排出口
+    } else if (facilityType==='plasticFactory') {
+        addPort(-1, 0,'in','naphtha');   // 左 → ナフサ吸入口
+        addPort( 0,-1,'in','heavyoil'); // 前 → 重油吸入口
     }
 }
 function unregisterFacilityPorts(facilityType, idx) {
@@ -2079,10 +2218,52 @@ function simulatePipeFlow(delta) {
                     if (!dst||(dst.liquidType&&dst.liquidType!==product)) return;
                     const add=Math.min(perSink, STORAGE_TANK_CAP-dst.level);
                     if (add>0) { dst.level+=add; dst.liquidType=product; moved+=add; }
+                } else if (s.facilityType==='plasticFactory') {
+                    const pf=plasticFactoryObjs[s.idx];
+                    if (!pf) return;
+                    if (product==='naphtha') {
+                        const add=Math.min(perSink, PLASTIC_FACTORY_NAPHTHA_CAP-pf.naphthaIn);
+                        if (add>0) { pf.naphthaIn+=add; moved+=add; }
+                    } else if (product==='heavyoil') {
+                        const add=Math.min(perSink, PLASTIC_FACTORY_HOIL_CAP-pf.hoilIn);
+                        if (add>0) { pf.hoilIn+=add; moved+=add; }
+                    }
                 }
             });
             rf.products[product]=Math.max(0, rf.products[product]-moved);
         });
+    });
+
+    // タンクからプラスチック工場へ (ナフサ・重油)
+    storageTankObjs.forEach((srcTank, srcIdx)=>{
+        if (srcTank.level<=0||!srcTank.liquidType) return;
+        const lt=srcTank.liquidType;
+        if (lt!=='naphtha'&&lt!=='heavyoil') return;
+        const {gx,gz}=worldToGrid(srcTank.x, srcTank.z);
+        const d=rotateGridDir(1,0, srcTank.rot||0);
+        const outNK=nodeKey(gx+d.dx, gz+d.dz);
+        const conns=pipeNodeConns.get(outNK);
+        const ports=portRegistry.get(outNK)||[];
+        const direct=ports.filter(p=>p.portType==='in'&&(p.liquidType===lt||p.liquidType===null));
+        const allSinks=dedup([...direct,...(conns&&conns.size>0?findConnectedSinks(outNK,lt):[])]);
+        const pfSinks=allSinks.filter(s=>s.facilityType==='plasticFactory');
+        if (pfSinks.length===0) return;
+        const totalAvail=Math.min(srcTank.level, 5.0*delta);
+        const perSink=totalAvail/pfSinks.length;
+        let moved=0;
+        pfSinks.forEach(s=>{
+            const pf=plasticFactoryObjs[s.idx];
+            if (!pf) return;
+            if (lt==='naphtha') {
+                const add=Math.min(perSink, PLASTIC_FACTORY_NAPHTHA_CAP-pf.naphthaIn);
+                if (add>0) { pf.naphthaIn+=add; moved+=add; }
+            } else if (lt==='heavyoil') {
+                const add=Math.min(perSink, PLASTIC_FACTORY_HOIL_CAP-pf.hoilIn);
+                if (add>0) { pf.hoilIn+=add; moved+=add; }
+            }
+        });
+        srcTank.level=Math.max(0, srcTank.level-moved);
+        if (srcTank.level===0) srcTank.liquidType=null;
     });
 }
 // ===== 簡易精製機メッシュ =====
@@ -2195,6 +2376,136 @@ function simulateSimpleRefinery(delta) {
         sr.oilBuf  = Math.max(0, sr.oilBuf  - produced);
         sr.gasBuf  = Math.min(SIMPLE_REFINERY_GAS_CAP, sr.gasBuf + produced);
         updateSimpleRefineryGauges(sr);
+    });
+}
+
+// ===== プラスチック工場メッシュ =====
+function createPlasticFactoryMesh() {
+    const g = new THREE.Group();
+    const bodyMat = new THREE.MeshStandardMaterial({color:0x2255aa, roughness:0.6});
+    const roofMat = new THREE.MeshStandardMaterial({color:0x1a3366, roughness:0.7});
+    const pipeMat = new THREE.MeshStandardMaterial({color:0x888888, roughness:0.5});
+    const outMat  = new THREE.MeshStandardMaterial({color:0x00cc44, roughness:0.5});
+    // 本体
+    const body = new THREE.Mesh(new THREE.BoxGeometry(3.2,2.0,3.2), bodyMat);
+    body.position.set(0,1.0,0); g.add(body);
+    // 屋根
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(3.4,0.2,3.4), roofMat);
+    roof.position.set(0,2.1,0); g.add(roof);
+    // 煙突
+    const chimney = new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.18,1.4,8), pipeMat);
+    chimney.position.set(0.8,2.8,0.8); g.add(chimney);
+    // 出力ポート (右側, コンベア接続想定)
+    const outPort = new THREE.Mesh(new THREE.BoxGeometry(0.4,0.4,0.6), outMat);
+    outPort.position.set(1.8,0.8,0); g.add(outPort);
+    // ナフサ入力パイプ (左側)
+    const napPipe = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.6,8), pipeMat);
+    napPipe.rotation.z=Math.PI/2; napPipe.position.set(-1.9,1.0,0); g.add(napPipe);
+    // 重油入力パイプ (前側)
+    const hoilPipe = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.6,8), pipeMat);
+    hoilPipe.rotation.x=Math.PI/2; hoilPipe.position.set(0,1.0,-1.9); g.add(hoilPipe);
+    return g;
+}
+// ===== コンベアセグメントメッシュ =====
+function createConveyorSegmentMesh(color) {
+    const g = new THREE.Group();
+    const frameMat = new THREE.MeshStandardMaterial({color:color||0x999900, roughness:0.6});
+    const beltMat  = new THREE.MeshStandardMaterial({color:0x222200, roughness:0.9});
+    // フレーム
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(1.8,0.18,GRID_SNAP), frameMat);
+    frame.position.set(0,0.3,0); g.add(frame);
+    // ベルト面
+    const belt = new THREE.Mesh(new THREE.BoxGeometry(1.4,0.04,GRID_SNAP), beltMat);
+    belt.position.set(0,0.4,0); g.add(belt);
+    // 矢印 (進行方向 +z)
+    const arrowMat = new THREE.MeshStandardMaterial({color:0xffff00, roughness:0.5});
+    const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.15,0.3,3), arrowMat);
+    arrow.rotation.x=Math.PI/2; arrow.position.set(0,0.46,0.3); g.add(arrow);
+    return g;
+}
+// ===== 倉庫メッシュ =====
+function createWarehouseMesh() {
+    const g = new THREE.Group();
+    const wallMat = new THREE.MeshStandardMaterial({color:0xcc8833, roughness:0.7});
+    const roofMat = new THREE.MeshStandardMaterial({color:0x884422, roughness:0.8});
+    const doorMat = new THREE.MeshStandardMaterial({color:0x553311, roughness:0.9});
+    // 本体
+    const body = new THREE.Mesh(new THREE.BoxGeometry(3.6,2.4,3.6), wallMat);
+    body.position.set(0,1.2,0); g.add(body);
+    // 屋根 (台形断面)
+    const roof = new THREE.Mesh(new THREE.CylinderGeometry(0.1,2.6,0.8,4), roofMat);
+    roof.position.set(0,2.8,0); roof.rotation.y=Math.PI/4; g.add(roof);
+    // 扉
+    const door = new THREE.Mesh(new THREE.BoxGeometry(1.0,1.6,0.1), doorMat);
+    door.position.set(0,0.8,1.85); g.add(door);
+    return g;
+}
+// ===== プラスチック工場シミュレーション =====
+function simulatePlasticFactory(delta) {
+    plasticFactoryObjs.forEach(pf => {
+        if (pf.plasticOut >= PLASTIC_FACTORY_OUTPUT_CAP) return;
+        if (pf.naphthaIn < PLASTIC_FACTORY_NAPHTHA_PER*PLASTIC_FACTORY_RATE*delta) return;
+        if (pf.hoilIn    < PLASTIC_FACTORY_HOIL_PER*PLASTIC_FACTORY_RATE*delta) return;
+        const maxByNap = pf.naphthaIn / PLASTIC_FACTORY_NAPHTHA_PER;
+        const maxByHo  = pf.hoilIn    / PLASTIC_FACTORY_HOIL_PER;
+        const maxByOut = PLASTIC_FACTORY_OUTPUT_CAP - pf.plasticOut;
+        const produced = Math.min(PLASTIC_FACTORY_RATE*delta, maxByNap, maxByHo, maxByOut);
+        if (produced <= 0) return;
+        pf.naphthaIn  = Math.max(0, pf.naphthaIn - produced*PLASTIC_FACTORY_NAPHTHA_PER);
+        pf.hoilIn     = Math.max(0, pf.hoilIn    - produced*PLASTIC_FACTORY_HOIL_PER);
+        pf.plasticOut = Math.min(PLASTIC_FACTORY_OUTPUT_CAP, pf.plasticOut + produced);
+    });
+}
+// ===== コンベアシミュレーション =====
+// コンベアエッジのキー (フォーマット: "gx1,gz1,gx2,gz2" 有向)
+function conveyorEdgeKey(gx1,gz1,gx2,gz2) { return `${gx1},${gz1},${gx2},${gz2}`; }
+function simulateConveyor(delta) {
+    // 工場からコンベア始点へアイテム注入
+    plasticFactoryObjs.forEach((pf, pfIdx) => {
+        if (pf.plasticOut < 1) return;
+        const {gx,gz}=worldToGrid(pf.x,pf.z);
+        // 出力ポート: +x方向 (1,0) — コンベアの始点を探す
+        const outGx=gx+1, outGz=gz;
+        const outNK=nodeKey(outGx,outGz);
+        // このノードを始点とするコンベアエッジを探す
+        const outs=conveyorNodeConns.get(outNK)||[];
+        outs.forEach(({toKey,edgeKey})=>{
+            const edge=conveyorEdges.get(edgeKey);
+            if (!edge||edge.hasItem) return;
+            // アイテム1個注入
+            pf.plasticOut=Math.max(0, pf.plasticOut-1);
+            edge.hasItem=true;
+            edge.progress=0;
+        });
+    });
+    // エッジ上のアイテムを進める
+    conveyorEdges.forEach((edge, ek)=>{
+        if (!edge.hasItem) return;
+        edge.progress=Math.min(1, edge.progress+CONVEYOR_SPEED*delta);
+        if (edge.progress>=1) {
+            // 次エッジへ転送 or 倉庫へ搬入
+            const toNK=edge.toKey;
+            const outs=conveyorNodeConns.get(toNK)||[];
+            let forwarded=false;
+            for (const {toKey:nxt,edgeKey:nek} of outs) {
+                const nextEdge=conveyorEdges.get(nek);
+                if (nextEdge&&!nextEdge.hasItem) {
+                    nextEdge.hasItem=true; nextEdge.progress=0;
+                    forwarded=true; break;
+                }
+            }
+            if (!forwarded) {
+                // 倉庫ノードか確認
+                const ports=portRegistry.get(toNK)||[];
+                const wh=ports.find(p=>p.facilityType==='warehouse');
+                if (wh) {
+                    const w=warehouseObjs[wh.idx];
+                    if (w&&w.stock<WAREHOUSE_CAP) { w.stock++; forwarded=true; }
+                }
+            }
+            if (forwarded) { edge.hasItem=false; edge.progress=0; }
+            // 搬送先がない場合は progress=1 のまま待機
+        }
     });
 }
 
@@ -2323,6 +2634,10 @@ function createGhostMesh(type) {
         g = createCrossJunctionMesh();
     } else if (type === 'refinery') {
         g = createRefineryMesh().group;
+    } else if (type === 'plasticFactory') {
+        g = createPlasticFactoryMesh();
+    } else if (type === 'warehouse') {
+        g = createWarehouseMesh();
     } else {
         g = createStorageTankMesh();
     }
@@ -2945,9 +3260,9 @@ function createShopDisplay(x, z, rotY=0) {
     scene.add(g);
     feTrack('shopDisplay', g, x, z, rotY);
 
-    // --- 商品台座 (3列 × 4行) ---
+    // --- 商品台座 (3列 × 5行) ---
     const COLS = [-8, 0, 8];
-    const ROWS = [+5, -3, -11, -19];
+    const ROWS = [+5, -3, -11, -19, -27];
 
     const CATALOG = [
         {type:'ladle',         price:5,    col:0, row:0},
@@ -2961,7 +3276,10 @@ function createShopDisplay(x, z, rotY=0) {
         {type:'junctionT',     price:80,   col:2, row:2},
         {type:'junctionCross', price:150,  col:0, row:3},
         {type:'refinery',      price:REFINERY_PRICE, col:1, row:3},
-        {type:'simpleRefinery',price:SIMPLE_REFINERY_PRICE, col:2, row:3},
+        {type:'simpleRefinery',  price:SIMPLE_REFINERY_PRICE,   col:2, row:3},
+        {type:'plasticFactory',  price:PLASTIC_FACTORY_PRICE,   col:0, row:4},
+        {type:'conveyor',        price:CONVEYOR_PRICE,          col:1, row:4},
+        {type:'warehouse',       price:WAREHOUSE_PRICE,         col:2, row:4},
     ];
 
     CATALOG.forEach(({type, price, col, row}) => {
@@ -3008,6 +3326,15 @@ function createShopDisplay(x, z, rotY=0) {
             m.position.set(lx, baseY, lz);
         } else if (type === 'simpleRefinery') {
             m = createSimpleRefineryMesh().group; m.scale.setScalar(0.55);
+            m.position.set(lx, baseY, lz);
+        } else if (type === 'plasticFactory') {
+            m = createPlasticFactoryMesh(); m.scale.setScalar(0.22);
+            m.position.set(lx, baseY, lz);
+        } else if (type === 'conveyor') {
+            m = createConveyorSegmentMesh(); m.scale.setScalar(0.55);
+            m.position.set(lx, baseY+0.15, lz);
+        } else if (type === 'warehouse') {
+            m = createWarehouseMesh(); m.scale.setScalar(0.22);
             m.position.set(lx, baseY, lz);
         } else {
             m = createJerryCanMesh(0); m.scale.setScalar(2.0);
@@ -3369,7 +3696,10 @@ function getItemName(type, L) {
          : type==='junctionT'    ? L.nameJunctionT
          : type==='junctionCross'? L.nameJunctionCross
          : type==='refinery'     ? L.nameRefinery
-         : type==='simpleRefinery' ? L.nameSimpleRefinery
+         : type==='simpleRefinery'  ? L.nameSimpleRefinery
+         : type==='plasticFactory'  ? L.namePlasticFactory
+         : type==='conveyor'        ? L.nameConveyor
+         : type==='warehouse'       ? L.nameWarehouse
          : L.nameCan;
 }
 
@@ -3611,6 +3941,18 @@ function computeCurrentAction() {
     if (heldItem && heldItem.type==='simpleRefinery') {
         return { type:'installSimpleRefinery', label:L.promptInstallSimpleRefinery };
     }
+    // --- プラスチック工場持ち ---
+    if (heldItem && heldItem.type==='plasticFactory') {
+        return { type:'installPlasticFactory', label:L.promptInstallPlasticFactory };
+    }
+    // --- コンベア持ち ---
+    if (heldItem && heldItem.type==='conveyor') {
+        return { type:'installConveyor', label:L.promptInstallConveyor };
+    }
+    // --- 倉庫持ち ---
+    if (heldItem && heldItem.type==='warehouse') {
+        return { type:'installWarehouse', label:L.promptInstallWarehouse };
+    }
 
     // --- ジェリ缶持ち（追加: 採掘機・貯蔵タンク） ---
     // (checked below inside jerryCan block)
@@ -3693,6 +4035,31 @@ function computeCurrentAction() {
             const sr=simpleRefineryObjs[raycastSimpleRefineryIdx];
             if (sr) return { type:'removeSimpleRefinery', label:L.promptRemoveSimpleRefinery, srIdx:raycastSimpleRefineryIdx };
         }
+        // プラスチック工場に照準
+        if (raycastPlasticFactoryIdx>=0) {
+            const pf=plasticFactoryObjs[raycastPlasticFactoryIdx];
+            if (pf) {
+                if (nearDepot && pf.plasticOut>=1)
+                    return { type:'sellPlastic', label:L.promptSellPlastic(Math.floor(pf.plasticOut)), pfIdx:raycastPlasticFactoryIdx };
+                return { type:'removePlasticFactory', label:L.promptRemovePlasticFactory, pfIdx:raycastPlasticFactoryIdx };
+            }
+        }
+        // 倉庫に照準
+        if (raycastWarehouseIdx>=0) {
+            const wh=warehouseObjs[raycastWarehouseIdx];
+            if (wh) {
+                if (nearDepot && wh.stock>0)
+                    return { type:'sellPlasticWarehouse', label:L.promptSellPlastic(wh.stock), whIdx:raycastWarehouseIdx };
+                return { type:'removeWarehouse', label:L.promptRemoveWarehouse, whIdx:raycastWarehouseIdx };
+            }
+        }
+        // コンベア撤去（向いている辺にコンベアがある場合）
+        {
+            const cedge=getConveyorSnapEdge();
+            const cek=conveyorEdgeKey(cedge.gx1,cedge.gz1,cedge.gx2,cedge.gz2);
+            if (conveyorEdges.has(cek))
+                return { type:'removeConveyor', label:L.promptRemoveConveyor };
+        }
         // 設置済みポンプに照準
         if (raycastPumpIdx>=0) {
             const po = pumpObjs[raycastPumpIdx];
@@ -3715,6 +4082,9 @@ function computeCurrentAction() {
                 : si.type==='storageTank' ? L.nameStorageTank
                 : si.type==='refinery' ? L.nameRefinery
                 : si.type==='simpleRefinery' ? L.nameSimpleRefinery
+                : si.type==='plasticFactory' ? L.namePlasticFactory
+                : si.type==='conveyor' ? L.nameConveyor
+                : si.type==='warehouse' ? L.nameWarehouse
                 : L.nameCan;
             return { type:'buyItem', label:L.promptBuy(name, si.price), shopItemIdx:raycastShopItemIdx };
         }
@@ -3926,6 +4296,14 @@ function triggerAction() {
         case 'feedSimpleRefinery': doFeedSimpleRefinery(currentAction.srIdx); break;
         case 'takeGasSimpleRefinery': doTakeGasSimpleRefinery(currentAction.srIdx); break;
         case 'removeSimpleRefinery': doRemoveSimpleRefinery(currentAction.srIdx); break;
+        case 'installPlasticFactory': doInstallPlasticFactory(); break;
+        case 'removePlasticFactory': doRemovePlasticFactory(currentAction.pfIdx); break;
+        case 'sellPlastic': doSellPlasticFactory(currentAction.pfIdx); break;
+        case 'installConveyor': doInstallConveyor(); break;
+        case 'removeConveyor': doRemoveConveyor(); break;
+        case 'installWarehouse': doInstallWarehouse(); break;
+        case 'removeWarehouse': doRemoveWarehouse(currentAction.whIdx); break;
+        case 'sellPlasticWarehouse': doSellPlastic(currentAction.whIdx); break;
     }
 }
 
@@ -4214,6 +4592,139 @@ function doRemoveSimpleRefinery(srIdx) {
     showNotification(L.msgSimpleRefineryRemoved);
 }
 
+// ===== プラスチック工場 do* =====
+function doInstallPlasticFactory() {
+    const L = I18N[currentLang];
+    const gp = getGridSnapPos();
+    const gx = Math.round(gp.x/GRID_SNAP), gz = Math.round(gp.z/GRID_SNAP);
+    const pfIdx = plasticFactoryObjs.length;
+    const mesh = createPlasticFactoryMesh();
+    mesh.position.set(gp.x, 0, gp.z);
+    mesh.rotation.y = placementRot;
+    scene.add(mesh);
+    const pf = { group:mesh, x:gp.x, z:gp.z, naphthaIn:0, hoilIn:0, plasticOut:0 };
+    plasticFactoryObjs.push(pf);
+    mesh.traverse(m=>{ if(m.isMesh) plasticFactoryMeshToIdx.set(m.uuid, pfIdx); });
+    _rcPfCount = -1;
+    registerFacilityPorts('plasticFactory', pfIdx, gx, gz, placementRot);
+    if (ghostMesh) { scene.remove(ghostMesh); ghostMesh=null; }
+    placementRot=0; heldItem=null; updateHeldMesh();
+    updateUI(); showNotification(L.msgPlasticFactoryInstalled);
+}
+function doRemovePlasticFactory(pfIdx) {
+    const L = I18N[currentLang];
+    const pf = plasticFactoryObjs[pfIdx];
+    if (!pf) return;
+    scene.remove(pf.group);
+    pf.group.traverse(m=>{ if(m.isMesh) plasticFactoryMeshToIdx.delete(m.uuid); });
+    plasticFactoryObjs.splice(pfIdx, 1);
+    plasticFactoryMeshToIdx.clear();
+    plasticFactoryObjs.forEach((p,i)=>{ p.group.traverse(m=>{ if(m.isMesh) plasticFactoryMeshToIdx.set(m.uuid,i); }); });
+    _rcPfCount = -1;
+    unregisterFacilityPorts('plasticFactory', pfIdx);
+    if (highlightedPlasticFactoryIdx >= pfIdx) highlightedPlasticFactoryIdx = -1;
+    raycastPlasticFactoryIdx = -1;
+    spawnWorldItem('plasticFactory', playerGroup.position.x+1.0, playerGroup.position.z+1.0);
+    updateUI(); showNotification(L.msgPlasticFactoryRemoved);
+}
+// ===== コンベア do* =====
+function doInstallConveyor() {
+    const L = I18N[currentLang];
+    const edge = getConveyorSnapEdge();
+    const ek = conveyorEdgeKey(edge.gx1,edge.gz1,edge.gx2,edge.gz2);
+    if (conveyorEdges.has(ek)) { showNotification(L.msgConveyorInstalled); return; }
+    const x=(edge.gx1+edge.gx2)/2*GRID_SNAP, z=(edge.gz1+edge.gz2)/2*GRID_SNAP;
+    const seg = createConveyorSegmentMesh(0x999900);
+    seg.position.set(x, 0, z);
+    seg.rotation.y = edge.rotY;
+    scene.add(seg);
+    const fromKey=nodeKey(edge.gx1,edge.gz1);
+    const toKey=nodeKey(edge.gx2,edge.gz2);
+    conveyorEdges.set(ek, {fromKey, toKey, progress:0, hasItem:false, mesh:seg});
+    if (!conveyorNodeConns.has(fromKey)) conveyorNodeConns.set(fromKey,[]);
+    conveyorNodeConns.get(fromKey).push({toKey, edgeKey:ek});
+    if (conveyorGhostMesh) { scene.remove(conveyorGhostMesh); conveyorGhostMesh=null; conveyorGhostAxis=null; }
+    heldItem=null; updateHeldMesh(); updateUI();
+    showNotification(L.msgConveyorInstalled);
+}
+function doRemoveConveyor() {
+    const L = I18N[currentLang];
+    const edge = getConveyorSnapEdge();
+    const ek = conveyorEdgeKey(edge.gx1,edge.gz1,edge.gx2,edge.gz2);
+    const entry = conveyorEdges.get(ek);
+    if (!entry) return;
+    scene.remove(entry.mesh);
+    conveyorEdges.delete(ek);
+    const fromKey=nodeKey(edge.gx1,edge.gz1);
+    const toKey=nodeKey(edge.gx2,edge.gz2);
+    const conns=conveyorNodeConns.get(fromKey);
+    if (conns) { const i=conns.findIndex(c=>c.edgeKey===ek); if(i>=0) conns.splice(i,1); if(conns.length===0) conveyorNodeConns.delete(fromKey); }
+    heldItem = {type:'conveyor', fill:0};
+    updateHeldMesh(); updateUI();
+    showNotification(L.msgConveyorRemoved);
+}
+// ===== 倉庫 do* =====
+function doInstallWarehouse() {
+    const L = I18N[currentLang];
+    const gp = getGridSnapPos();
+    const gx = Math.round(gp.x/GRID_SNAP), gz = Math.round(gp.z/GRID_SNAP);
+    const whIdx = warehouseObjs.length;
+    const mesh = createWarehouseMesh();
+    mesh.position.set(gp.x, 0, gp.z);
+    mesh.rotation.y = placementRot;
+    scene.add(mesh);
+    const wh = { group:mesh, x:gp.x, z:gp.z, stock:0 };
+    warehouseObjs.push(wh);
+    mesh.traverse(m=>{ if(m.isMesh) warehouseMeshToIdx.set(m.uuid, whIdx); });
+    _rcWhCount = -1;
+    // コンベアがここに届いた時に受け取れるようportRegistry登録
+    const inNK=nodeKey(gx,gz);
+    if (!portRegistry.has(inNK)) portRegistry.set(inNK,[]);
+    portRegistry.get(inNK).push({facilityType:'warehouse',idx:whIdx,portType:'in',liquidType:null});
+    if (ghostMesh) { scene.remove(ghostMesh); ghostMesh=null; }
+    placementRot=0; heldItem=null; updateHeldMesh();
+    updateUI(); showNotification(L.msgWarehouseInstalled);
+}
+function doRemoveWarehouse(whIdx) {
+    const L = I18N[currentLang];
+    const wh = warehouseObjs[whIdx];
+    if (!wh) return;
+    scene.remove(wh.group);
+    wh.group.traverse(m=>{ if(m.isMesh) warehouseMeshToIdx.delete(m.uuid); });
+    warehouseObjs.splice(whIdx, 1);
+    warehouseMeshToIdx.clear();
+    warehouseObjs.forEach((w,i)=>{ w.group.traverse(m=>{ if(m.isMesh) warehouseMeshToIdx.set(m.uuid,i); }); });
+    _rcWhCount = -1;
+    // portRegistry から除外
+    for (const [key,ports] of portRegistry) {
+        const f=ports.filter(p=>!(p.facilityType==='warehouse'&&p.idx===whIdx));
+        if (f.length===0) portRegistry.delete(key); else portRegistry.set(key,f);
+    }
+    if (highlightedWarehouseIdx >= whIdx) highlightedWarehouseIdx = -1;
+    raycastWarehouseIdx = -1;
+    spawnWorldItem('warehouse', playerGroup.position.x+1.0, playerGroup.position.z+1.0);
+    updateUI(); showNotification(L.msgWarehouseRemoved);
+}
+function doSellPlasticFactory(pfIdx) {
+    const L = I18N[currentLang];
+    const pf = plasticFactoryObjs[pfIdx];
+    if (!pf||pf.plasticOut<1) { showNotification(L.msgPlasticNone); return; }
+    const n = Math.floor(pf.plasticOut);
+    const earn = n * PLASTIC_SELL_PRICE;
+    pf.plasticOut = Math.max(0, pf.plasticOut - n);
+    gameState.money += earn;
+    updateUI(); showNotification(L.msgPlasticSold(n, earn));
+}
+function doSellPlastic(whIdx) {
+    const L = I18N[currentLang];
+    const wh = warehouseObjs[whIdx];
+    if (!wh||wh.stock<=0) { showNotification(L.msgPlasticNone); return; }
+    const n = wh.stock;
+    const earn = n * PLASTIC_SELL_PRICE;
+    wh.stock = 0;
+    gameState.money += earn;
+    updateUI(); showNotification(L.msgPlasticSold(n, earn));
+}
 function doFillStorageTank(idx) {
     const L = I18N[currentLang];
     const st = storageTankObjs[idx];
@@ -5246,6 +5757,48 @@ function updateGame() {
             }
         }
 
+        // プラスチック工場レイキャスト
+        raycastPlasticFactoryIdx = -1;
+        if (plasticFactoryObjs.length > 0) {
+            if (plasticFactoryObjs.length !== _rcPfCount) {
+                _rcPfMeshes = [];
+                plasticFactoryObjs.forEach(pf=>{ pf.group.traverse(m=>{ if(m.isMesh) _rcPfMeshes.push(m); }); });
+                _rcPfCount = plasticFactoryObjs.length;
+            }
+            const pfHits=raycaster.intersectObjects(_rcPfMeshes,false);
+            if (pfHits.length>0) {
+                const idx=plasticFactoryMeshToIdx.get(pfHits[0].object.uuid);
+                if (idx!==undefined) raycastPlasticFactoryIdx=idx;
+            }
+            if (proximitySelectEnabled && raycastPlasticFactoryIdx<0) {
+                const _px=playerGroup.position.x, _pz=playerGroup.position.z;
+                let bestD=4.0*4.0, bestI=-1;
+                plasticFactoryObjs.forEach((pf,idx)=>{ const d2=(_px-pf.x)**2+(_pz-pf.z)**2; if(d2<bestD){bestD=d2;bestI=idx;} });
+                raycastPlasticFactoryIdx=bestI;
+            }
+        }
+
+        // 倉庫レイキャスト
+        raycastWarehouseIdx = -1;
+        if (warehouseObjs.length > 0) {
+            if (warehouseObjs.length !== _rcWhCount) {
+                _rcWhMeshes = [];
+                warehouseObjs.forEach(wh=>{ wh.group.traverse(m=>{ if(m.isMesh) _rcWhMeshes.push(m); }); });
+                _rcWhCount = warehouseObjs.length;
+            }
+            const whHits=raycaster.intersectObjects(_rcWhMeshes,false);
+            if (whHits.length>0) {
+                const idx=warehouseMeshToIdx.get(whHits[0].object.uuid);
+                if (idx!==undefined) raycastWarehouseIdx=idx;
+            }
+            if (proximitySelectEnabled && raycastWarehouseIdx<0) {
+                const _px=playerGroup.position.x, _pz=playerGroup.position.z;
+                let bestD=4.0*4.0, bestI=-1;
+                warehouseObjs.forEach((wh,idx)=>{ const d2=(_px-wh.x)**2+(_pz-wh.z)**2; if(d2<bestD){bestD=d2;bestI=idx;} });
+                raycastWarehouseIdx=bestI;
+            }
+        }
+
         // pinnedTarget 適用（タップ/クリック選択）
         // クロスヘアが何も取らなかった種別にのみ上書き（クロスヘア優先）
         // 遠くなりすぎたらピン解除（距離8m超）
@@ -5263,6 +5816,8 @@ function updateGame() {
                     case 'worldItem':   if(raycastTargetIdx<0)      raycastTargetIdx     =pinnedTarget.idx; break;
                     case 'refinery':    if(raycastRefineryIdx<0)    raycastRefineryIdx   =pinnedTarget.idx; break;
                     case 'simpleRefinery': if(raycastSimpleRefineryIdx<0) raycastSimpleRefineryIdx=pinnedTarget.idx; break;
+                    case 'plasticFactory': if(raycastPlasticFactoryIdx<0) raycastPlasticFactoryIdx=pinnedTarget.idx; break;
+                    case 'warehouse': if(raycastWarehouseIdx<0) raycastWarehouseIdx=pinnedTarget.idx; break;
                 }
             }
         }
@@ -5507,17 +6062,44 @@ function updateGame() {
             simpleRefineryObjs[highlightedSimpleRefineryIdx].group.traverse(m=>{ if(m.isMesh&&m.material&&m.material.emissive) m.material.emissive.setRGB(0.9*blinkSR,0.4*blinkSR,0); });
         }
 
+        // プラスチック工場ハイライト（青緑点滅）
+        const newPFHighlight=raycastPlasticFactoryIdx;
+        if (newPFHighlight!==highlightedPlasticFactoryIdx) {
+            if (highlightedPlasticFactoryIdx>=0&&plasticFactoryObjs[highlightedPlasticFactoryIdx])
+                plasticFactoryObjs[highlightedPlasticFactoryIdx].group.traverse(m=>{ if(m.isMesh&&m.material&&m.material.emissive) m.material.emissive.set(0x000000); });
+            highlightedPlasticFactoryIdx=newPFHighlight;
+        }
+        if (highlightedPlasticFactoryIdx>=0&&plasticFactoryObjs[highlightedPlasticFactoryIdx]) {
+            const blinkPF=0.4+0.4*Math.abs(Math.sin(now*0.005));
+            plasticFactoryObjs[highlightedPlasticFactoryIdx].group.traverse(m=>{ if(m.isMesh&&m.material&&m.material.emissive) m.material.emissive.setRGB(0,0.8*blinkPF,0.4*blinkPF); });
+        }
+
+        // 倉庫ハイライト（黄点滅）
+        const newWHHighlight=raycastWarehouseIdx;
+        if (newWHHighlight!==highlightedWarehouseIdx) {
+            if (highlightedWarehouseIdx>=0&&warehouseObjs[highlightedWarehouseIdx])
+                warehouseObjs[highlightedWarehouseIdx].group.traverse(m=>{ if(m.isMesh&&m.material&&m.material.emissive) m.material.emissive.set(0x000000); });
+            highlightedWarehouseIdx=newWHHighlight;
+        }
+        if (highlightedWarehouseIdx>=0&&warehouseObjs[highlightedWarehouseIdx]) {
+            const blinkWH=0.4+0.4*Math.abs(Math.sin(now*0.005));
+            warehouseObjs[highlightedWarehouseIdx].group.traverse(m=>{ if(m.isMesh&&m.material&&m.material.emissive) m.material.emissive.setRGB(0.9*blinkWH,0.9*blinkWH,0); });
+        }
+
         autoSaveTimer+=delta;
         if (autoSaveTimer>=10) { autoSaveTimer=0; saveGame(true); }
 
         // グリッド設置プレビュー更新
         updateGhostMesh();
         updatePipeGhostMesh();
+        updateConveyorGhostMesh();
 
         // パイプライン流体転送
         simulatePipeFlow(delta);
         simulateRefinery(delta);
         simulateSimpleRefinery(delta);
+        simulatePlasticFactory(delta);
+        simulateConveyor(delta);
 
         // スカイドームをカメラ位置に追従（端が見えないよう）
         if (skyDome) skyDome.position.copy(camera.position);
@@ -5558,7 +6140,10 @@ function updateUI() {
         else if (heldItem.type==='pipe')          heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.namePipe;
         else if (heldItem.type==='junctionT')     heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.nameJunctionT;
         else if (heldItem.type==='junctionCross') heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.nameJunctionCross;
-        else if (heldItem.type==='refinery')      heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.nameRefinery;
+        else if (heldItem.type==='refinery')       heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.nameRefinery;
+        else if (heldItem.type==='plasticFactory') heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.namePlasticFactory;
+        else if (heldItem.type==='conveyor')       heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.nameConveyor;
+        else if (heldItem.type==='warehouse')      heldText=(currentLang==='ja'?'手持ち: ':'Holding: ')+L.nameWarehouse;
         else heldText=L.heldCan(heldItem.fill, heldItem.contentType);
     }
     if (towVehicle && towVehicle.inVehicle) {
@@ -5653,6 +6238,12 @@ function saveGame(isAuto=false) {
     gameState.savedStorageTanks=storageTankObjs.map(st=>({x:st.x,z:st.z,level:st.level,liquidType:st.liquidType||null,rot:st.rot||0}));
     gameState.savedRefineries=refineryObjs.map(rf=>({x:rf.x,z:rf.z,rot:rf.rot||0,enabled:rf.enabled,products:{...rf.products},oilBuf:rf.oilBuf,fuelBuf:rf.fuelBuf}));
     gameState.savedSimpleRefineries=simpleRefineryObjs.map(sr=>({x:sr.x,z:sr.z,oilBuf:sr.oilBuf,gasBuf:sr.gasBuf}));
+    gameState.savedPlasticFactories=plasticFactoryObjs.map(pf=>({x:pf.x,z:pf.z,naphthaIn:pf.naphthaIn,hoilIn:pf.hoilIn,plasticOut:pf.plasticOut}));
+    gameState.savedWarehouses=warehouseObjs.map(wh=>({x:wh.x,z:wh.z,stock:wh.stock}));
+    gameState.savedConveyors=[...conveyorEdges.entries()].map(([ek,v])=>{
+        const [gx1,gz1,gx2,gz2]=ek.split(',').map(Number);
+        return {gx1,gz1,gx2,gz2};
+    });
     gameState.savedPipes=[...pipeEdges.entries()].map(([ek,v])=>{
         const parts=ek.split(':');
         const [gx1,gz1]=parts[0].split(',').map(Number);
@@ -5771,6 +6362,18 @@ function loadGame() {
         clearSimpleRefineryObjs();
         (gameState.savedSimpleRefineries||[]).forEach(sr=>restoreSimpleRefinery(sr.x,sr.z,sr.oilBuf||0,sr.gasBuf||0));
 
+        // プラスチック工場復元
+        clearPlasticFactoryObjs();
+        (gameState.savedPlasticFactories||[]).forEach(pf=>restorePlasticFactory(pf.x,pf.z,pf.naphthaIn||0,pf.hoilIn||0,pf.plasticOut||0));
+
+        // 倉庫復元
+        clearWarehouseObjs();
+        (gameState.savedWarehouses||[]).forEach(wh=>restoreWarehouse(wh.x,wh.z,wh.stock||0));
+
+        // コンベア復元
+        clearConveyorObjs();
+        (gameState.savedConveyors||[]).forEach(c=>restoreConveyor(c.gx1,c.gz1,c.gx2,c.gz2));
+
         // パイプ・ジャンクション復元
         clearPipeObjs();
         (gameState.savedPipes||[]).forEach(p=>restorePipe(p.gx1,p.gz1,p.gx2,p.gz2,p.liquidType||null));
@@ -5887,6 +6490,59 @@ function restoreSimpleRefinery(x, z, oilBuf, gasBuf) {
     updateSimpleRefineryGauges(sr);
 }
 
+function clearPlasticFactoryObjs() {
+    while(plasticFactoryObjs.length>0){ scene.remove(plasticFactoryObjs[0].group); plasticFactoryObjs.splice(0,1); }
+    plasticFactoryMeshToIdx.clear();
+    raycastPlasticFactoryIdx=-1; highlightedPlasticFactoryIdx=-1;
+    _rcPfCount=-1;
+}
+function restorePlasticFactory(x, z, naphthaIn, hoilIn, plasticOut) {
+    const g = createPlasticFactoryMesh();
+    g.position.set(x, 0, z);
+    scene.add(g);
+    const pfIdx = plasticFactoryObjs.length;
+    g.traverse(m=>{ if(m.isMesh) plasticFactoryMeshToIdx.set(m.uuid, pfIdx); });
+    plasticFactoryObjs.push({ group:g, x, z, naphthaIn:naphthaIn||0, hoilIn:hoilIn||0, plasticOut:plasticOut||0 });
+    const {gx,gz}=worldToGrid(x,z);
+    registerFacilityPorts('plasticFactory', pfIdx, gx, gz, 0);
+}
+function clearWarehouseObjs() {
+    while(warehouseObjs.length>0){ scene.remove(warehouseObjs[0].group); warehouseObjs.splice(0,1); }
+    warehouseMeshToIdx.clear();
+    raycastWarehouseIdx=-1; highlightedWarehouseIdx=-1;
+    _rcWhCount=-1;
+}
+function restoreWarehouse(x, z, stock) {
+    const g = createWarehouseMesh();
+    g.position.set(x, 0, z);
+    scene.add(g);
+    const whIdx = warehouseObjs.length;
+    g.traverse(m=>{ if(m.isMesh) warehouseMeshToIdx.set(m.uuid, whIdx); });
+    warehouseObjs.push({ group:g, x, z, stock:stock||0 });
+    const {gx,gz}=worldToGrid(x,z);
+    const inNK=nodeKey(gx,gz);
+    if (!portRegistry.has(inNK)) portRegistry.set(inNK,[]);
+    portRegistry.get(inNK).push({facilityType:'warehouse',idx:whIdx,portType:'in',liquidType:null});
+}
+function clearConveyorObjs() {
+    conveyorEdges.forEach(e=>{ if(e.mesh) scene.remove(e.mesh); });
+    conveyorEdges.clear();
+    conveyorNodeConns.clear();
+}
+function restoreConveyor(gx1, gz1, gx2, gz2) {
+    const x=(gx1+gx2)/2*GRID_SNAP, z=(gz1+gz2)/2*GRID_SNAP;
+    const axis = (gx1!==gx2)?'x':'z';
+    const rotY = axis==='x' ? 0 : Math.PI/2;
+    const seg = createConveyorSegmentMesh(0x999900);
+    seg.position.set(x, 0, z);
+    seg.rotation.y = rotY;
+    scene.add(seg);
+    const fromKey=nodeKey(gx1,gz1), toKey=nodeKey(gx2,gz2);
+    const ek=conveyorEdgeKey(gx1,gz1,gx2,gz2);
+    conveyorEdges.set(ek, {fromKey, toKey, progress:0, hasItem:false, mesh:seg});
+    if (!conveyorNodeConns.has(fromKey)) conveyorNodeConns.set(fromKey,[]);
+    conveyorNodeConns.get(fromKey).push({toKey, edgeKey:ek});
+}
 function restoreRefinery(x, z, rot, enabled, products, oilBuf, fuelBuf) {
     const result = createRefineryMesh();
     const g = result.group;
