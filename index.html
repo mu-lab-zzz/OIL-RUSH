@@ -2429,6 +2429,8 @@ function createWarehouseMesh() {
     const wallMat = new THREE.MeshStandardMaterial({color:0xcc8833, roughness:0.7});
     const roofMat = new THREE.MeshStandardMaterial({color:0x884422, roughness:0.8});
     const doorMat = new THREE.MeshStandardMaterial({color:0x553311, roughness:0.9});
+    const inPortMat  = new THREE.MeshStandardMaterial({color:0x2288ff, roughness:0.5}); // 入力: 青
+    const outPortMat = new THREE.MeshStandardMaterial({color:0x00cc44, roughness:0.5}); // 出力: 緑
     // 本体
     const body = new THREE.Mesh(new THREE.BoxGeometry(3.6,2.4,3.6), wallMat);
     body.position.set(0,1.2,0); g.add(body);
@@ -2438,6 +2440,12 @@ function createWarehouseMesh() {
     // 扉
     const door = new THREE.Mesh(new THREE.BoxGeometry(1.0,1.6,0.1), doorMat);
     door.position.set(0,0.8,1.85); g.add(door);
+    // 入力口 (左側 -x, 青)
+    const inPort = new THREE.Mesh(new THREE.BoxGeometry(0.3,0.3,0.5), inPortMat);
+    inPort.position.set(-1.95,0.6,0); g.add(inPort);
+    // 出力口 (右側 +x, 緑)
+    const outPort = new THREE.Mesh(new THREE.BoxGeometry(0.3,0.3,0.5), outPortMat);
+    outPort.position.set(1.95,0.6,0); g.add(outPort);
     return g;
 }
 // ===== プラスチック工場シミュレーション =====
@@ -2460,6 +2468,21 @@ function simulatePlasticFactory(delta) {
 // コンベアエッジのキー (フォーマット: "gx1,gz1,gx2,gz2" 有向)
 function conveyorEdgeKey(gx1,gz1,gx2,gz2) { return `${gx1},${gz1},${gx2},${gz2}`; }
 function simulateConveyor(delta) {
+    // 倉庫からコンベア始点へアイテム注入 (出力ポート: +x方向)
+    warehouseObjs.forEach((wh) => {
+        if (wh.stock <= 0) return;
+        const {gx,gz}=worldToGrid(wh.x,wh.z);
+        const outNK=nodeKey(gx+1,gz);
+        const outs=conveyorNodeConns.get(outNK)||[];
+        for (const {toKey,edgeKey} of outs) {
+            const edge=conveyorEdges.get(edgeKey);
+            if (!edge||edge.hasItem) continue;
+            wh.stock--;
+            edge.hasItem=true;
+            edge.progress=0;
+            break; // 1エッジだけ注入
+        }
+    });
     // 工場からコンベア始点へアイテム注入
     plasticFactoryObjs.forEach((pf, pfIdx) => {
         if (pf.plasticOut < 1) return;
