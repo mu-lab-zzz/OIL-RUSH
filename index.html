@@ -2426,26 +2426,54 @@ function createConveyorSegmentMesh(color) {
 // ===== 倉庫メッシュ =====
 function createWarehouseMesh() {
     const g = new THREE.Group();
-    const wallMat = new THREE.MeshStandardMaterial({color:0xcc8833, roughness:0.7});
-    const roofMat = new THREE.MeshStandardMaterial({color:0x884422, roughness:0.8});
-    const doorMat = new THREE.MeshStandardMaterial({color:0x553311, roughness:0.9});
-    const inPortMat  = new THREE.MeshStandardMaterial({color:0x2288ff, roughness:0.5}); // 入力: 青
-    const outPortMat = new THREE.MeshStandardMaterial({color:0x00cc44, roughness:0.5}); // 出力: 緑
+    const wallMat    = new THREE.MeshStandardMaterial({color:0xcc8833, roughness:0.7});
+    const roofMat    = new THREE.MeshStandardMaterial({color:0x884422, roughness:0.8});
+    const doorMat    = new THREE.MeshStandardMaterial({color:0x553311, roughness:0.9});
+    // IN=青, OUT=緑 (発光させて視認性向上)
+    const inPortMat  = new THREE.MeshStandardMaterial({color:0x2288ff, emissive:new THREE.Color(0x1155cc), emissiveIntensity:0.7, roughness:0.4});
+    const outPortMat = new THREE.MeshStandardMaterial({color:0x00cc44, emissive:new THREE.Color(0x007722), emissiveIntensity:0.7, roughness:0.4});
     // 本体
     const body = new THREE.Mesh(new THREE.BoxGeometry(3.6,2.4,3.6), wallMat);
     body.position.set(0,1.2,0); g.add(body);
-    // 屋根 (台形断面)
+    // 屋根
     const roof = new THREE.Mesh(new THREE.CylinderGeometry(0.1,2.6,0.8,4), roofMat);
     roof.position.set(0,2.8,0); roof.rotation.y=Math.PI/4; g.add(roof);
     // 扉
     const door = new THREE.Mesh(new THREE.BoxGeometry(1.0,1.6,0.1), doorMat);
     door.position.set(0,0.8,1.85); g.add(door);
-    // 入力口 (左側 -x, 青)
-    const inPort = new THREE.Mesh(new THREE.BoxGeometry(0.3,0.3,0.5), inPortMat);
-    inPort.position.set(-1.95,0.6,0); g.add(inPort);
-    // 出力口 (右側 +x, 緑)
-    const outPort = new THREE.Mesh(new THREE.BoxGeometry(0.3,0.3,0.5), outPortMat);
-    outPort.position.set(1.95,0.6,0); g.add(outPort);
+
+    // === 入力口 (左側 -x, 青): 大きな壁パネル + 矢印コーン(→倉庫内) ===
+    // 壁パネル
+    const inPanel = new THREE.Mesh(new THREE.BoxGeometry(0.14,1.1,1.6), inPortMat);
+    inPanel.position.set(-1.87,0.9,0); g.add(inPanel);
+    // 矢印コーン先端 (ConeGeometry は +y向き; z=-π/2 で +x向き = 倉庫へ)
+    const inCone = new THREE.Mesh(new THREE.ConeGeometry(0.32,0.7,6), inPortMat);
+    inCone.rotation.z = -Math.PI/2;
+    inCone.position.set(-2.2,0.7,0); g.add(inCone);
+    // 矢印軸
+    const inStem = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.55,6), inPortMat);
+    inStem.rotation.z = Math.PI/2;
+    inStem.position.set(-2.63,0.7,0); g.add(inStem);
+    // 地面マーカー (コンベアの接続先グリッド点 = 左隣セル中心)
+    const inGnd = new THREE.Mesh(new THREE.CylinderGeometry(0.36,0.36,0.07,8), inPortMat);
+    inGnd.position.set(-2.0,0.035,0); g.add(inGnd);
+
+    // === 出力口 (右側 +x, 緑): 大きな壁パネル + 矢印コーン(倉庫外→) ===
+    // 壁パネル
+    const outPanel = new THREE.Mesh(new THREE.BoxGeometry(0.14,1.1,1.6), outPortMat);
+    outPanel.position.set(1.87,0.9,0); g.add(outPanel);
+    // 矢印コーン先端 (倉庫から外へ = +x方向)
+    const outCone = new THREE.Mesh(new THREE.ConeGeometry(0.32,0.7,6), outPortMat);
+    outCone.rotation.z = -Math.PI/2;
+    outCone.position.set(2.2,0.7,0); g.add(outCone);
+    // 矢印軸
+    const outStem = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.55,6), outPortMat);
+    outStem.rotation.z = Math.PI/2;
+    outStem.position.set(2.63,0.7,0); g.add(outStem);
+    // 地面マーカー (コンベアの起点グリッド点 = 右隣セル中心)
+    const outGnd = new THREE.Mesh(new THREE.CylinderGeometry(0.36,0.36,0.07,8), outPortMat);
+    outGnd.position.set(2.0,0.035,0); g.add(outGnd);
+
     return g;
 }
 // ===== プラスチック工場シミュレーション =====
@@ -4726,8 +4754,8 @@ function doInstallWarehouse() {
     warehouseObjs.push(wh);
     mesh.traverse(m=>{ if(m.isMesh) warehouseMeshToIdx.set(m.uuid, whIdx); });
     _rcWhCount = -1;
-    // コンベアがここに届いた時に受け取れるようportRegistry登録
-    const inNK=nodeKey(gx,gz);
+    // コンベア入力口は左隣グリッド (gx-1,gz) に登録 (青パネル側)
+    const inNK=nodeKey(gx-1,gz);
     if (!portRegistry.has(inNK)) portRegistry.set(inNK,[]);
     portRegistry.get(inNK).push({facilityType:'warehouse',idx:whIdx,portType:'in',liquidType:null});
     if (ghostMesh) { scene.remove(ghostMesh); ghostMesh=null; }
@@ -6570,7 +6598,7 @@ function restoreWarehouse(x, z, stock) {
     g.traverse(m=>{ if(m.isMesh) warehouseMeshToIdx.set(m.uuid, whIdx); });
     warehouseObjs.push({ group:g, x, z, stock:stock||0 });
     const {gx,gz}=worldToGrid(x,z);
-    const inNK=nodeKey(gx,gz);
+    const inNK=nodeKey(gx-1,gz);
     if (!portRegistry.has(inNK)) portRegistry.set(inNK,[]);
     portRegistry.get(inNK).push({facilityType:'warehouse',idx:whIdx,portType:'in',liquidType:null});
 }
