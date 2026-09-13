@@ -2532,6 +2532,31 @@ function simulateConveyor(delta) {
     });
 }
 
+// コンベア上アイテムの視覚化 (共有ジオメトリ/マテリアルで軽量化)
+const _cvItemGeo = new THREE.BoxGeometry(0.38, 0.38, 0.38);
+const _cvItemMat = new THREE.MeshStandardMaterial({
+    color: 0x00ff88, emissive: new THREE.Color(0x00bb55),
+    emissiveIntensity: 1.0, roughness: 0.4
+});
+function updateConveyorVisuals() {
+    conveyorEdges.forEach((edge) => {
+        if (edge.hasItem) {
+            if (!edge.itemMesh) {
+                edge.itemMesh = new THREE.Mesh(_cvItemGeo, _cvItemMat);
+                edge.itemMesh.position.y = 0.56;
+                scene.add(edge.itemMesh);
+            }
+            edge.itemMesh.visible = true;
+            const {gx:gx1,gz:gz1} = parseNodeKey(edge.fromKey);
+            const {gx:gx2,gz:gz2} = parseNodeKey(edge.toKey);
+            const t = edge.progress;
+            edge.itemMesh.position.x = (gx1*(1-t) + gx2*t) * GRID_SNAP;
+            edge.itemMesh.position.z = (gz1*(1-t) + gz2*t) * GRID_SNAP;
+        } else {
+            if (edge.itemMesh) edge.itemMesh.visible = false;
+        }
+    });
+}
 // パイプゴーストメッシュ更新
 function updatePipeGhostMesh() {
     if (!heldItem||heldItem.type!=='pipe') {
@@ -4677,6 +4702,7 @@ function doRemoveConveyor() {
     const entry = conveyorEdges.get(ek);
     if (!entry) return;
     scene.remove(entry.mesh);
+    if (entry.itemMesh) scene.remove(entry.itemMesh);
     conveyorEdges.delete(ek);
     const fromKey=nodeKey(edge.gx1,edge.gz1);
     const toKey=nodeKey(edge.gx2,edge.gz2);
@@ -6123,6 +6149,7 @@ function updateGame() {
         simulateSimpleRefinery(delta);
         simulatePlasticFactory(delta);
         simulateConveyor(delta);
+        updateConveyorVisuals();
 
         // スカイドームをカメラ位置に追従（端が見えないよう）
         if (skyDome) skyDome.position.copy(camera.position);
@@ -6548,7 +6575,7 @@ function restoreWarehouse(x, z, stock) {
     portRegistry.get(inNK).push({facilityType:'warehouse',idx:whIdx,portType:'in',liquidType:null});
 }
 function clearConveyorObjs() {
-    conveyorEdges.forEach(e=>{ if(e.mesh) scene.remove(e.mesh); });
+    conveyorEdges.forEach(e=>{ if(e.mesh) scene.remove(e.mesh); if(e.itemMesh) scene.remove(e.itemMesh); });
     conveyorEdges.clear();
     conveyorNodeConns.clear();
 }
